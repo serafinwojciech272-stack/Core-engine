@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { missions, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
+import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     executionCount: 0
   };
   missions.set(mission.id, mission);
+  recordMissionEvent({ missionId: mission.id, decisionId: decision.id, eventType: "MISSION_CREATED", toState: mission.state, actorType: "system" });
 
   return NextResponse.json({
     ok: true, engine: "core-engine", version: "0.2",
