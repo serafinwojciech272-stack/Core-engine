@@ -1,38 +1,7 @@
 import { NextResponse } from "next/server";
 import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
 import { persistDecisionMission, storageMode } from "@/lib/storage";
-
-function buildDecision(signals: EngineSignal[]): Decision {
-  const names = signals.map((s) => s.name);
-  if (names.includes("qualified_leads")) {
-    return {
-      id: crypto.randomUUID(),
-      diagnosis: "Lead volume or qualification is deteriorating while response latency is creating additional conversion risk.",
-      recommendation: "Tighten lead qualification, reduce response latency, and run a controlled sales-response experiment.",
-      confidence: 0.88,
-      priority: "HIGH",
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
-    };
-  }
-  if (names.includes("order_backlog")) {
-    return {
-      id: crypto.randomUUID(),
-      diagnosis: "Backlog growth is approaching operational capacity and increasing cycle-time pressure.",
-      recommendation: "Prioritize bottleneck removal, rebalance capacity, and measure cycle-time reduction before adding permanent capacity.",
-      confidence: 0.86,
-      priority: "HIGH",
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
-    };
-  }
-  return {
-    id: crypto.randomUUID(),
-    diagnosis: "Traffic is growing while checkout friction is limiting conversion.",
-    recommendation: "Prioritize checkout optimization and run a measured conversion experiment.",
-    confidence: 0.91,
-    priority: "HIGH",
-    evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
-  };
-}
+import { buildDecision } from "@/lib/ai-decision";
 
 function missionFor(decision: Decision): Omit<Mission, "id"> {
   const isSales = decision.diagnosis.startsWith("Lead volume");
@@ -60,7 +29,7 @@ export async function POST(request: Request) {
           if (!s || typeof s !== "object") return false;
           const x = s as Record<string, unknown>;
           return typeof x.name === "string" && typeof x.value === "string" && typeof x.source === "string";
-        })
+        }).slice(0, 20)
       : [];
 
     const normalizedSignals = signals.length ? signals : [
@@ -69,28 +38,30 @@ export async function POST(request: Request) {
       { name: "checkout_dropoff", value: "41%", source: "demo" }
     ];
 
-    const decision = buildDecision(normalizedSignals);
+    const decision = await buildDecision(normalizedSignals);
     const baseMission = missionFor(decision);
     const mission: Mission = { id: crypto.randomUUID(), ...baseMission };
+    const persistence = storageMode();
 
-    if (storageMode() === "supabase") {
+    if (persistence === "supabase") {
       await persistDecisionMission(decision, mission);
     } else {
       missions.set(mission.id, mission);
+      recordMissionEvent({
+        missionId: mission.id,
+        decisionId: decision.id,
+        eventType: "MISSION_CREATED",
+        toState: mission.state,
+        actorType: "system"
+      });
     }
-    recordMissionEvent({
-      missionId: mission.id,
-      decisionId: decision.id,
-      eventType: "MISSION_CREATED",
-      toState: mission.state,
-      actorType: "system"
-    });
 
     return NextResponse.json({
       ok: true,
       engine: "core-engine",
-      version: "0.3",
+      version: "0.4",
       state: mission.state,
+      persistence,
       decision,
       mission,
       trace: ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "AWAITING_APPROVAL"]
