@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-
-type Signal = { name: string; value: string; source: string };
-type Decision = { id: string; diagnosis: string; recommendation: string; confidence: number; priority: "HIGH"|"MEDIUM"|"LOW"; evidence: string[] };
-type Mission = { id: string; decisionId: string; objective: string; status: "AWAITING_APPROVAL"; kpi: string };
+import { missions, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const signals: Signal[] = Array.isArray(body.signals) ? body.signals : [
+  const signals: EngineSignal[] = Array.isArray(body.signals) ? body.signals : [
     { name: "conversion_rate", value: "2.8%", source: "demo" },
     { name: "traffic", value: "+18%", source: "demo" },
     { name: "checkout_dropoff", value: "41%", source: "demo" }
@@ -21,30 +18,29 @@ export async function POST(request: Request) {
     evidence: signals.map(s => `${s.name}: ${s.value} [${s.source}]`)
   };
 
+  const now = new Date().toISOString();
   const mission: Mission = {
     id: crypto.randomUUID(),
     decisionId: decision.id,
     objective: "Increase qualified checkout completion without increasing acquisition spend.",
-    status: "AWAITING_APPROVAL",
-    kpi: "checkout_completion_rate"
+    state: "AWAITING_APPROVAL",
+    kpi: "checkout_completion_rate",
+    createdAt: now,
+    updatedAt: now,
+    executionCount: 0
   };
+  missions.set(mission.id, mission);
 
   return NextResponse.json({
-    ok: true,
-    engine: "core-engine",
-    version: "0.1",
-    state: "AWAITING_APPROVAL",
-    decision,
-    mission,
-    trace: ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "AWAITING_APPROVAL"]
+    ok: true, engine: "core-engine", version: "0.2",
+    state: mission.state, decision, mission,
+    trace: ["OBSERVE","DIAGNOSE","PRIORITIZE","DECIDE","AWAITING_APPROVAL"]
   });
 }
 
 export async function GET() {
   return NextResponse.json({
-    ok: true,
-    engine: "core-engine",
-    status: "READY",
-    capabilities: ["observe", "diagnose", "prioritize", "decide", "mission", "approval", "measure", "learn"]
+    ok: true, engine: "core-engine", status: "READY",
+    capabilities: ["observe","diagnose","prioritize","decide","mission","approval","execute","measure","learn"]
   });
 }
