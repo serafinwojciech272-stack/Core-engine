@@ -43,6 +43,35 @@ export function transitionMission(mission: Mission, next: MissionState): Mission
   return {...mission, state: next, updatedAt: new Date().toISOString()};
 }
 
+export type EngineEvent = {
+  id: string;
+  missionId: string;
+  decisionId?: string;
+  eventType: "MISSION_CREATED" | "STATE_CHANGED";
+  fromState?: MissionState;
+  toState?: MissionState;
+  actorType: "system" | "human" | "agent";
+  createdAt: string;
+};
+
+const eventStore = globalThis as typeof globalThis & {
+  __coreEngineEvents?: EngineEvent[];
+};
+if (!eventStore.__coreEngineEvents) eventStore.__coreEngineEvents = [];
+
+export const events = eventStore.__coreEngineEvents;
+
+export function recordMissionEvent(input: Omit<EngineEvent, "id" | "createdAt">) {
+  const event: EngineEvent = {
+    ...input,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString()
+  };
+  events.push(event);
+  if (events.length > 500) events.splice(0, events.length - 500);
+  return event;
+}
+
 const store = globalThis as typeof globalThis & {
   __coreEngineMissions?: Map<string, Mission>;
 };
