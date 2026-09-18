@@ -23,12 +23,24 @@ function missionFor(decision: Decision): Omit<Mission, "id"> {
 
 export async function POST(request: Request) {
   try {
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    if (contentLength > 64_000) {
+      return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const signals: EngineSignal[] = Array.isArray(body.signals)
       ? body.signals.filter((s: unknown): s is EngineSignal => {
           if (!s || typeof s !== "object") return false;
           const x = s as Record<string, unknown>;
-          return typeof x.name === "string" && typeof x.value === "string" && typeof x.source === "string";
+          return (
+            typeof x.name === "string" &&
+            typeof x.value === "string" &&
+            typeof x.source === "string" &&
+            x.name.length <= 100 &&
+            x.value.length <= 200 &&
+            x.source.length <= 100
+          );
         }).slice(0, 20)
       : [];
 
