@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { missions, transitionMission, type MissionState } from "@/lib/engine";
+import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
     missions: Array.from(missions.values()),
     count: missions.size,
-    persistence: "in-memory-runtime"
+    persistence: "in-memory-runtime",
+    events: events.slice(-100).reverse()
   });
 }
 
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
-    return NextResponse.json({ok:true, mission:updated, action});
+    const event = recordMissionEvent({ missionId: id, decisionId: updated.decisionId, eventType: "STATE_CHANGED", fromState: mission.state, toState: updated.state, actorType: action === "approve" || action === "reject" ? "human" : "system" });
+    return NextResponse.json({ok:true, mission:updated, action, event});
   } catch (error) {
     return NextResponse.json({ok:false,error:"INVALID_TRANSITION",detail:error instanceof Error ? error.message : "Unknown error"},{status:409});
   }
