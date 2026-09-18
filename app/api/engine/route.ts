@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
+import { persistDecisionMission, storageMode } from "@/lib/storage";
 
 function buildDecision(signals: EngineSignal[]): Decision {
   const names = signals.map((s) => s.name);
@@ -72,7 +73,11 @@ export async function POST(request: Request) {
     const baseMission = missionFor(decision);
     const mission: Mission = { id: crypto.randomUUID(), ...baseMission };
 
-    missions.set(mission.id, mission);
+    if (storageMode() === "supabase") {
+      await persistDecisionMission(decision, mission);
+    } else {
+      missions.set(mission.id, mission);
+    }
     recordMissionEvent({
       missionId: mission.id,
       decisionId: decision.id,
