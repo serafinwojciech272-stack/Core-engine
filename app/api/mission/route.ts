@@ -31,6 +31,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (contentLength > 16_000) {
+    return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
+  }
+
   const body = await request.json().catch(() => ({}));
   const id = typeof body.id === "string" ? body.id : "";
   const action = body.action as "approve" | "reject" | "execute" | "measure" | "complete" | "learn" | undefined;
