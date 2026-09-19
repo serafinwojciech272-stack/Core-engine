@@ -90,35 +90,35 @@ export default function Home() {
     : result?.mission?.state === "MEASURING" ? "complete"
     : result?.mission?.state === "COMPLETED" ? "learn" : "";
 
-  return <main>
+  return <main aria-label="Core Engine AI decision and execution platform">
     <nav>
       <div className="brand"><span className="mark"><BrainCircuit size={19}/></span><span>CORE ENGINE</span></div>
       <div className="navlinks"><a href="#engine">Engine</a><a href="#architecture">Architecture</a><a href="#control">Control Center</a><a href="#products">Products</a></div>
-      <button className="navbtn" onClick={run}>{running?<><Loader2 size={16} className="spin"/> Running</>:result?"Run again":"Run engine"} <ArrowRight size={16}/></button>
+      <button className="navbtn" type="button" onClick={run} disabled={running} aria-label="Run Core Engine intelligence demo">{running?<><Loader2 size={16} className="spin"/> Running</>:result?"Run again":"Run engine"} <ArrowRight size={16}/></button>
     </nav>
 
     <section className="hero">
       <div className="eyebrow"><span className="pulse"/> AI BUSINESS OPERATING SYSTEM <span className="line"/></div>
       <h1>From business signals<br/><em>to intelligent action.</em></h1>
       <p className="lead">Core Engine is the reusable intelligence layer that observes a business, diagnoses what matters, decides what to do next, creates a mission, executes approved actions, measures outcomes and learns.</p>
-      <div className="actions"><button className="primary" onClick={run}><Play size={17} fill="currentColor"/> {running?"Running intelligence loop":"Run live intelligence demo"}</button><a className="secondary" href="#architecture">Explore the system <ChevronRight size={17}/></a></div>
-      <div className="status"><span className="dot"/> {result?"DECISION + MISSION LIVE":"SYSTEM READY"} <span>•</span> decision engine <span>•</span> approval controlled <span>•</span> outcome driven</div>
+      <div className="actions"><button className="primary" type="button" onClick={run} disabled={running} aria-label="Run live Core Engine intelligence demo"><Play size={17} fill="currentColor"/> {running?"Running intelligence loop":"Run live intelligence demo"}</button><a className="secondary" href="#architecture">Explore the system <ChevronRight size={17}/></a></div>
+      <div className="status" role="status" aria-live="polite"><span className="dot"/> {result?"DECISION + MISSION LIVE":"SYSTEM READY"} <span>•</span> decision engine <span>•</span> approval controlled <span>•</span> outcome driven</div>
 
       <div className="demo-bar">
         <div className="demo-copy"><span className="tag">DEMO INPUT</span><b>Choose a business signal set</b><small>Same engine, different operating context.</small></div>
-        <div className="scenario-tabs">{Object.keys(scenarios).map(x=><button key={x} className={scenario===x?"selected":""} onClick={()=>setScenario(x as keyof typeof scenarios)}><Activity size={14}/>{x}</button>)}</div>
+        <div className="scenario-tabs">{Object.keys(scenarios).map(x=><button key={x} type="button" className={scenario===x?"selected":""} aria-pressed={scenario===x} onClick={()=>setScenario(x as keyof typeof scenarios)}><Activity size={14}/>{x}</button>)}</div>
         <div className="signal-pills">{scenarios[scenario].map(s=><span key={s.name}><b>{s.name}</b>{s.value}<i>{s.source}</i></span>)}</div>
       </div>
 
-      {result && <div className="decision">
+      {result && <section className="decision" aria-live="polite">
         <div className="decisiontop"><span className="tag">LIVE ENGINE OUTPUT</span><span className="approved">{result.mission.state}</span></div>
         <h3>{result.decision.recommendation}</h3><p>{result.decision.diagnosis}</p>
         <div className="decisiongrid"><div><small>CONFIDENCE</small><b>{Math.round(result.decision.confidence*100)}%</b></div><div><small>PRIORITY</small><b>{result.decision.priority}</b></div><div><small>TARGET KPI</small><b>{result.mission.kpi}</b></div></div>
         <div className="evidence"><span><BarChart3 size={14}/> Evidence</span>{result.decision.evidence.map((x:string)=><code key={x}>{x}</code>)}</div>
         <div className="trace">{result.trace.map((x:string,i:number)=><span key={x} className={i===result.trace.length-1?"current":""}>{x}</span>)}</div>
-        <div className="missionbar"><div><span>MISSION</span><b>{result.mission.objective}</b></div><button className="nextaction" disabled={!nextAction || !!actionBusy} onClick={()=>missionAction(nextAction)}>{actionBusy?<Loader2 size={15} className="spin"/>:<Zap size={15}/>} {actionBusy?"Processing":nextAction?nextAction.toUpperCase():"Mission complete"}</button></div>
-      </div>}
-      {error && <div className="error"><XCircle size={16}/>{error}</div>}
+        <div className="missionbar"><div><span>MISSION</span><b>{result.mission.objective}</b></div><button className="nextaction" type="button" aria-label={nextAction ? `Mission action: ${nextAction}` : "Mission complete"} disabled={!nextAction || !!actionBusy} onClick={()=>missionAction(nextAction)}>{actionBusy?<Loader2 size={15} className="spin"/>:<Zap size={15}/>} {actionBusy?"Processing":nextAction?nextAction.toUpperCase():"Mission complete"}</button></div>
+      </section>}
+      {error && <div className="error" role="alert"><XCircle size={16}/>{error}</div>}
     </section>
 
     <section id="engine" className="loop">
