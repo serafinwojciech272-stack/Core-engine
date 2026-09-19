@@ -3,9 +3,13 @@ import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mi
 import { persistDecisionMission, storageMode } from "@/lib/storage";
 import { buildDecision } from "@/lib/ai-decision";
 
+const MAX_BODY_BYTES = 64_000;
+const MAX_SIGNALS = 20;
+
 function missionFor(decision: Decision): Omit<Mission, "id"> {
   const isSales = decision.diagnosis.startsWith("Lead volume");
   const isOps = decision.diagnosis.startsWith("Backlog");
+  const now = new Date().toISOString();
   return {
     decisionId: decision.id,
     objective: isSales
@@ -15,40 +19,71 @@ function missionFor(decision: Decision): Omit<Mission, "id"> {
         : "Increase qualified checkout completion without increasing acquisition spend.",
     state: "AWAITING_APPROVAL",
     kpi: isSales ? "lead_to_opportunity_rate" : isOps ? "cycle_time" : "checkout_completion_rate",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     executionCount: 0
   };
+}
+
+function isSignal(value: unknown): value is EngineSignal {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Record<string, unknown>;
+  return (
+    typeof x.name === "string" &&
+    typeof x.value === "string" &&
+    typeof x.source === "string" &&
+    x.name.trim().length > 0 &&
+    x.value.trim().length > 0 &&
+    x.source.trim().length > 0 &&
+    x.name.length <= 100 &&
+    x.value.length <= 200 &&
+    x.source.length <= 100
+  );
 }
 
 export async function POST(request: Request) {
   try {
     const contentLength = Number(request.headers.get("content-length") || "0");
-    if (contentLength > 64_000) {
+    if (contentLength > MAX_BODY_BYTES) {
       return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const signals: EngineSignal[] = Array.isArray(body.signals)
-      ? body.signals.filter((s: unknown): s is EngineSignal => {
-          if (!s || typeof s !== "object") return false;
-          const x = s as Record<string, unknown>;
-          return (
-            typeof x.name === "string" &&
-            typeof x.value === "string" &&
-            typeof x.source === "string" &&
-            x.name.length <= 100 &&
-            x.value.length <= 200 &&
-            x.source.length <= 100
-          );
-        }).slice(0, 20)
-      : [];
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
+    }
 
-    const normalizedSignals = signals.length ? signals : [
-      { name: "conversion_rate", value: "2.8%", source: "demo" },
-      { name: "traffic", value: "+18%", source: "demo" },
-      { name: "checkout_dropoff", value: "41%", source: "demo" }
-    ];
+    let body: unknown = {};
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return NextResponse.json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    let normalizedSignals: EngineSignal[];
+
+    if (payload.signals === undefined) {
+      normalizedSignals = [
+        { name: "conversion_rate", value: "2.8%", source: "demo" },
+        { name: "traffic", value: "+18%", source: "demo" },
+        { name: "checkout_dropoff", value: "41%", source: "demo" }
+      ];
+    } else if (!Array.isArray(payload.signals)) {
+      return NextResponse.json({ ok: false, error: "SIGNALS_MUST_BE_ARRAY" }, { status: 400 });
+    } else if (payload.signals.length === 0) {
+      return NextResponse.json({ ok: false, error: "SIGNALS_REQUIRED" }, { status: 400 });
+    } else if (payload.signals.length > MAX_SIGNALS) {
+      return NextResponse.json({ ok: false, error: "TOO_MANY_SIGNALS", max: MAX_SIGNALS }, { status: 400 });
+    } else if (!payload.signals.every(isSignal)) {
+      return NextResponse.json({ ok: false, error: "INVALID_SIGNAL" }, { status: 400 });
+    } else {
+      normalizedSignals = payload.signals.map((signal) => ({
+        name: signal.name.trim(),
+        value: signal.value.trim(),
+        source: signal.source.trim()
+      }));
+    }
 
     const decision = await buildDecision(normalizedSignals);
     const baseMission = missionFor(decision);
@@ -71,7 +106,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       engine: "core-engine",
-      version: "0.4",
+      version: "0.5",
       state: mission.state,
       persistence,
       decision,
