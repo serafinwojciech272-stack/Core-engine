@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       trace: ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "AWAITING_APPROVAL"]
     });
   } catch {
-    return NextResponse.json({ ok: false, error: "ENGINE_REQUEST_FAILED" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "ENGINE_REQUEST_FAILED" }, { status: 503 });
   }
 }
 
