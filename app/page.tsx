@@ -50,6 +50,7 @@ export default function Home() {
   const [scenario,setScenario] = useState<keyof typeof scenarios>("Growth");
   const [actionBusy,setActionBusy] = useState("");
   const [error,setError] = useState("");
+  const [auditStatus,setAuditStatus] = useState<"idle"|"checking"|"verified"|"invalid">("idle");
 
   const run = async () => {
     if (running) return;
@@ -77,6 +78,23 @@ export default function Home() {
     } finally {
       window.clearTimeout(timeout);
       setRunning(false);
+    }
+  };
+
+  const verifyAudit = async () => {
+    if (!result?.audit?.chain?.length || auditStatus === "checking") return;
+    setAuditStatus("checking"); setError("");
+    try {
+      const r = await fetch("/api/audit/verify", {method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({chain:result.audit.chain}),cache:"no-store"});
+      const data = await r.json().catch(()=>null);
+      if (!r.ok || !data?.ok) {
+        setAuditStatus("invalid");
+        throw new Error(data?.integrity === "INVALID" ? "Audit chain integrity check failed." : data?.error || "Audit verification failed.");
+      }
+      setAuditStatus(data.integrity === "VERIFIED" ? "verified" : "invalid");
+    } catch (e) {
+      setAuditStatus("invalid");
+      setError(e instanceof Error ? e.message : "Audit verification failed");
     }
   };
 
@@ -140,8 +158,8 @@ export default function Home() {
         <div className="evidence"><span><BarChart3 size={14}/> Evidence</span>{result.decision.evidence.map((x:string)=><code key={x}>{x}</code>)}</div>
         <div className="trace">{result.trace.map((x:string,i:number)=><span key={x} className={i===result.trace.length-1?"current":""}>{x}</span>)}</div>
         {result.audit && <div className="auditpanel">
-          <div className="audithead"><span><ShieldCheck size={14}/> CRYPTOGRAPHIC AUDIT</span><b>VERIFIABLE</b></div>
-          <div className="auditmeta"><div><small>ALGORITHM</small><strong>{result.audit.algorithm}</strong></div><div><small>CHAIN LENGTH</small><strong>{result.audit.chainLength}</strong></div><div><small>HEAD HASH</small><code>{String(result.audit.head || "").slice(0,24)}…</code></div></div>
+          <div className="audithead"><span><ShieldCheck size={14}/> CRYPTOGRAPHIC AUDIT</span><b>{auditStatus === "verified" ? "VERIFIED" : auditStatus === "invalid" ? "INVALID" : "VERIFIABLE"}</b></div>
+          <div className="auditmeta"><div><small>ALGORITHM</small><strong>{result.audit.algorithm}</strong></div><div><small>CHAIN LENGTH</small><strong>{result.audit.chainLength}</strong></div><div><small>HEAD HASH</small><code>{String(result.audit.head || "").slice(0,24)}…</code></div></div><button className="auditverify" type="button" onClick={verifyAudit} disabled={auditStatus === "checking"}>{auditStatus === "checking" ? <Loader2 size={13} className="spin"/> : <ShieldCheck size={13}/>} {auditStatus === "verified" ? "Integrity verified" : "Verify integrity"}</button>
         </div>}
         <div className="missionbar"><div><span>MISSION</span><b>{result.mission.objective}</b></div><button className="nextaction" type="button" aria-label={nextAction ? `Mission action: ${nextAction}` : "Mission complete"} disabled={!nextAction || !!actionBusy} onClick={()=>missionAction(nextAction)}>{actionBusy?<Loader2 size={15} className="spin"/>:<Zap size={15}/>} {actionBusy?"Processing":nextAction?nextAction.toUpperCase():"Mission complete"}</button></div>
       </section>}
