@@ -35,7 +35,14 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
       recommendation,
       confidence,
       priority,
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`),
+      probabilities: {
+        p1R: Math.min(0.78, 0.42 + confidence * 0.34),
+        p2R: Math.min(0.58, 0.25 + confidence * 0.28),
+        p3R: Math.min(0.42, 0.14 + confidence * 0.22)
+      },
+      expectedR: Number(((confidence * 0.65) - ((1 - confidence) * 0.8)).toFixed(3)),
+      riskGate: volatility > 0.35 ? "CAUTION" : "PASS"
     };
   }
 
@@ -73,6 +80,14 @@ function extractJson(text: string): unknown {
   return JSON.parse(cleaned);
 }
 
+function validateProbabilities(value: unknown) {
+  if (!value || typeof value !== "object") return undefined;
+  const p = value as Record<string, unknown>;
+  const p1R = Number(p.p1R), p2R = Number(p.p2R), p3R = Number(p.p3R);
+  if ([p1R,p2R,p3R].every((x) => Number.isFinite(x) && x >= 0 && x <= 1)) return { p1R, p2R, p3R };
+  return undefined;
+}
+
 function validate(value: unknown, signals: EngineSignal[]): DecisionPayload | null {
   if (!value || typeof value !== "object") return null;
   const x = value as Record<string, unknown>;
@@ -96,7 +111,10 @@ function validate(value: unknown, signals: EngineSignal[]): DecisionPayload | nu
     recommendation: x.recommendation.slice(0, 1000),
     confidence,
     priority: priority as Decision["priority"],
-    evidence: groundedEvidence.length ? groundedEvidence.slice(0, 12) : signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+    evidence: groundedEvidence.length ? groundedEvidence.slice(0, 12) : signals.map((s) => `${s.name}: ${s.value} [${s.source}]`),
+    probabilities: validateProbabilities(x.probabilities),
+    expectedR: typeof x.expectedR === "number" && Number.isFinite(x.expectedR) ? x.expectedR : undefined,
+    riskGate: x.riskGate === "PASS" || x.riskGate === "CAUTION" || x.riskGate === "BLOCK" ? x.riskGate : undefined
   };
 }
 
