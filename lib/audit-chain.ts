@@ -14,7 +14,7 @@ function canonical(value: unknown): string {
   return "{" + Object.keys(obj).sort().map((k) => JSON.stringify(k) + ":" + canonical(obj[k])).join(",") + "}";
 }
 
-async function sha256(value: string): Promise<string> {
+export async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -47,4 +47,40 @@ export async function buildAuditChain(input: {
   }
 
   return chain;
+}
+
+export async function verifyAuditChain(chain: AuditNode[]): Promise<{
+  valid: boolean;
+  checked: number;
+  failureIndex?: number;
+}> {
+  if (!Array.isArray(chain) || chain.length === 0) return { valid: false, checked: 0, failureIndex: 0 };
+
+  let previousHash = "GENESIS";
+  for (let i = 0; i < chain.length; i++) {
+    const node = chain[i];
+    if (
+      node.index !== i ||
+      node.previousHash !== previousHash ||
+      typeof node.timestamp !== "string" ||
+      typeof node.type !== "string" ||
+      typeof node.payloadHash !== "string" ||
+      typeof node.hash !== "string"
+    ) {
+      return { valid: false, checked: i, failureIndex: i };
+    }
+
+    const expected = await sha256(canonical({
+      index: node.index,
+      timestamp: node.timestamp,
+      type: node.type,
+      payloadHash: node.payloadHash,
+      previousHash: node.previousHash
+    }));
+
+    if (expected !== node.hash) return { valid: false, checked: i + 1, failureIndex: i };
+    previousHash = node.hash;
+  }
+
+  return { valid: true, checked: chain.length };
 }
