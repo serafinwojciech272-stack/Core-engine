@@ -2,6 +2,8 @@ import type { Decision, Mission, MissionState } from "@/lib/engine";
 
 type StorageMode = "supabase" | "memory";
 
+const STORAGE_TIMEOUT_MS = 8000;
+
 function getConfig() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,19 +18,31 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const config = getConfig();
   if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
 
-  const response = await fetch(`${config.url}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: config.key,
-      Authorization: `Bearer ${config.key}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body),
-    cache: "no-store"
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), STORAGE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${config.url}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal
+    });
 
-  if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
-  return response.json() as Promise<T>;
+    if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
+    return response.json() as Promise<T>;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("SUPABASE_RPC_TIMEOUT");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function persistDecisionMission(decision: Decision, mission: Mission) {
