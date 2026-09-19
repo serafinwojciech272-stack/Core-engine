@@ -12,8 +12,32 @@ const SYSTEM_PROMPT = [
   "Do not invent metrics, facts, causes, tools, or outcomes."
 ].join(" ");
 
-function deterministic(signals: EngineSignal[]): DecisionPayload {
+function deterministic(signals: EngineSignal[], domain?: string): DecisionPayload {
   const names = signals.map((s) => s.name);
+
+  if (domain === "trading" || names.includes("instrument") || names.includes("market_regime")) {
+    const get = (name: string) => signals.find((s) => s.name === name)?.value ?? "";
+    const instrument = get("instrument") || "MARKET";
+    const regime = get("market_regime") || "UNKNOWN";
+    const momentum = Number.parseFloat(get("momentum_pct").replace("%", ""));
+    const change = Number.parseFloat(get("change_pct").replace("%", ""));
+    const volatility = Number.parseFloat(get("volatility_pct").replace("%", ""));
+    const directional = Number.isFinite(momentum) ? momentum : Number.isFinite(change) ? change : 0;
+    const absMove = Math.abs(directional);
+    const confidence = Math.min(0.92, Math.max(0.5, 0.55 + Math.min(absMove, 1.0) * 0.18));
+    const priority: DecisionPayload["priority"] = confidence >= 0.75 ? "HIGH" : confidence >= 0.62 ? "MEDIUM" : "LOW";
+    const recommendation = regime === "TREND" && absMove > 0.08
+      ? directional > 0 ? `Monitor long continuation conditions on ${instrument}; require Risk Engine validation before entry.`
+        : `Monitor short continuation conditions on ${instrument}; require Risk Engine validation before entry.`
+      : `WAIT on ${instrument} until market structure and probability provide sufficient edge.`;
+    return {
+      diagnosis: `${instrument} is currently classified as ${regime}. Momentum/change is ${Number.isFinite(directional) ? directional.toFixed(3) : "n/a"}% and volatility is ${Number.isFinite(volatility) ? volatility.toFixed(3) : "n/a"}%.`,
+      recommendation,
+      confidence,
+      priority,
+      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+    };
+  }
 
   if (names.includes("qualified_leads")) {
     return {
@@ -76,8 +100,8 @@ function validate(value: unknown, signals: EngineSignal[]): DecisionPayload | nu
   };
 }
 
-export async function buildDecision(signals: EngineSignal[]): Promise<Decision> {
-  const fallback = deterministic(signals);
+export async function buildDecision(signals: EngineSignal[], domain?: string): Promise<Decision> {
+  const fallback = deterministic(signals, domain);
   const endpoint = process.env.AI_DECISION_ENDPOINT;
   const apiKey = process.env.AI_DECISION_API_KEY;
   const model = process.env.AI_DECISION_MODEL;
