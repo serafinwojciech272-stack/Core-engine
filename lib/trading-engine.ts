@@ -51,5 +51,5 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     "risk_gate=" + riskGate,\n    ...risk.reasons.map((reason) => "risk=" + reason),
     "confidence=" + confidence.toFixed(3),
   ];
-  return { instrument, regime, direction, momentumPct, changePct, volatilityPct, edgeScore: Number(edgeScore.toFixed(3)), confidence: Number(confidence.toFixed(3)), { p1R: Number(p1R.toFixed(3)), p2R: Number(p2R.toFixed(3)), p3R: Number(p3R.toFixed(3)) }, expectedR, riskGate, decision, reasons, methodology: "deterministic-heuristic-v1" };
+  return { instrument, regime, direction, momentumPct, changePct, volatilityPct, edgeScore: Number(edgeScore.toFixed(3)), confidence: Number(confidence.toFixed(3)), probabilities: { p1R: Number(p1R.toFixed(3)), p2R: Number(p2R.toFixed(3)), p3R: Number(p3R.toFixed(3)) }, expectedR, riskGate, decision, reasons, methodology: "deterministic-heuristic-v1" };
 }
