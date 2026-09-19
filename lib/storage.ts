@@ -21,6 +21,19 @@ async function supabaseFetch(url: string, init: RequestInit = {}) {
   } finally { clearTimeout(timeout); }
 }
 
+export async function checkStorageHealth(): Promise<"pass" | "not_configured" | "fail"> {
+  const config = getConfig();
+  if (!config) return "not_configured";
+  try {
+    const response = await supabaseFetch(config.url + "/rest/v1/ce_missions?select=id&limit=1", {
+      headers: { apikey: config.key, Authorization: "Bearer " + config.key }
+    });
+    return response.ok ? "pass" : "fail";
+  } catch {
+    return "fail";
+  }
+}
+
 async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const config = getConfig();
   if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
