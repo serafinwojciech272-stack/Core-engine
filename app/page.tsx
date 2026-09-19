@@ -52,35 +52,58 @@ export default function Home() {
   const [error,setError] = useState("");
 
   const run = async () => {
+    if (running) return;
     setRunning(true); setError("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     try {
       const r = await fetch("/api/engine", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({signals:scenarios[scenario]})
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({signals:scenarios[scenario]}),
+        signal:controller.signal,
+        cache:"no-store"
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Engine request failed");
+      const text = await r.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+      if (!r.ok) throw new Error(data?.error || "Engine request failed (" + r.status + ")");
+      if (!data?.ok || !data?.decision || !data?.mission) throw new Error("Invalid engine response");
       setResult(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Engine request failed");
-    } finally { setRunning(false); }
+      setError(e instanceof DOMException && e.name === "AbortError"
+        ? "Engine request timed out. Check persistence/provider configuration."
+        : e instanceof Error ? e.message : "Engine request failed");
+    } finally {
+      window.clearTimeout(timeout);
+      setRunning(false);
+    }
   };
 
   const missionAction = async (action:string) => {
     if (!result?.mission?.id) return;
     setActionBusy(action); setError("");
     try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15000);
       const r = await fetch("/api/mission", {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({id:result.mission.id,action})
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({id:result.mission.id,action}),
+        signal:controller.signal,
+        cache:"no-store"
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Mission action failed");
+      const text = await r.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+      window.clearTimeout(timeout);
+      if (!r.ok) throw new Error(data?.error || "Mission action failed (" + r.status + ")");
+      if (!data?.ok || !data?.mission) throw new Error("Invalid mission response");
       setResult((current:any)=>({...current,mission:data.mission,state:data.mission.state}));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mission action failed");
+      setError(e instanceof DOMException && e.name === "AbortError"
+        ? "Mission action timed out. Check persistent storage."
+        : e instanceof Error ? e.message : "Mission action failed");
     } finally { setActionBusy(""); }
   };
 
