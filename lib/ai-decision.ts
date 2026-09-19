@@ -1,4 +1,5 @@
 import type { Decision, EngineSignal } from "@/lib/engine";
+import { analyzeTrading } from "@/lib/trading-engine";
 
 type DecisionPayload = Omit<Decision, "id">;
 
@@ -16,33 +17,22 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
   const names = signals.map((s) => s.name);
 
   if (domain === "trading" || names.includes("instrument") || names.includes("market_regime")) {
-    const get = (name: string) => signals.find((s) => s.name === name)?.value ?? "";
-    const instrument = get("instrument") || "MARKET";
-    const regime = get("market_regime") || "UNKNOWN";
-    const momentum = Number.parseFloat(get("momentum_pct").replace("%", ""));
-    const change = Number.parseFloat(get("change_pct").replace("%", ""));
-    const volatility = Number.parseFloat(get("volatility_pct").replace("%", ""));
-    const directional = Number.isFinite(momentum) ? momentum : Number.isFinite(change) ? change : 0;
-    const absMove = Math.abs(directional);
-    const confidence = Math.min(0.92, Math.max(0.5, 0.55 + Math.min(absMove, 1.0) * 0.18));
-    const priority: DecisionPayload["priority"] = confidence >= 0.75 ? "HIGH" : confidence >= 0.62 ? "MEDIUM" : "LOW";
-    const recommendation = regime === "TREND" && absMove > 0.08
-      ? directional > 0 ? `Monitor long continuation conditions on ${instrument}; require Risk Engine validation before entry.`
-        : `Monitor short continuation conditions on ${instrument}; require Risk Engine validation before entry.`
-      : `WAIT on ${instrument} until market structure and probability provide sufficient edge.`;
+    const analysis = analyzeTrading(signals);
+    const recommendation =
+      analysis.decision === "LONG_WATCH"
+        ? "Monitor long continuation conditions on " + analysis.instrument + "; require Risk Engine validation before entry."
+        : analysis.decision === "SHORT_WATCH"
+          ? "Monitor short continuation conditions on " + analysis.instrument + "; require Risk Engine validation before entry."
+          : "WAIT on " + analysis.instrument + " until structure, probability and risk provide sufficient edge.";
     return {
-      diagnosis: `${instrument} is currently classified as ${regime}. Momentum/change is ${Number.isFinite(directional) ? directional.toFixed(3) : "n/a"}% and volatility is ${Number.isFinite(volatility) ? volatility.toFixed(3) : "n/a"}%.`,
+      diagnosis: analysis.instrument + " is classified as " + analysis.regime + ". Direction=" + analysis.direction + ", move=" + analysis.momentumPct.toFixed(3) + "%, volatility=" + analysis.volatilityPct.toFixed(3) + "%.",
       recommendation,
-      confidence,
-      priority,
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`),
-      probabilities: {
-        p1R: Math.min(0.78, 0.42 + confidence * 0.34),
-        p2R: Math.min(0.58, 0.25 + confidence * 0.28),
-        p3R: Math.min(0.42, 0.14 + confidence * 0.22)
-      },
-      expectedR: Number(((confidence * 0.65) - ((1 - confidence) * 0.8)).toFixed(3)),
-      riskGate: volatility > 0.35 ? "CAUTION" : "PASS"
+      confidence: analysis.confidence,
+      priority: analysis.confidence >= 0.75 ? "HIGH" : analysis.confidence >= 0.62 ? "MEDIUM" : "LOW",
+      evidence: signals.map((s) => s.name + ": " + s.value + " [" + s.source + "]"),
+      probabilities: analysis.probabilities,
+      expectedR: analysis.expectedR,
+      riskGate: analysis.riskGate
     };
   }
 
@@ -50,9 +40,8 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
     return {
       diagnosis: "Lead volume or qualification is deteriorating while response latency is creating additional conversion risk.",
       recommendation: "Tighten lead qualification, reduce response latency, and run a controlled sales-response experiment.",
-      confidence: 0.88,
-      priority: "HIGH",
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+      confidence: 0.88, priority: "HIGH",
+      evidence: signals.map((s) => s.name + ": " + s.value + " [" + s.source + "]")
     };
   }
 
@@ -60,18 +49,16 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
     return {
       diagnosis: "Backlog growth is approaching operational capacity and increasing cycle-time pressure.",
       recommendation: "Prioritize bottleneck removal, rebalance capacity, and measure cycle-time reduction before adding permanent capacity.",
-      confidence: 0.86,
-      priority: "HIGH",
-      evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+      confidence: 0.86, priority: "HIGH",
+      evidence: signals.map((s) => s.name + ": " + s.value + " [" + s.source + "]")
     };
   }
 
   return {
     diagnosis: "Traffic is growing while checkout friction is limiting conversion.",
     recommendation: "Prioritize checkout optimization and run a measured conversion experiment.",
-    confidence: 0.91,
-    priority: "HIGH",
-    evidence: signals.map((s) => `${s.name}: ${s.value} [${s.source}]`)
+    confidence: 0.91, priority: "HIGH",
+    evidence: signals.map((s) => s.name + ": " + s.value + " [" + s.source + "]")
   };
 }
 
