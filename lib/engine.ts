@@ -12,6 +12,9 @@ export type Decision = {
   confidence: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
   evidence: string[];
+  probabilities?: { p1R: number; p2R: number; p3R: number };
+  expectedR?: number;
+  riskGate?: "PASS" | "CAUTION" | "BLOCK";
 };
 export type Mission = {
   id: string;
