@@ -134,7 +134,7 @@ export default function Home() {
       </div>
 
       {result && <section className="decision" aria-live="polite">
-        <div className="decisiontop"><span className="tag">LIVE ENGINE OUTPUT</span><span className="approved">{result.mission.state}</span></div>
+        <div className="decisiontop"><span className="tag">LIVE ENGINE OUTPUT</span><span className={"approved state-"+String(result.mission.state).toLowerCase()}>{result.mission.state}</span></div>
         <h3>{result.decision.recommendation}</h3><p>{result.decision.diagnosis}</p>
         <div className="decisiongrid"><div><small>CONFIDENCE</small><b>{Math.round(result.decision.confidence*100)}%</b></div><div><small>PRIORITY</small><b>{result.decision.priority}</b></div><div><small>TARGET KPI</small><b>{result.mission.kpi}</b></div></div>
         <div className="evidence"><span><BarChart3 size={14}/> Evidence</span>{result.decision.evidence.map((x:string)=><code key={x}>{x}</code>)}</div>
