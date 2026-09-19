@@ -139,6 +139,10 @@ export default function Home() {
         <div className="decisiongrid"><div><small>CONFIDENCE</small><b>{Math.round(result.decision.confidence*100)}%</b></div><div><small>PRIORITY</small><b>{result.decision.priority}</b></div><div><small>TARGET KPI</small><b>{result.mission.kpi}</b></div></div>
         <div className="evidence"><span><BarChart3 size={14}/> Evidence</span>{result.decision.evidence.map((x:string)=><code key={x}>{x}</code>)}</div>
         <div className="trace">{result.trace.map((x:string,i:number)=><span key={x} className={i===result.trace.length-1?"current":""}>{x}</span>)}</div>
+        {result.audit && <div className="auditpanel">
+          <div className="audithead"><span><ShieldCheck size={14}/> CRYPTOGRAPHIC AUDIT</span><b>VERIFIABLE</b></div>
+          <div className="auditmeta"><div><small>ALGORITHM</small><strong>{result.audit.algorithm}</strong></div><div><small>CHAIN LENGTH</small><strong>{result.audit.chainLength}</strong></div><div><small>HEAD HASH</small><code>{String(result.audit.head || "").slice(0,24)}…</code></div></div>
+        </div>}
         <div className="missionbar"><div><span>MISSION</span><b>{result.mission.objective}</b></div><button className="nextaction" type="button" aria-label={nextAction ? `Mission action: ${nextAction}` : "Mission complete"} disabled={!nextAction || !!actionBusy} onClick={()=>missionAction(nextAction)}>{actionBusy?<Loader2 size={15} className="spin"/>:<Zap size={15}/>} {actionBusy?"Processing":nextAction?nextAction.toUpperCase():"Mission complete"}</button></div>
       </section>}
       {error && <div className="error" role="alert"><XCircle size={16}/>{error}</div>}
