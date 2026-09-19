@@ -4,12 +4,23 @@ import { persistDecisionMission, storageMode } from "@/lib/storage";
 import { buildDecision } from "@/lib/ai-decision";
 
 const MAX_BODY_BYTES = 64_000;
-const MAX_SIGNALS = 20;
+const MAX_SIGNALS = 30;
 
-function missionFor(decision: Decision): Omit<Mission, "id"> {
+function missionFor(decision: Decision, domain?: string): Omit<Mission, "id"> {
   const isSales = decision.diagnosis.startsWith("Lead volume");
   const isOps = decision.diagnosis.startsWith("Backlog");
   const now = new Date().toISOString();
+  if (domain === "trading") {
+    return {
+      decisionId: decision.id,
+      objective: decision.recommendation,
+      state: "AWAITING_APPROVAL",
+      kpi: "net_expected_r",
+      createdAt: now,
+      updatedAt: now,
+      executionCount: 0
+    };
+  }
   return {
     decisionId: decision.id,
     objective: isSales
@@ -85,8 +96,9 @@ export async function POST(request: Request) {
       }));
     }
 
-    const decision = await buildDecision(normalizedSignals);
-    const baseMission = missionFor(decision);
+    const domain = typeof payload.domain === "string" ? payload.domain.trim().slice(0, 40) : undefined;
+    const decision = await buildDecision(normalizedSignals, domain);
+    const baseMission = missionFor(decision, domain);
     const mission: Mission = { id: crypto.randomUUID(), ...baseMission };
     const persistence = storageMode();
 
