@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
 import { persistDecisionMission, storageMode } from "@/lib/storage";
 import { buildDecision } from "@/lib/ai-decision";
+import { buildAuditChain } from "@/lib/audit-chain";
 
 const MAX_BODY_BYTES = 64_000;
 const MAX_SIGNALS = 30;
@@ -115,15 +116,25 @@ export async function POST(request: Request) {
       });
     }
 
+    const trace = ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "RISK_GATE", "MISSION", "AWAITING_APPROVAL"];
+    const auditChain = await buildAuditChain({ signals: normalizedSignals, decision, mission, trace });
+
     return NextResponse.json({
       ok: true,
       engine: "core-engine",
-      version: "0.5",
+      version: "0.6",
       state: mission.state,
       persistence,
       decision,
       mission,
-      trace: ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "AWAITING_APPROVAL"]
+      trace,
+      audit: {
+        algorithm: "SHA-256 chained audit v1",
+        integrity: "VERIFIABLE",
+        chainLength: auditChain.length,
+        head: auditChain[auditChain.length - 1]?.hash,
+        chain: auditChain
+      }
     });
   } catch {
     return NextResponse.json({ ok: false, error: "ENGINE_REQUEST_FAILED" }, { status: 503 });
