@@ -46,8 +46,27 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function persistDecisionMission(decision: Decision, mission: Mission) {
-  await rpc("ce_create_decision_mission", { p_decision_id: decision.id, p_diagnosis: decision.diagnosis, p_recommendation: decision.recommendation, p_confidence: decision.confidence, p_priority: decision.priority, p_evidence: decision.evidence, p_mission_id: mission.id, p_objective: mission.objective, p_state: mission.state, p_kpi: mission.kpi });
+export async function persistDecisionMission(decision: Decision, mission: Mission, engineVersion = "0.7") {
+  await rpc("ce_create_decision_mission", {
+    p_decision_id: decision.id,
+    p_diagnosis: decision.diagnosis,
+    p_recommendation: decision.recommendation,
+    p_confidence: decision.confidence,
+    p_priority: decision.priority,
+    p_evidence: decision.evidence,
+    p_mission_id: mission.id,
+    p_objective: mission.objective,
+    p_state: mission.state,
+    p_kpi: mission.kpi,
+    p_engine_version: engineVersion,
+    p_p1r: decision.probability?.p1R ?? null,
+    p_p2r: decision.probability?.p2R ?? null,
+    p_p3r: decision.probability?.p3R ?? null,
+    p_expected_r: decision.expectedR ?? null,
+    p_risk_gate: decision.riskGate ?? "UNAVAILABLE",
+    p_prediction_source: decision.probability?.source ?? "DERIVED",
+    p_calibration_status: decision.probability?.calibration ?? "UNCALIBRATED"
+  });
 }
 
 export async function transitionPersistedMission(id: string, next: MissionState, actorType: "system" | "human" | "agent") {
@@ -138,4 +157,68 @@ export async function listPersistedEvents() {
   const response = await supabaseFetch(config.url + "/rest/v1/ce_events?select=id,mission_id,decision_id,event_type,from_state,to_state,actor_type,created_at&order=created_at.desc&limit=100", { headers: { apikey: config.key, Authorization: "Bearer " + config.key } });
   if (!response.ok) throw new Error("SUPABASE_EVENTS_" + response.status);
   return response.json();
+}
+
+
+export type PredictionLedgerEntry = {
+  id: string;
+  decisionId: string;
+  missionId: string;
+  engineVersion: string;
+  p1R: number;
+  p2R: number;
+  p3R: number;
+  expectedR: number | null;
+  riskGate: string;
+  predictionSource: string;
+  calibrationStatus: string;
+  outcomeStatus: "OPEN" | "WON" | "LOST" | "UNRESOLVED";
+  realizedR: number | null;
+  outcomePayload: Record<string, unknown>;
+  createdAt: string;
+  resolvedAt: string | null;
+};
+
+export async function resolvePersistedPrediction(
+  missionId: string,
+  realizedR: number | null,
+  outcomeStatus: PredictionLedgerEntry["outcomeStatus"],
+  outcomePayload: Record<string, unknown> = {}
+) {
+  return rpc("ce_resolve_prediction", {
+    p_mission_id: missionId,
+    p_realized_r: realizedR,
+    p_outcome_status: outcomeStatus,
+    p_outcome_payload: outcomePayload
+  });
+}
+
+export async function listPersistedPredictions(limit = 100): Promise<PredictionLedgerEntry[]> {
+  const config = getConfig();
+  if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+  const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+  const response = await supabaseFetch(
+    config.url + "/rest/v1/ce_prediction_ledger?select=id,decision_id,mission_id,engine_version,p1r,p2r,p3r,expected_r,risk_gate,prediction_source,calibration_status,outcome_status,realized_r,outcome_payload,created_at,resolved_at&order=created_at.desc&limit=" + safeLimit,
+    { headers: { apikey: config.key, Authorization: "Bearer " + config.key } }
+  );
+  if (!response.ok) throw new Error("SUPABASE_PREDICTION_READ_" + response.status);
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    id: String(row.id),
+    decisionId: String(row.decision_id),
+    missionId: String(row.mission_id),
+    engineVersion: String(row.engine_version),
+    p1R: Number(row.p1r),
+    p2R: Number(row.p2r),
+    p3R: Number(row.p3r),
+    expectedR: row.expected_r === null ? null : Number(row.expected_r),
+    riskGate: String(row.risk_gate),
+    predictionSource: String(row.prediction_source),
+    calibrationStatus: String(row.calibration_status),
+    outcomeStatus: row.outcome_status as PredictionLedgerEntry["outcomeStatus"],
+    realizedR: row.realized_r === null ? null : Number(row.realized_r),
+    outcomePayload: (row.outcome_payload as Record<string, unknown>) ?? {},
+    createdAt: String(row.created_at),
+    resolvedAt: row.resolved_at === null ? null : String(row.resolved_at)
+  }));
 }
