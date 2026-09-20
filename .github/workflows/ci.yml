@@ -21,19 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          # No lockfile yet: keep npm resolution deterministic at the network layer
-          # and prevent registry stalls from holding the quality gate indefinitely.
+          cache: npm
       - name: Install dependencies
-        run: |
-          npm config set audit false
-          npm config set fund false
-          npm config set fetch-retries 2
-          npm config set fetch-retry-mintimeout 1000
-          npm config set fetch-retry-maxtimeout 5000
-          npm config set fetch-timeout 120000
-          npm config set registry https://registry.npmjs.org/
-          npm config set maxsockets 8
-          timeout 8m npm install --ignore-scripts --omit=optional --no-audit --no-fund --progress=false
+        run: npm ci --ignore-scripts --omit=optional --no-audit --no-fund --progress=false --legacy-peer-deps
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
