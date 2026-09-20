@@ -1,5 +1,6 @@
 import type { EngineSignal } from "@/lib/engine";
 import { evaluateRisk } from "@/lib/risk-engine";
+import { estimateTradingProbability, type ProbabilityEstimate } from "@/lib/probability-engine";
 
 export type TradingAnalysis = {
   instrument: string;
@@ -11,6 +12,7 @@ export type TradingAnalysis = {
   edgeScore: number;
   confidence: number;
   probabilities: { p1R: number; p2R: number; p3R: number };
+  probability: ProbabilityEstimate;
   expectedR: number;
   riskGate: "PASS" | "CAUTION" | "BLOCK";
   decision: "LONG_WATCH" | "SHORT_WATCH" | "WAIT";
@@ -100,9 +102,13 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     0.92
   );
 
-  const p1R = clamp(0.38 + confidence * 0.40, 0, 0.78);
-  const p2R = clamp(0.18 + confidence * 0.30, 0, 0.58);
-  const p3R = clamp(0.08 + confidence * 0.20, 0, 0.42);
+  const probability = estimateTradingProbability({
+    confidence,
+    edgeScore,
+    volatilityPenalty,
+    signalConflictDetected: signalConflict.status === "DETECTED",
+  });
+  const { p1R, p2R, p3R } = probability;
   const expectedR = Number(
     ((p1R + p2R * 0.65 + p3R * 0.35) - (1 - p1R) * 0.8).toFixed(3)
   );
@@ -156,6 +162,7 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     decision,
     reasons,
     methodology: "deterministic-heuristic-v1",
+    probability,
     signalConflict,
   };
 }
