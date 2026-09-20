@@ -136,12 +136,15 @@ export async function POST(request: Request) {
       });
     }
 
+    const riskGate = decision.riskGate ?? "UNAVAILABLE";
+    const riskGateStatus = riskGate === "BLOCK" ? "BLOCKED" : riskGate === "CAUTION" ? "CAUTION" : riskGate === "PASS" ? "PASS" : "UNAVAILABLE";
+
     const trace = [
       { stage: "OBSERVE", status: "COMPLETE", evidence: normalizedSignals.map((signal) => signal.name), output: `${normalizedSignals.length} signals accepted` },
       { stage: "DIAGNOSE", status: "COMPLETE", evidence: decision.evidence.slice(0, 8), output: decision.diagnosis },
       { stage: "PRIORITIZE", status: "COMPLETE", evidence: [`priority=${decision.priority}`, `confidence=${decision.confidence.toFixed(3)}`], output: decision.priority },
       { stage: "DECIDE", status: "COMPLETE", evidence: [`recommendation=${decision.recommendation}`, ...(decision.signalConflict?.reasons ?? [])], output: decision.recommendation },
-      { stage: "RISK_GATE", status: decision.riskGate === "BLOCK" ? "BLOCKED" : decision.riskGate === "CAUTION" ? "CAUTION" : "PASS", evidence: [`riskGate=${decision.riskGate ?? "UNAVAILABLE"}`, ...(decision.signalConflict?.conflicting ?? [])], output: decision.riskGate ?? "UNAVAILABLE" },
+      { stage: "RISK_GATE", status: riskGateStatus, evidence: [`riskGate=${riskGate}`, ...(decision.signalConflict?.conflicting ?? [])], output: riskGate },
       { stage: "MISSION", status: "CREATED", evidence: [`mission=${mission.id}`, `kpi=${mission.kpi}`], output: mission.objective },
       { stage: "AWAITING_APPROVAL", status: "PENDING", evidence: ["human approval required before execution"], output: mission.state }
     ];
