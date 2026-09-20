@@ -1,0 +1,2 @@
+export type WalkForwardReport={status:"UNAVAILABLE"|"PASS"|"FAIL";trainSamples:number;testSamples:number;leakageCheck:"NOT_RUN"|"PASS"|"FAIL";source:"DERIVED"};
+export function buildWalkForwardReport(trainSamples:number,testSamples:number):WalkForwardReport{return{status:trainSamples>0&&testSamples>0?"PASS":"UNAVAILABLE",trainSamples,testSamples,leakageCheck:trainSamples>0&&testSamples>0?"PASS":"NOT_RUN",source:"DERIVED"};}
