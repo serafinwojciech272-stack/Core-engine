@@ -116,8 +116,17 @@ export async function POST(request: Request) {
       });
     }
 
-    const trace = ["OBSERVE", "DIAGNOSE", "PRIORITIZE", "DECIDE", "RISK_GATE", "MISSION", "AWAITING_APPROVAL"];
-    const auditChain = await buildAuditChain({ signals: normalizedSignals, decision, mission, trace });
+    const trace = [
+      { stage: "OBSERVE", status: "COMPLETE", evidence: normalizedSignals.map((signal) => signal.name), output: `${normalizedSignals.length} signals accepted` },
+      { stage: "DIAGNOSE", status: "COMPLETE", evidence: decision.evidence.slice(0, 8), output: decision.diagnosis },
+      { stage: "PRIORITIZE", status: "COMPLETE", evidence: [`priority=${decision.priority}`, `confidence=${decision.confidence.toFixed(3)}`], output: decision.priority },
+      { stage: "DECIDE", status: "COMPLETE", evidence: [`recommendation=${decision.recommendation}`, ...(decision.signalConflict?.reasons ?? [])], output: decision.recommendation },
+      { stage: "RISK_GATE", status: decision.riskGate === "BLOCK" ? "BLOCKED" : decision.riskGate === "CAUTION" ? "CAUTION" : "PASS", evidence: [`riskGate=${decision.riskGate ?? "UNAVAILABLE"}`, ...(decision.signalConflict?.conflicting ?? [])], output: decision.riskGate ?? "UNAVAILABLE" },
+      { stage: "MISSION", status: "CREATED", evidence: [`mission=${mission.id}`, `kpi=${mission.kpi}`], output: mission.objective },
+      { stage: "AWAITING_APPROVAL", status: "PENDING", evidence: ["human approval required before execution"], output: mission.state }
+    ];
+    const auditTrace = trace.map((step) => step.stage);
+    const auditChain = await buildAuditChain({ signals: normalizedSignals, decision, mission, trace: auditTrace });
 
     return NextResponse.json({
       ok: true,
