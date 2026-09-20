@@ -2,6 +2,7 @@ import type { EngineSignal } from "@/lib/engine";
 import { evaluateRisk } from "@/lib/risk-engine";
 import { estimateTradingProbability, type ProbabilityEstimate } from "@/lib/probability-engine";
 import { analyzeMultiTimeframe, type MultiTimeframeAnalysis } from "@/lib/multi-timeframe-engine";
+import { extractFeatures, type FeatureSnapshot } from "@/lib/feature-engine";
 
 export type TradingAnalysis = {
   instrument: string;
@@ -19,6 +20,7 @@ export type TradingAnalysis = {
   riskMode: "NORMAL" | "REDUCED" | "HALTED";
   riskPct: number;
   multiTimeframe: MultiTimeframeAnalysis;
+  features: FeatureSnapshot;
   decision: "LONG_WATCH" | "SHORT_WATCH" | "WAIT";
   reasons: string[];
   methodology: "deterministic-heuristic-v1";
@@ -79,6 +81,7 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
   }
 
   const multiTimeframe = analyzeMultiTimeframe(signals);
+  const features = extractFeatures(signals);
 
   const signalConflict = {
     status: conflicting.length > 0 ? "DETECTED" as const : "NONE" as const,
@@ -170,6 +173,7 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     riskMode: risk.riskMode,
     riskPct: risk.riskPct,
     multiTimeframe,
+    features,
     decision,
     reasons,
     methodology: "deterministic-heuristic-v1",
