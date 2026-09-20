@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mission } from "@/lib/engine";
-import { persistDecisionMission, storageMode } from "@/lib/storage";
+import { listPersistedLearning, persistDecisionMission, storageMode } from "@/lib/storage";
 import { buildDecision } from "@/lib/ai-decision";
 import { buildAuditChain } from "@/lib/audit-chain";
 
@@ -98,7 +98,8 @@ export async function POST(request: Request) {
     }
 
     const domain = typeof payload.domain === "string" ? payload.domain.trim().slice(0, 40) : undefined;
-    const decision = await buildDecision(normalizedSignals, domain);
+    const learning = storageMode() === "supabase" ? await listPersistedLearning(10) : [];
+    const decision = await buildDecision(normalizedSignals, domain, learning);
 
     // Hard safety gate: a BLOCK decision must never create an executable mission.
     // The caller receives the decision context so the UI/API can surface the reason.
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
       state: mission.state,
       persistence,
       decision,
+      learning: { applied: learning.length, lessons: learning.slice(0, 4) },
       mission,
       trace,
       audit: {
