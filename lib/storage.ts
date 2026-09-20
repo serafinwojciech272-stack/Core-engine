@@ -54,6 +54,14 @@ export async function transitionPersistedMission(id: string, next: MissionState,
   return rpc<{ mission_id: string; decision_id: string; from_state: MissionState; to_state: MissionState; execution_count: number }>("ce_transition_mission", { p_mission_id: id, p_next_state: next, p_actor_type: actorType });
 }
 
+export async function recordPersistedMissionOutcome(id: string, eventType: "EXECUTION_RECORDED" | "MEASUREMENT_RECORDED" | "LEARNING_RECORDED", metadata: Record<string, unknown> = {}) {
+  return rpc<{ mission_id: string; event_type: string; state: MissionState }>("ce_record_mission_outcome", {
+    p_mission_id: id,
+    p_event_type: eventType,
+    p_metadata: metadata
+  });
+}
+
 export async function listPersistedMissions(): Promise<Mission[]> {
   const config = getConfig();
   if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
