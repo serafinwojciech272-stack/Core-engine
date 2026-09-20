@@ -99,6 +99,26 @@ export async function POST(request: Request) {
 
     const domain = typeof payload.domain === "string" ? payload.domain.trim().slice(0, 40) : undefined;
     const decision = await buildDecision(normalizedSignals, domain);
+
+    // Hard safety gate: a BLOCK decision must never create an executable mission.
+    // The caller receives the decision context so the UI/API can surface the reason.
+    if (decision.riskGate === "BLOCK") {
+      return NextResponse.json({
+        ok: false,
+        blocked: true,
+        error: "RISK_GATE_BLOCKED",
+        engine: "core-engine",
+        decision,
+        trace: [
+          { stage: "OBSERVE", status: "COMPLETE", evidence: normalizedSignals.map((signal) => signal.name) },
+          { stage: "DIAGNOSE", status: "COMPLETE", output: decision.diagnosis },
+          { stage: "PRIORITIZE", status: "COMPLETE", output: decision.priority },
+          { stage: "DECIDE", status: "COMPLETE", output: decision.recommendation },
+          { stage: "RISK_GATE", status: "BLOCKED", output: "Execution mission creation denied by risk gate." }
+        ]
+      }, { status: 409 });
+    }
+
     const baseMission = missionFor(decision, domain);
     const mission: Mission = { id: crypto.randomUUID(), ...baseMission };
     const persistence = storageMode();
