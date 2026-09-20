@@ -107,7 +107,7 @@ export default function Home() {
       const r = await fetch("/api/mission", {
         method:"POST",
         headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({id:result.mission.id,action}),
+        body:JSON.stringify({id:result.mission.id,action,idempotencyKey:crypto.randomUUID()}),
         signal:controller.signal,
         cache:"no-store"
       });
@@ -129,7 +129,8 @@ export default function Home() {
     : result?.mission?.state === "APPROVED" ? "execute"
     : result?.mission?.state === "EXECUTING" ? "measure"
     : result?.mission?.state === "MEASURING" ? "complete"
-    : result?.mission?.state === "COMPLETED" ? "learn" : "";
+    : result?.mission?.state === "COMPLETED" ? "learn"
+    : result?.mission?.state === "FAILED" ? "retry" : "";
 
   return <main aria-label="Core Engine AI decision and execution platform">
     <nav>
