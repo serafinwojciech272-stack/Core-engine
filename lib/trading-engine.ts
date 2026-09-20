@@ -15,6 +15,8 @@ export type TradingAnalysis = {
   probability: ProbabilityEstimate;
   expectedR: number;
   riskGate: "PASS" | "CAUTION" | "BLOCK";
+  riskMode: "NORMAL" | "REDUCED" | "HALTED";
+  riskPct: number;
   decision: "LONG_WATCH" | "SHORT_WATCH" | "WAIT";
   reasons: string[];
   methodology: "deterministic-heuristic-v1";
@@ -159,6 +161,8 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     },
     expectedR,
     riskGate,
+    riskMode: risk.riskMode,
+    riskPct: risk.riskPct,
     decision,
     reasons,
     methodology: "deterministic-heuristic-v1",
