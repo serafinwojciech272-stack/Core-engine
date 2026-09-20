@@ -129,7 +129,7 @@ export function continueProgram(plan: ProgramPlan): ProgramPlan {
   const stages = plan.stages.map((stage, i) => {
     if (stage.id !== plan.nextStage) return stage;
     const next = plan.stages[i + 1];
-    return { ...stage, status: "PASSED", evidence: [...stage.evidence, "stage_passed"], checkpoint: crypto.randomUUID(), ...(next ? {} : {}) };
+    return { ...stage, status: "PASSED" as const, evidence: [...stage.evidence, "stage_passed"], checkpoint: crypto.randomUUID(), ...(next ? {} : {}) };
   });
   const nextIndex = stages.findIndex((s) => s.status === "PENDING" || s.status === "READY");
   const nextStage = nextIndex >= 0 ? stages[nextIndex].id : null;
