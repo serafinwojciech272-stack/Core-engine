@@ -130,13 +130,14 @@ end $$;
 create or replace function public.ce_claim_action(p_mission_id uuid,p_action text,p_idempotency_key text)
 returns table(claimed boolean,mission_id uuid,action text,idempotency_key text)
 language plpgsql security definer set search_path=public as $$
+declare rows_inserted integer;
 begin
   insert into ce_action_claims(mission_id,action,idempotency_key)
   values(p_mission_id,p_action,p_idempotency_key)
   on conflict (mission_id,action,idempotency_key) do nothing;
-  return query select (x.inserted),p_mission_id,p_action,p_idempotency_key
-  from (select true as inserted) x;
-end $$;
+  get diagnostics rows_inserted = row_count;
+  return query select (rows_inserted=1),p_mission_id,p_action,p_idempotency_key;
+end $;
 
 create or replace function public.ce_transition_mission(p_mission_id uuid,p_next_state text,p_actor_type text)
 returns table(mission_id uuid,decision_id uuid,from_state text,to_state text,execution_count integer)
