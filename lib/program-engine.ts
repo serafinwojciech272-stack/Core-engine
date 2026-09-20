@@ -115,7 +115,7 @@ export function executionGate(plan: ProgramPlan, stage: ProgramStage) {
   const validation = validateProgram(plan);
   if (!validation.valid) return { allowed: false, reason: "VALIDATION_FAILED" };
   if (stage.status !== "READY" && stage.status !== "RUNNING") return { allowed: false, reason: "STAGE_NOT_READY" };
-  if (plan.scope.requireHumanApproval && stage.id >= 107 && stage.id !== 108) {
+  if (plan.scope.requireHumanApproval && plan.status !== "RUNNING") {
     return { allowed: false, reason: "HUMAN_APPROVAL_REQUIRED" };
   }
   return { allowed: true, reason: "EXECUTION_ALLOWED" };
