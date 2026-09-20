@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
+import { assessOutcome } from "@/lib/outcome-quality";
 import { listPersistedEvents, listPersistedMissions, recordPersistedMissionOutcome, storageMode, transitionPersistedMission } from "@/lib/storage";
 
 const MAX_BODY_BYTES = 16_000;
@@ -73,6 +74,11 @@ export async function POST(request: Request) {
     : {};
   if (Object.keys(outcome).length > 20) return NextResponse.json({ ok: false, error: "OUTCOME_TOO_LARGE" }, { status: 400 });
 
+  const assessment = action === "measure" || action === "complete" ? assessOutcome(outcome) : null;
+  if (action === "complete" && assessment?.quality === "UNVERIFIED") {
+    return NextResponse.json({ ok: false, error: "OUTCOME_UNVERIFIED", assessment }, { status: 422 });
+  }
+
   if (storageMode() === "supabase") {
     try {
       const persisted = (await listPersistedMissions()).find((item) => item.id === id);
@@ -81,15 +87,15 @@ export async function POST(request: Request) {
       const actorType = action === "approve" || action === "reject" ? "human" : "system";
       const result = await transitionPersistedMission(id, next, actorType);
       if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
-      if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", outcome);
-      if (action === "learn") await recordPersistedMissionOutcome(id, "LEARNING_RECORDED", outcome);
+      if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", { ...outcome, assessment });
+      if (action === "learn") await recordPersistedMissionOutcome(id, "LEARNING_RECORDED", { ...outcome, assessment });
       const updated = {
         ...persisted,
         state: result.to_state,
         executionCount: result.execution_count,
         updatedAt: new Date().toISOString()
       };
-      return NextResponse.json({ ok: true, mission: updated, action, persistence: "supabase" });
+      return NextResponse.json({ ok: true, mission: updated, action, assessment, persistence: "supabase" });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       const status = detail.includes("MISSION_NOT_FOUND") ? 404 : detail.includes("INVALID_TRANSITION") ? 409 : 503;
@@ -114,7 +120,7 @@ export async function POST(request: Request) {
         eventType: action === "execute" ? "EXECUTION_RECORDED" : action === "measure" ? "MEASUREMENT_RECORDED" : "LEARNING_RECORDED",
         toState: updated.state,
         actorType: "system",
-        metadata: outcome
+        metadata: { ...outcome, ...(assessment ? { assessment } : {}) }
       });
     }
 
@@ -126,7 +132,7 @@ export async function POST(request: Request) {
       toState: updated.state,
       actorType: action === "approve" || action === "reject" ? "human" : "system"
     });
-    return NextResponse.json({ ok: true, mission: updated, action, event, persistence: "in-memory-runtime" });
+    return NextResponse.json({ ok: true, mission: updated, action, assessment, event, persistence: "in-memory-runtime" });
   } catch {
     return NextResponse.json({ ok: false, error: "INVALID_TRANSITION" }, { status: 409 });
   }
