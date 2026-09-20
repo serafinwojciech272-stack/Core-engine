@@ -3,7 +3,7 @@ import { missions, events, recordMissionEvent, transitionMission, type MissionSt
 import { evaluateMissionAction } from "@/lib/policy";
 import { assessOutcome } from "@/lib/outcome-quality";
 import { buildLearningLesson } from "@/lib/learning-engine";
-import { listPersistedEvents, listPersistedMissions, listPersistedPredictions, recordPersistedLearning, recordPersistedMissionOutcome, resolvePersistedPrediction, storageMode, transitionPersistedMission } from "@/lib/storage";
+import { claimPersistedAction, listPersistedEvents, listPersistedMissions, listPersistedPredictions, recordPersistedLearning, recordPersistedMissionOutcome, resolvePersistedPrediction, storageMode, transitionPersistedMission } from "@/lib/storage";
 
 const MAX_BODY_BYTES = 16_000;
 
