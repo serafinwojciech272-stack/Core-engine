@@ -84,3 +84,8 @@ body{background:radial-gradient(circle at 12% 8%,rgba(255,41,77,.055),transparen
 .audithead b{transition:all .25s ease}.auditpanel:has(.auditverify:disabled){box-shadow:0 0 24px rgba(53,229,138,.06)}
 .auditverify:focus-visible,.navbtn:focus-visible,.primary:focus-visible,.secondary:focus-visible,.nextaction:focus-visible,.scenario-tabs button:focus-visible{outline:2px solid var(--violet2);outline-offset:3px}
 .auditpanel:has(.auditverify:not(:disabled)){box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+
+.auditstate.idle{color:var(--green);border-color:rgba(53,229,138,.4)}
+.auditstate.checking{color:var(--orange2);border-color:rgba(255,138,36,.5);background:rgba(255,138,36,.06)}
+.auditstate.verified{color:#76ffad;border-color:rgba(53,229,138,.65);background:rgba(53,229,138,.08);box-shadow:0 0 18px rgba(53,229,138,.08)}
+.auditstate.invalid{color:#ff7183;border-color:rgba(255,41,77,.65);background:rgba(255,41,77,.08);box-shadow:0 0 18px rgba(255,41,77,.08)}
