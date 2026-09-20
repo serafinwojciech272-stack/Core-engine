@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
-import { listPersistedEvents, listPersistedMissions, storageMode, transitionPersistedMission } from "@/lib/storage";
+import { listPersistedEvents, listPersistedMissions, recordPersistedMissionOutcome, storageMode, transitionPersistedMission } from "@/lib/storage";
 
 const MAX_BODY_BYTES = 16_000;
 
@@ -68,6 +68,11 @@ export async function POST(request: Request) {
   const next = nextByAction[action];
   if (!next) return NextResponse.json({ ok: false, error: "UNKNOWN_ACTION" }, { status: 400 });
 
+  const outcome = payload.outcome && typeof payload.outcome === "object" && !Array.isArray(payload.outcome)
+    ? payload.outcome as Record<string, unknown>
+    : {};
+  if (Object.keys(outcome).length > 20) return NextResponse.json({ ok: false, error: "OUTCOME_TOO_LARGE" }, { status: 400 });
+
   if (storageMode() === "supabase") {
     try {
       const persisted = (await listPersistedMissions()).find((item) => item.id === id);
@@ -75,6 +80,10 @@ export async function POST(request: Request) {
 
       const actorType = action === "approve" || action === "reject" ? "human" : "system";
       const result = await transitionPersistedMission(id, next, actorType);
+      if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
+      if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", outcome);
+      if (action === "complete") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", outcome);
+      if (action === "learn") await recordPersistedMissionOutcome(id, "LEARNING_RECORDED", outcome);
       const updated = {
         ...persisted,
         state: result.to_state,
@@ -99,6 +108,7 @@ export async function POST(request: Request) {
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
+    if (action === "execute") recordMissionEvent({ missionId: id, decisionId: updated.decisionId, eventType: "STATE_CHANGED", fromState: updated.state, toState: updated.state, actorType: "system" });
     const event = recordMissionEvent({
       missionId: id,
       decisionId: updated.decisionId,
