@@ -31,7 +31,9 @@ jobs:
           npm config set fetch-retry-mintimeout 1000
           npm config set fetch-retry-maxtimeout 5000
           npm config set fetch-timeout 120000
-          timeout 8m npm install --ignore-scripts --no-audit --no-fund --progress=false
+          npm config set registry https://registry.npmjs.org/
+          npm config set maxsockets 8
+          timeout 8m npm install --ignore-scripts --omit=optional --no-audit --no-fund --progress=false
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
