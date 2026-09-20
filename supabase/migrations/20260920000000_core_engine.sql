@@ -134,9 +134,8 @@ begin
   insert into ce_action_claims(mission_id,action,idempotency_key)
   values(p_mission_id,p_action,p_idempotency_key)
   on conflict (mission_id,action,idempotency_key) do nothing;
-  return query select exists(select 1 from ce_action_claims c where c.mission_id=p_mission_id and c.action=p_action and c.idempotency_key=p_idempotency_key) and
-    (select count(*) from ce_action_claims c where c.mission_id=p_mission_id and c.action=p_action and c.idempotency_key=p_idempotency_key)=1,
-    p_mission_id,p_action,p_idempotency_key;
+  return query select (x.inserted),p_mission_id,p_action,p_idempotency_key
+  from (select true as inserted) x;
 end $$;
 
 create or replace function public.ce_transition_mission(p_mission_id uuid,p_next_state text,p_actor_type text)
@@ -154,8 +153,8 @@ begin
   ) t(a,b) where t.a=m.state and t.b=p_next_state) then raise exception 'INVALID_TRANSITION'; end if;
   if p_next_state in ('APPROVED','REJECTED','EXPIRED') and p_actor_type<>'human' then raise exception 'HUMAN_ACTOR_REQUIRED'; end if;
   if p_next_state in ('EXECUTING','MEASURING','COMPLETED','LEARNED','FAILED') and p_actor_type<>'system' then raise exception 'SYSTEM_ACTOR_REQUIRED'; end if;
-  update ce_missions set state=p_next_state,execution_count=execution_count+case when p_next_state='EXECUTING' then 1 else 0 end,updated_at=now() where id=p_mission_id
-  returning id,decision_id,m.state,state,execution_count into mission_id,decision_id,from_state,to_state,execution_count;
+  update ce_missions set state=p_next_state,execution_count=execution_count+case when p_next_state='EXECUTING' then 1 else 0 end,updated_at=now() where ce_missions.id=p_mission_id
+  returning ce_missions.id,ce_missions.decision_id,m.state,ce_missions.state,ce_missions.execution_count into mission_id,decision_id,from_state,to_state,execution_count;
   insert into ce_events(mission_id,decision_id,event_type,from_state,to_state,actor_type)
   values(p_mission_id,m.decision_id,'STATE_CHANGED',m.state,p_next_state,p_actor_type);
   return next;
