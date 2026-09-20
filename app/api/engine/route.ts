@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const riskGate = decision.riskGate ?? "UNAVAILABLE";
+    const riskGate = String(decision.riskGate ?? "UNAVAILABLE");
     const riskGateStatus = riskGate === "BLOCK" ? "BLOCKED" : riskGate === "CAUTION" ? "CAUTION" : riskGate === "PASS" ? "PASS" : "UNAVAILABLE";
 
     const trace = [
