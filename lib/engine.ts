@@ -6,6 +6,7 @@ export type MissionState = typeof MISSION_STATES[number];
 
 export type EngineSignal = { name: string; value: string; source: string };
 import type { ProbabilityEstimate } from "@/lib/probability-engine";
+import type { MultiTimeframeAnalysis } from "@/lib/multi-timeframe-engine";
 
 export type Decision = {
   id: string;
@@ -18,6 +19,7 @@ export type Decision = {
   probability?: ProbabilityEstimate;
   expectedR?: number;
   riskGate?: "PASS" | "CAUTION" | "BLOCK";
+  multiTimeframe?: MultiTimeframeAnalysis;
   signalConflict?: {
     status: "NONE" | "DETECTED";
     supporting: string[];
