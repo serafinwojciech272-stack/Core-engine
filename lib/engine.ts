@@ -60,7 +60,7 @@ export type EngineEvent = {
   id: string;
   missionId: string;
   decisionId?: string;
-  eventType: "MISSION_CREATED" | "STATE_CHANGED";
+  eventType: "MISSION_CREATED" | "STATE_CHANGED" | "EXECUTION_RECORDED" | "MEASUREMENT_RECORDED" | "LEARNING_RECORDED";
   fromState?: MissionState;
   toState?: MissionState;
   actorType: "system" | "human" | "agent";
