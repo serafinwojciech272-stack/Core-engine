@@ -1,0 +1,2 @@
+export type ResilienceStatus={requestLimits:"ENFORCED";timeoutMs:8000;idempotency:"ENFORCED";failClosedRiskGate:true;executionRetries:"DISABLED_UNTIL_MT5";killSwitch:"CONTRACT_READY"};
+export function getResilienceStatus():ResilienceStatus{return{requestLimits:"ENFORCED",timeoutMs:8000,idempotency:"ENFORCED",failClosedRiskGate:true,executionRetries:"DISABLED_UNTIL_MT5",killSwitch:"CONTRACT_READY"};}
