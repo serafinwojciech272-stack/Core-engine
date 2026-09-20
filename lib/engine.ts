@@ -5,6 +5,8 @@ export const MISSION_STATES = [
 export type MissionState = typeof MISSION_STATES[number];
 
 export type EngineSignal = { name: string; value: string; source: string };
+import type { ProbabilityEstimate } from "@/lib/probability-engine";
+
 export type Decision = {
   id: string;
   diagnosis: string;
@@ -13,6 +15,7 @@ export type Decision = {
   priority: "HIGH" | "MEDIUM" | "LOW";
   evidence: string[];
   probabilities?: { p1R: number; p2R: number; p3R: number };
+  probability?: ProbabilityEstimate;
   expectedR?: number;
   riskGate?: "PASS" | "CAUTION" | "BLOCK";
   signalConflict?: {
