@@ -126,40 +126,13 @@ export function approveProgram(plan: ProgramPlan): ProgramPlan {
 }
 
 export function continueProgram(plan: ProgramPlan): ProgramPlan {
-  const stages: ProgramStage[] = plan.stages.map((stage, i): ProgramStage => {
+  const stages: ProgramStage[] = plan.stages.map((stage) => {
     if (stage.id !== plan.nextStage) return stage;
-    const next = plan.stages[i + 1];
-    return { ...stage, status: "PASSED" as const, evidence: [...stage.evidence, "stage_passed"], checkpoint: crypto.randomUUID(), ...(next ? {} : {}) };
+    return { ...stage, status: "PASSED", evidence: [...stage.evidence, "stage_passed"], checkpoint: crypto.randomUUID() };
   });
-  const nextIndex = stages.findIndex((s) => s.status === "PENDING" || s.status === "READY");
+  const nextIndex = stages.findIndex((stage) => stage.status === "PENDING" || stage.status === "READY");
   const nextStage = nextIndex >= 0 ? stages[nextIndex].id : null;
-  const nextStages = stages.map((s, i) => i === nextIndex ? { ...s, status: "READY" as const } : s);
-  return { ...plan, status: nextStage === null ? "COMPLETED" : "RUNNING", stages: nextStages, nextStage, updatedAt: now() };
+  if (nextIndex >= 0) stages[nextIndex] = { ...stages[nextIndex], status: "READY" };
+  return { ...plan, status: nextStage === null ? "COMPLETED" : "RUNNING", stages, nextStage, updatedAt: now() };
 }
 
-export function expandProgram(plan: ProgramPlan, requestedStages: number): ProgramPlan {
-  const extra = Math.max(0, Math.min(plan.scope.maxStages - plan.stages.length, Math.floor(requestedStages)));
-  if (extra === 0) return plan;
-  const base = Math.max(...plan.stages.map((s) => s.id), 112);
-  const additions = Array.from({ length: extra }, (_, i) => ({
-    id: base + i + 1,
-    name: "DYNAMIC_STAGE_" + (base + i + 1),
-    phase: "DYNAMIC",
-    status: "PENDING" as const,
-    evidence: ["dynamically_expanded_by_policy"]
-  }));
-  return { ...plan, stages: [...plan.stages, ...additions], updatedAt: now() };
-}
-
-export function buildCheckpoint(plan: ProgramPlan) {
-  const stage = plan.stages.find((s) => s.id === plan.nextStage);
-  return {
-    checkpointId: crypto.randomUUID(),
-    programId: plan.programId,
-    stageId: stage?.id ?? null,
-    state: plan.status,
-    nextStage: plan.nextStage,
-    integrity: "CHECKPOINT_V1",
-    createdAt: now()
-  };
-}
