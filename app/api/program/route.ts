@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     if (action === "execute") {
       const stage=plan.stages.find(s=>s.id===plan.nextStage);
       if(!stage) return NextResponse.json({ok:true,action,status:"COMPLETED",plan});
-      const gate=executionGate(plan,stage);
+      const gate=executionGate(loaded,stage);
       if(!gate.allowed) return NextResponse.json({ok:false,action,error:"EXECUTION_GATE_BLOCKED",reason:gate.reason,plan},{status:409});
       plan={...plan!,stages:plan!.stages.map(s=>s.id===stage.id?{...s,status:"RUNNING",evidence:[...s.evidence,"transaction_boundary_open","validation_evidence_ready"]}:s),updatedAt:new Date().toISOString()};
       mem.__corePrograms?.set(plan.programId,plan);
