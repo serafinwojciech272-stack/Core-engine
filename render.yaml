@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: core-engine
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true

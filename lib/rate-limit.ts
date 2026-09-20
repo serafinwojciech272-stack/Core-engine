@@ -1,0 +1,3 @@
+type Bucket={started:number;count:number};
+const root=globalThis as typeof globalThis&{__coreRateLimit?:Map<string,Bucket>};root.__coreRateLimit??=new Map();const buckets=root.__coreRateLimit;
+export function rateLimit(key:string,max=Number(process.env.RATE_LIMIT_MAX||60),windowMs=Number(process.env.RATE_LIMIT_WINDOW_MS||60000)){const now=Date.now(),b=buckets.get(key);if(!b||now-b.started>=windowMs){buckets.set(key,{started:now,count:1});return{allowed:true,remaining:Math.max(0,max-1)}}b.count++;if(buckets.size>5000){for(const[k,v]of buckets)if(now-v.started>=windowMs)buckets.delete(k)}return{allowed:b.count<=max,remaining:Math.max(0,max-b.count),retryAfterMs:Math.max(0,windowMs-(now-b.started))}}

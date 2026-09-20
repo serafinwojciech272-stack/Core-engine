@@ -1,0 +1,1 @@
+const base=process.env.SMOKE_URL||"http://localhost:3000";const r=await fetch(base+"/api/health");if(!r.ok)throw new Error("health "+r.status);const e=await fetch(base+"/api/engine");if(!e.ok)throw new Error("engine "+e.status);console.log("SMOKE PASS",base);

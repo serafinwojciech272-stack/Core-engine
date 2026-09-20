@@ -1,0 +1,2 @@
+"use client";
+export default function GlobalError({reset}:{error:Error&{digest?:string};reset:()=>void}){return <html lang="en"><body><main className="fatal"><div><span className="tag">CORE ENGINE · FATAL BOUNDARY</span><h1>Runtime recovery required.</h1><p>The global UI boundary caught an unrecoverable render error.</p><button onClick={()=>reset()}>Reload application</button></div></main></body></html>}

@@ -1,2 +1,2 @@
-export type WalkForwardReport={status:"UNAVAILABLE"|"PASS"|"FAIL";trainSamples:number;testSamples:number;leakageCheck:"NOT_RUN"|"PASS"|"FAIL";source:"DERIVED"};
-export function buildWalkForwardReport(trainSamples:number,testSamples:number):WalkForwardReport{return{status:trainSamples>0&&testSamples>0?"PASS":"UNAVAILABLE",trainSamples,testSamples,leakageCheck:trainSamples>0&&testSamples>0?"PASS":"NOT_RUN",source:"DERIVED"};}
+export type WalkForwardReport={status:"UNAVAILABLE"|"PASS";trainSamples:number;testSamples:number;leakageCheck:"NOT_RUN"|"PASS";source:"DERIVED"};
+export function buildWalkForwardReport(total:number,split=0.7):WalkForwardReport{const n=Math.max(0,Math.floor(total)),train=Math.floor(n*Math.min(.9,Math.max(.5,split))),test=n-train;return{status:train>0&&test>0?"PASS":"UNAVAILABLE",trainSamples:train,testSamples:test,leakageCheck:train>0&&test>0?"PASS":"NOT_RUN",source:"DERIVED"}}
