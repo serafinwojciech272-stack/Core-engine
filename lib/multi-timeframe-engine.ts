@@ -13,7 +13,7 @@ export type MultiTimeframeAnalysis = {
   frames: Array<{ timeframe: Timeframe; direction: "LONG" | "SHORT" | "NEUTRAL" | "UNAVAILABLE"; source: string }>;
 };
 
-function read(signals: EngineSignal[], timeframe: Timeframe) {
+function read(signals: EngineSignal[], timeframe: Timeframe): { direction: "LONG" | "SHORT" | "NEUTRAL" | "UNAVAILABLE"; source: string } {
   const aliases = [`direction_${timeframe.toLowerCase()}`, `trend_${timeframe.toLowerCase()}`, `mtf_${timeframe.toLowerCase()}`];
   const hit = signals.find((s) => aliases.includes(s.name));
   if (!hit) return { direction: "UNAVAILABLE" as const, source: "UNAVAILABLE" };
