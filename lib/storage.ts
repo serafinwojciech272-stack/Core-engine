@@ -62,6 +62,33 @@ export async function recordPersistedMissionOutcome(id: string, eventType: "EXEC
   });
 }
 
+export async function recordPersistedLearning(
+  missionId: string,
+  lesson: {
+    lessonType: "POSITIVE_DELTA" | "NEGATIVE_DELTA" | "UNVERIFIED";
+    quality: "VERIFIED" | "NEGATIVE" | "UNVERIFIED";
+    improved: boolean | null;
+    delta: number | null;
+    deltaPct: number | null;
+    lesson: string;
+    reason: string;
+  }
+) {
+  return rpc<{ learning_id: string; mission_id: string; decision_id: string; lesson_type: string; quality: string; lesson: string }>(
+    "ce_record_learning",
+    {
+      p_mission_id: missionId,
+      p_lesson_type: lesson.lessonType,
+      p_quality: lesson.quality,
+      p_improved: lesson.improved,
+      p_delta: lesson.delta,
+      p_delta_pct: lesson.deltaPct,
+      p_lesson: lesson.lesson,
+      p_reason: lesson.reason
+    }
+  );
+}
+
 export async function listPersistedMissions(): Promise<Mission[]> {
   const config = getConfig();
   if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
