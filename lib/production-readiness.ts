@@ -1,0 +1,2 @@
+export const productionStages={security:"HARDENED",performance:"BASELINE",accessibility:"UI_REQUIRED",integration:"CORE_CONTRACTS",mt5:"READ_ONLY_CONTRACT",execution:"SIMULATION_ONLY",learning:"PERSISTED",audit:"CHAINED"} as const;
+export function getProductionReadiness(){return{...productionStages,truth:"DERIVED",liveBrokerExecution:false};}
