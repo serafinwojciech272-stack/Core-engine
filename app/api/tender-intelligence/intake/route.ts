@@ -13,8 +13,8 @@ const OFFICIAL_SOURCE = "https://zabrze.logintrade.net/zapytania_email,238598,f6
 function decodeBase64(v:string){const normalized=v.replace(/^data:[^;]+;base64,/,"");return new Uint8Array(Buffer.from(normalized,"base64"))}
 function attachmentLinks(html:string){
  const links:{name:string;url:string}[]=[];
- const re=/<a[^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi; let m:RegExpExecArray|null;
- while((m=re.exec(html))){const href=m[1], label=m[2].replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").trim(), name=label||decodeURIComponent(href.split("/").pop()||"").split("?")[0]; if(/\\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name)||/\\.(pdf|docx?|xlsx?|zip|xml|rtf)(?:$|[?#])/i.test(href)) links.push({name,url:new URL(href,OFFICIAL_SOURCE).toString()})}
+ const re=/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\\/a>/gi; let m:RegExpExecArray|null;
+ while((m=re.exec(html))){const href=m[1], label=m[2].replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").trim(), name=label||decodeURIComponent(href.split("/").pop()||"").split("?")[0]; if(/\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name)||/\.(pdf|docx?|xlsx?|zip|xml|rtf)(?:$|[?#])/i.test(href)) links.push({name,url:new URL(href,OFFICIAL_SOURCE).toString()})}
  return links.filter((x,i,a)=>a.findIndex(y=>y.url===x.url)===i)
 }
 async function fetchOfficialDocuments(sourceUrl:string){
@@ -22,7 +22,7 @@ async function fetchOfficialDocuments(sourceUrl:string){
  const res=await fetch(u,{cache:"no-store",headers:{"user-agent":"Core-Engine-Tender-Intelligence/1.0"}});
  if(!res.ok) throw new Error("OFFICIAL_SOURCE_FETCH_"+res.status);
  const html=await res.text(); const links=attachmentLinks(html); const docs:ParsedTenderDocument[]=[];
- for(const link of links){const r=await fetch(link.url,{cache:"no-store",headers:{"user-agent":"Core-Engine-Tender-Intelligence/1.0"}}); if(!r.ok) continue; const bytes=new Uint8Array(await r.arrayBuffer()); if(bytes.byteLength>MAX_FILE) continue; if(/\\.zip$/i.test(link.name)){docs.push(...await parseTenderZip(bytes,link.name,"official-intake"));}else{docs.push(await parseTenderDocument(bytes,link.name,"official-intake"));}}
+ for(const link of links){const r=await fetch(link.url,{cache:"no-store",headers:{"user-agent":"Core-Engine-Tender-Intelligence/1.0"}}); if(!r.ok) continue; const bytes=new Uint8Array(await r.arrayBuffer()); if(bytes.byteLength>MAX_FILE) continue; if(/\.zip$/i.test(link.name)){docs.push(...await parseTenderZip(bytes,link.name,"official-intake"));}else{docs.push(await parseTenderDocument(bytes,link.name,"official-intake"));}}
  return {docs,discovered:links.map(x=>x.name)};
 }
 export async function POST(request:Request){
@@ -33,7 +33,7 @@ export async function POST(request:Request){
   const caseId=String(body.caseId||"Z154/68879"); const title=String(body.title||"Zabrze · municipal waste");
   let docs:ParsedTenderDocument[]=[]; let discovered:string[]=[];
   if(body.sourceUrl){const result=await fetchOfficialDocuments(body.sourceUrl);docs=result.docs;discovered=result.discovered}
-  if(Array.isArray(body.documents)){let total=0;for(const item of body.documents){const bytes=decodeBase64(String(item.base64||""));total+=bytes.byteLength;if(bytes.byteLength>MAX_FILE||total>MAX_TOTAL)throw new Error("DOCUMENT_SIZE_LIMIT");if(/\\.zip$/i.test(item.name))docs.push(...await parseTenderZip(bytes,item.name));else docs.push(await parseTenderDocument(bytes,item.name));}}
+  if(Array.isArray(body.documents)){let total=0;for(const item of body.documents){const bytes=decodeBase64(String(item.base64||""));total+=bytes.byteLength;if(bytes.byteLength>MAX_FILE||total>MAX_TOTAL)throw new Error("DOCUMENT_SIZE_LIMIT");if(/\.zip$/i.test(item.name))docs.push(...await parseTenderZip(bytes,item.name));else docs.push(await parseTenderDocument(bytes,item.name));}}
   if(!docs.length)return NextResponse.json({ok:false,error:"NO_DOCUMENTS_PARSED",sourceUrl:body.sourceUrl||OFFICIAL_SOURCE,discovered},{status:422});
   const dataset=normalizeTenderCase(caseId,docs); const fingerprint=fingerprintDataset(dataset);
   const persisted=storageMode()==="supabase"?await persistTenderCase(caseId,title,fingerprint,dataset as unknown as Record<string,unknown>):null;
