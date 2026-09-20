@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
+import { evaluateMissionAction } from "@/lib/policy";
 import { assessOutcome } from "@/lib/outcome-quality";
 import { buildLearningLesson } from "@/lib/learning-engine";
 import { listPersistedEvents, listPersistedMissions, listPersistedPredictions, recordPersistedLearning, recordPersistedMissionOutcome, resolvePersistedPrediction, storageMode, transitionPersistedMission } from "@/lib/storage";
@@ -95,7 +96,9 @@ export async function POST(request: Request) {
       const persisted = (await listPersistedMissions()).find((item) => item.id === id);
       if (!persisted) return NextResponse.json({ ok: false, error: "MISSION_NOT_FOUND" }, { status: 404 });
 
-      const actorType = action === "approve" || action === "reject" || action === "abort" ? "human" : "system";
+      const policy = evaluateMissionAction(action, persisted.state);
+      if (!policy.allowed) return NextResponse.json({ ok: false, error: "POLICY_DENIED", reason: policy.reason }, { status: 403 });
+      const actorType = policy.actor;
       if (!idempotencyKey) return NextResponse.json({ ok: false, error: "IDEMPOTENCY_KEY_REQUIRED" }, { status: 400 });
       const claim = await claimPersistedAction(id, action, idempotencyKey);
       if (!claim.claimed) return NextResponse.json({ ok: true, duplicate: true, mission: persisted, action, persistence: "supabase" });
@@ -147,6 +150,8 @@ export async function POST(request: Request) {
   if (!mission) return NextResponse.json({ ok: false, error: "MISSION_NOT_FOUND" }, { status: 404 });
 
   try {
+    const policy = evaluateMissionAction(action, mission.state);
+    if (!policy.allowed) return NextResponse.json({ ok: false, error: "POLICY_DENIED", reason: policy.reason }, { status: 403 });
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
