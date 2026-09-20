@@ -69,6 +69,14 @@ export async function persistDecisionMission(decision: Decision, mission: Missio
   });
 }
 
+export async function claimPersistedAction(id: string, action: string, idempotencyKey: string) {
+  return rpc<{ claimed: boolean; mission_id: string; action: string; idempotency_key: string }>("ce_claim_action", {
+    p_mission_id: id,
+    p_action: action,
+    p_idempotency_key: idempotencyKey
+  });
+}
+
 export async function transitionPersistedMission(id: string, next: MissionState, actorType: "system" | "human" | "agent") {
   return rpc<{ mission_id: string; decision_id: string; from_state: MissionState; to_state: MissionState; execution_count: number }>("ce_transition_mission", { p_mission_id: id, p_next_state: next, p_actor_type: actorType });
 }
