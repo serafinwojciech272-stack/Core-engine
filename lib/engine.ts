@@ -64,6 +64,7 @@ export type EngineEvent = {
   fromState?: MissionState;
   toState?: MissionState;
   actorType: "system" | "human" | "agent";
+  metadata?: Record<string, unknown>;
   createdAt: string;
 };
 
