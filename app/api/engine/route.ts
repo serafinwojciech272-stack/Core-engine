@@ -6,6 +6,8 @@ import { buildAuditChain } from "@/lib/audit-chain";
 import { getMT5ReadOnlyStatus } from "@/lib/mt5-gateway";
 import { getResilienceStatus } from "@/lib/resilience";
 import { getProductionReadiness } from "@/lib/production-readiness";
+import { getStageManifest } from "@/lib/stage-manifest";
+import { getSecurityControls } from "@/lib/security";
 
 const MAX_BODY_BYTES = 64_000;
 const MAX_SIGNALS = 30;
@@ -186,6 +188,8 @@ export async function GET() {
     capabilities: ["observe", "diagnose", "prioritize", "decide", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "mt5-read-only"],
     readiness: getProductionReadiness(),
     mt5: getMT5ReadOnlyStatus(),
-    resilience: getResilienceStatus()
+    resilience: getResilienceStatus(),
+    security: getSecurityControls(),
+    stageManifest: getStageManifest()
   });
 }
