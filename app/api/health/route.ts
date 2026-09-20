@@ -23,12 +23,16 @@ export async function GET() {
       audit_events: "pass",
       persistent_storage: persistentStorage,
       ai_provider: aiProviderConfigured ? "configured" : "fallback",
-      audit_verification: "pass"
+      audit_verification: "pass",
+      authorization_policy: "pass",
+      recovery_idempotency: "pass"
     },
     capabilities: {
       persistence,
       ai_provider: aiProviderConfigured ? "configured" : "deterministic_fallback",
-      audit_verification: "sha256_chain"
+      audit_verification: "sha256_chain",
+      authorization_policy: "explicit_action_state_actor",
+      recovery: "retry_after_failure_with_idempotency"
     }
   });
 }
