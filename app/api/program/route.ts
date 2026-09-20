@@ -71,6 +71,13 @@ export async function POST(request: Request) {
     if (action === "checkpoint") {
       const checkpoint=buildCheckpoint(plan);
       const persistence=await persist(plan,{type:"CHECKPOINT_CREATED",checkpoint});
+      if (persistence === "supabase") {
+        const config=supabaseConfig();
+        if (config) {
+          const cp=await fetch(config.url + "/rest/v1/ce_program_checkpoints", { method:"POST", cache:"no-store", headers:{apikey:config.key,Authorization:"Bearer "+config.key,"Content-Type":"application/json"}, body:JSON.stringify({id:checkpoint.checkpointId,program_id:checkpoint.programId,stage_id:checkpoint.stageId,state:checkpoint.state,next_stage:checkpoint.nextStage,integrity:checkpoint.integrity}) });
+          if(!cp.ok) throw new Error("PROGRAM_CHECKPOINT_PERSIST_"+cp.status);
+        }
+      }
       return NextResponse.json({ok:true,action,checkpoint,persistence});
     }
     if (action === "execute") {
