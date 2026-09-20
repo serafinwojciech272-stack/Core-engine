@@ -200,6 +200,14 @@ export default function Home() {
       <div className="metrics"><div><span>Architecture layers</span><strong>08</strong></div><div><span>Mission states</span><strong>12</strong></div><div><span>Control principle</span><strong>HUMAN-IN-LOOP</strong></div><div><span>Runtime</span><strong>READY</strong></div></div>
     </section>
 
+    <section id="autonomous" className="programfield">
+      <div className="sectionhead"><span>AUTONOMOUS PROGRAM · 101 → 112</span><h2>From execution engine<br/><em>to self-continuing system.</em></h2></div>
+      <div className="programrail">
+        {[["101","CONTINUE","Bridge"],["102","BOUNDARY","Transaction"],["103","CHECKPOINT","Persistence"],["104","EVIDENCE","Validation"],["105","RESUME","Recovery"],["106","SCOPE","Governance"],["107","EXECUTE","Autonomy"],["108","EVALUATE","Quality"],["109","CONSISTENCY","Integrity"],["110","APPROVAL","Human gate"],["111","CONTINUATION","Program"],["112","EXPAND","Dynamic"]].map(([n,t,d],i)=><div className={"programnode "+(i===11?"final":"")} key={n}><small>{n}</small><strong>{t}</strong><span>{d}</span></div>)}
+      </div>
+      <div className="programlegend"><span><i className="legendgreen"/>validated</span><span><i className="legendorange"/>execution boundary</span><span><i className="legendred"/>human/risk gate</span><span><i className="legendviolet"/>dynamic planning</span></div>
+    </section>
+
     <footer><div className="brand"><span className="mark"><BrainCircuit size={17}/></span><span>CORE ENGINE</span></div><span>AI Decision & Execution Infrastructure</span><span>© 2026</span></footer>
   </main>
 }
