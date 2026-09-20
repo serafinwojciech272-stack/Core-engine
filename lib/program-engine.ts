@@ -126,7 +126,7 @@ export function approveProgram(plan: ProgramPlan): ProgramPlan {
 }
 
 export function continueProgram(plan: ProgramPlan): ProgramPlan {
-  const stages = plan.stages.map((stage, i) => {
+  const stages: ProgramStage[] = plan.stages.map((stage, i): ProgramStage => {
     if (stage.id !== plan.nextStage) return stage;
     const next = plan.stages[i + 1];
     return { ...stage, status: "PASSED" as const, evidence: [...stage.evidence, "stage_passed"], checkpoint: crypto.randomUUID(), ...(next ? {} : {}) };
