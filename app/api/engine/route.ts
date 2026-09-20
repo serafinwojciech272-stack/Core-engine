@@ -3,6 +3,9 @@ import { missions, recordMissionEvent, type EngineSignal, type Decision, type Mi
 import { listPersistedLearning, persistDecisionMission, storageMode } from "@/lib/storage";
 import { buildDecision } from "@/lib/ai-decision";
 import { buildAuditChain } from "@/lib/audit-chain";
+import { getMT5ReadOnlyStatus } from "@/lib/mt5-gateway";
+import { getResilienceStatus } from "@/lib/resilience";
+import { getProductionReadiness } from "@/lib/production-readiness";
 
 const MAX_BODY_BYTES = 64_000;
 const MAX_SIGNALS = 30;
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       engine: "core-engine",
-      version: "0.7",
+      version: "1.0",
       state: mission.state,
       persistence,
       decision,
@@ -180,6 +183,9 @@ export async function GET() {
     ok: true,
     engine: "core-engine",
     status: "READY",
-    capabilities: ["observe", "diagnose", "prioritize", "decide", "mission", "approval", "execute", "measure", "learn"]
+    capabilities: ["observe", "diagnose", "prioritize", "decide", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "mt5-read-only"],
+    readiness: getProductionReadiness(),
+    mt5: getMT5ReadOnlyStatus(),
+    resilience: getResilienceStatus()
   });
 }
