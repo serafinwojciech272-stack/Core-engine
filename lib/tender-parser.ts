@@ -44,7 +44,7 @@ function headings(nodes: any[], out: string[] = []) {
 export async function parseTenderDocument(buffer: Uint8Array, name: string, source: ParsedTenderDocument["source"] = "uploaded"): Promise<ParsedTenderDocument> {
   const format = ext(name);
   if (!EXTENSIONS.has(format)) throw new Error("UNSUPPORTED_DOCUMENT_FORMAT:" + format);
-  const sha256 = createHash("sha256").update(buffer).digest("hex");
+  const sha256 = createHash("sha256").update(Buffer.from(buffer)).digest("hex");
   const ast: any = await OfficeParser.parseOffice(buffer, { fileType: format as any, newlineDelimiter: "\n" });
   const text = String(ast.toText?.() ?? "").trim();
   const markdown = String(ast.toMarkdown?.() ?? "").trim();
