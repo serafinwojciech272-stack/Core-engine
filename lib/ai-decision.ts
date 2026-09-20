@@ -33,7 +33,8 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
       probabilities: analysis.probabilities,
       expectedR: analysis.expectedR,
       riskGate: analysis.riskGate,
-      signalConflict: analysis.signalConflict
+      signalConflict: analysis.signalConflict,
+      probability: analysis.probability
     };
   }
 
