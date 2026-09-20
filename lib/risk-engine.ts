@@ -10,6 +10,8 @@ export type RiskInput = {
   dailyLossPct?: number;
   correlatedExposurePct?: number;
   maxRiskPct?: number;
+  stopDistancePct?: number;
+  spreadPct?: number;
 };
 
 export type RiskDecision = {
@@ -17,6 +19,9 @@ export type RiskDecision = {
   reasons: string[];
   riskPct: number;
   positionRiskUnits: number;
+  hardBlock: boolean;
+  riskMode: "NORMAL" | "REDUCED" | "HALTED";
+  limits: { maxRiskPct: number; maxDrawdownPct: number; maxDailyLossPct: number; maxSpreadPct: number; maxSlippagePct: number; maxCorrelatedExposurePct: number };
 };
 
 function n(signals: EngineSignal[], name: string) {
@@ -34,6 +39,7 @@ export function evaluateRisk(signals: EngineSignal[], expectedR: number): RiskDe
   const drawdownPct = n(signals, "drawdown_pct") ?? 0;
   const dailyLossPct = n(signals, "daily_loss_pct") ?? 0;
   const correlatedExposurePct = n(signals, "correlated_exposure_pct") ?? 0;
+  const stopDistancePct = n(signals, "stop_distance_pct") ?? 0;
 
   const reasons: string[] = [];
   let gate: RiskDecision["gate"] = "PASS";
@@ -53,6 +59,8 @@ export function evaluateRisk(signals: EngineSignal[], expectedR: number): RiskDe
   else if (slippagePct >= 0.05) { gate = gate === "BLOCK" ? gate : "CAUTION"; reasons.push("slippage>=0.05%"); }
 
   if (correlatedExposurePct >= 5) { gate = gate === "BLOCK" ? gate : "CAUTION"; reasons.push("correlated_exposure>=5%"); }
+  if (stopDistancePct <= 0) { gate = "BLOCK"; reasons.push("stop_distance_missing"); }
+  else if (stopDistancePct >= 5) { gate = "BLOCK"; reasons.push("stop_distance>=5%"); }
   if (gate === "CAUTION") riskPct *= 0.5;
   if (gate === "BLOCK") riskPct = 0;
 
@@ -60,6 +68,9 @@ export function evaluateRisk(signals: EngineSignal[], expectedR: number): RiskDe
     gate,
     reasons,
     riskPct: Number(riskPct.toFixed(3)),
-    positionRiskUnits: Number((riskPct / 100).toFixed(5))
+    positionRiskUnits: Number((riskPct / 100).toFixed(5)),
+    hardBlock: gate === "BLOCK",
+    riskMode: gate === "BLOCK" ? "HALTED" : gate === "CAUTION" ? "REDUCED" : "NORMAL",
+    limits: { maxRiskPct: 1.5, maxDrawdownPct: 10, maxDailyLossPct: 3, maxSpreadPct: 0.15, maxSlippagePct: 0.10, maxCorrelatedExposurePct: 5 }
   };
 }
