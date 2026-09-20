@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try { body = raw ? JSON.parse(raw) : {}; } catch { return NextResponse.json({ok:false,error:"INVALID_JSON"},{status:400}); }
   try {
-    let plan: ProgramPlan | null = null;
+    let plan: ProgramPlan;
     const action = String(body.action ?? "plan");
     if (action === "plan") {
       plan = createProgram(String(body.objective ?? "Complete the Core Engine autonomous execution program."), body.scope as Partial<ProgramPlan["scope"]> | undefined);
