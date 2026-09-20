@@ -1,5 +1,5 @@
-import "./tender.css";
 "use client";
+import "./tender.css";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, CheckCircle2, CircleAlert, FileText, Gauge, Layers3, ShieldAlert, Sparkles, Target, Zap } from "lucide-react";
 import { documents, questions, requirements, tenderFacts, type Priority } from "@/app/tender-intelligence/zabrze/data";
