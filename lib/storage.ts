@@ -89,6 +89,40 @@ export async function recordPersistedLearning(
   );
 }
 
+export type LearningContext = {
+  lessonType: "POSITIVE_DELTA" | "NEGATIVE_DELTA" | "UNVERIFIED";
+  quality: "VERIFIED" | "NEGATIVE" | "UNVERIFIED";
+  deltaPct: number | null;
+  lesson: string;
+  reason: string;
+  kpi: string;
+  createdAt: string;
+};
+
+export async function listPersistedLearning(limit = 20): Promise<LearningContext[]> {
+  const config = getConfig();
+  if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+  const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+  const response = await supabaseFetch(
+    config.url + "/rest/v1/ce_learning?select=lesson_type,quality,delta_pct,lesson,reason,created_at,ce_missions!inner(kpi)&order=created_at.desc&limit=" + safeLimit,
+    { headers: { apikey: config.key, Authorization: "Bearer " + config.key } }
+  );
+  if (!response.ok) throw new Error("SUPABASE_LEARNING_READ_" + response.status);
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  return rows.map((row) => {
+    const mission = row.ce_missions as Record<string, unknown>;
+    return {
+      lessonType: row.lesson_type as LearningContext["lessonType"],
+      quality: row.quality as LearningContext["quality"],
+      deltaPct: typeof row.delta_pct === "number" ? row.delta_pct : null,
+      lesson: String(row.lesson),
+      reason: String(row.reason),
+      kpi: String(mission.kpi),
+      createdAt: String(row.created_at)
+    };
+  });
+}
+
 export async function listPersistedMissions(): Promise<Mission[]> {
   const config = getConfig();
   if (!config) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
