@@ -16,6 +16,13 @@ export type TradingAnalysis = {
   decision: "LONG_WATCH" | "SHORT_WATCH" | "WAIT";
   reasons: string[];
   methodology: "deterministic-heuristic-v1";
+  signalConflict: {
+    status: "NONE" | "DETECTED";
+    supporting: string[];
+    conflicting: string[];
+    dominant: string;
+    reasons: string[];
+  };
 };
 
 function valueOf(signals: EngineSignal[], name: string): string {
@@ -40,6 +47,43 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
   const primary = Math.abs(momentumPct) >= 0.01 ? momentumPct : changePct;
   const direction: TradingAnalysis["direction"] =
     primary > 0.01 ? "LONG" : primary < -0.01 ? "SHORT" : "NEUTRAL";
+
+  const supporting: string[] = [];
+  const conflicting: string[] = [];
+  const conflictReasons: string[] = [];
+
+  if (regime === "TREND" && direction !== "NEUTRAL") {
+    supporting.push("REGIME");
+    supporting.push("MOMENTUM");
+  } else if (regime === "RANGE" && direction !== "NEUTRAL") {
+    conflicting.push("REGIME ↔ DIRECTION");
+    conflictReasons.push("Range regime does not confirm directional continuation.");
+  }
+
+  if (volatilityPct >= 1.0) {
+    conflicting.push("VOLATILITY ↔ ACTION");
+    conflictReasons.push("High volatility suppresses directional action.");
+  } else if (volatilityPct < 0.35) {
+    supporting.push("VOLATILITY");
+  }
+
+  if (direction === "NEUTRAL") {
+    conflicting.push("DIRECTION");
+    conflictReasons.push("No directional move is strong enough to establish a side.");
+  }
+
+  const signalConflict = {
+    status: conflicting.length > 0 ? "DETECTED" as const : "NONE" as const,
+    supporting,
+    conflicting,
+    dominant:
+      conflicting.length > 0
+        ? conflicting[0]
+        : supporting.length > 0
+          ? supporting[0]
+          : "NONE",
+    reasons: conflictReasons,
+  };
 
   const trendBonus = regime === "TREND" ? 0.18 : regime === "RANGE" ? -0.06 : 0;
   const momentumScore = clamp(Math.abs(primary) / 0.5, 0, 1);
@@ -112,5 +156,6 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     decision,
     reasons,
     methodology: "deterministic-heuristic-v1",
+    signalConflict,
   };
 }
