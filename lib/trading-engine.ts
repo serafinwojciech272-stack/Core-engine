@@ -1,6 +1,7 @@
 import type { EngineSignal } from "@/lib/engine";
 import { evaluateRisk } from "@/lib/risk-engine";
 import { estimateTradingProbability, type ProbabilityEstimate } from "@/lib/probability-engine";
+import { analyzeMultiTimeframe, type MultiTimeframeAnalysis } from "@/lib/multi-timeframe-engine";
 
 export type TradingAnalysis = {
   instrument: string;
@@ -17,6 +18,7 @@ export type TradingAnalysis = {
   riskGate: "PASS" | "CAUTION" | "BLOCK";
   riskMode: "NORMAL" | "REDUCED" | "HALTED";
   riskPct: number;
+  multiTimeframe: MultiTimeframeAnalysis;
   decision: "LONG_WATCH" | "SHORT_WATCH" | "WAIT";
   reasons: string[];
   methodology: "deterministic-heuristic-v1";
@@ -75,6 +77,8 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     conflicting.push("DIRECTION");
     conflictReasons.push("No directional move is strong enough to establish a side.");
   }
+
+  const multiTimeframe = analyzeMultiTimeframe(signals);
 
   const signalConflict = {
     status: conflicting.length > 0 ? "DETECTED" as const : "NONE" as const,
@@ -143,6 +147,8 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     "risk_gate=" + riskGate,
     ...risk.reasons.map((reason) => "risk=" + reason),
     "confidence=" + confidence.toFixed(3),
+    "mtf=" + multiTimeframe.alignment,
+    "mtf_agreement=" + (multiTimeframe.agreementPct == null ? "UNAVAILABLE" : multiTimeframe.agreementPct + "%"),
   ];
 
   return {
@@ -163,6 +169,7 @@ export function analyzeTrading(signals: EngineSignal[]): TradingAnalysis {
     riskGate,
     riskMode: risk.riskMode,
     riskPct: risk.riskPct,
+    multiTimeframe,
     decision,
     reasons,
     methodology: "deterministic-heuristic-v1",
