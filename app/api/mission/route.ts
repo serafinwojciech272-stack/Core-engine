@@ -82,7 +82,6 @@ export async function POST(request: Request) {
       const result = await transitionPersistedMission(id, next, actorType);
       if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
       if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", outcome);
-      if (action === "complete") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", outcome);
       if (action === "learn") await recordPersistedMissionOutcome(id, "LEARNING_RECORDED", outcome);
       const updated = {
         ...persisted,
@@ -108,7 +107,6 @@ export async function POST(request: Request) {
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
-    if (action === "execute") recordMissionEvent({ missionId: id, decisionId: updated.decisionId, eventType: "STATE_CHANGED", fromState: updated.state, toState: updated.state, actorType: "system" });
     const event = recordMissionEvent({
       missionId: id,
       decisionId: updated.decisionId,
