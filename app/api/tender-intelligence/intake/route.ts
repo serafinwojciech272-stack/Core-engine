@@ -13,7 +13,7 @@ const OFFICIAL_SOURCE = "https://zabrze.logintrade.net/zapytania_email,238598,f6
 function decodeBase64(v:string){const normalized=v.replace(/^data:[^;]+;base64,/,"");return new Uint8Array(Buffer.from(normalized,"base64"))}
 function attachmentLinks(html:string){
  const links:{name:string;url:string}[]=[];
- const re=/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\\/a>/gi; let m:RegExpExecArray|null;
+ const re=/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi; let m:RegExpExecArray|null;
  while((m=re.exec(html))){const href=m[1], label=m[2].replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").trim(), name=label||decodeURIComponent(href.split("/").pop()||"").split("?")[0]; if(/\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name)||/\.(pdf|docx?|xlsx?|zip|xml|rtf)(?:$|[?#])/i.test(href)) links.push({name,url:new URL(href,OFFICIAL_SOURCE).toString()})}
  return links.filter((x,i,a)=>a.findIndex(y=>y.url===x.url)===i)
 }
