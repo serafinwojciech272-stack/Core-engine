@@ -10,8 +10,6 @@ export type RiskInput = {
   dailyLossPct?: number;
   correlatedExposurePct?: number;
   maxRiskPct?: number;
-  stopDistancePct?: number;
-  spreadPct?: number;
 };
 
 export type RiskDecision = {
