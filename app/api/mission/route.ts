@@ -107,6 +107,17 @@ export async function POST(request: Request) {
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
+    if (action === "execute" || action === "measure" || action === "learn") {
+      recordMissionEvent({
+        missionId: id,
+        decisionId: updated.decisionId,
+        eventType: action === "execute" ? "EXECUTION_RECORDED" : action === "measure" ? "MEASUREMENT_RECORDED" : "LEARNING_RECORDED",
+        toState: updated.state,
+        actorType: "system",
+        metadata: outcome
+      });
+    }
+
     const event = recordMissionEvent({
       missionId: id,
       decisionId: updated.decisionId,
