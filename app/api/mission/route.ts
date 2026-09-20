@@ -57,6 +57,7 @@ export async function POST(request: Request) {
   const payload = body as Record<string, unknown>;
   const id = typeof payload.id === "string" ? payload.id.trim() : "";
   const action = typeof payload.action === "string" ? payload.action : "";
+  const idempotencyKey = typeof payload.idempotencyKey === "string" ? payload.idempotencyKey.trim() : "";
 
   if (!id) return NextResponse.json({ ok: false, error: "MISSION_ID_REQUIRED" }, { status: 400 });
   if (!action) return NextResponse.json({ ok: false, error: "ACTION_REQUIRED" }, { status: 400 });
@@ -67,10 +68,14 @@ export async function POST(request: Request) {
     execute: "EXECUTING",
     measure: "MEASURING",
     complete: "COMPLETED",
-    learn: "LEARNED"
+    learn: "LEARNED",
+    fail: "FAILED",
+    retry: "EXECUTING",
+    abort: "REJECTED"
   };
   const next = nextByAction[action];
   if (!next) return NextResponse.json({ ok: false, error: "UNKNOWN_ACTION" }, { status: 400 });
+  if (idempotencyKey.length > 200) return NextResponse.json({ ok: false, error: "IDEMPOTENCY_KEY_TOO_LONG" }, { status: 400 });
 
   const outcome = payload.outcome && typeof payload.outcome === "object" && !Array.isArray(payload.outcome)
     ? payload.outcome as Record<string, unknown>
@@ -90,7 +95,10 @@ export async function POST(request: Request) {
       const persisted = (await listPersistedMissions()).find((item) => item.id === id);
       if (!persisted) return NextResponse.json({ ok: false, error: "MISSION_NOT_FOUND" }, { status: 404 });
 
-      const actorType = action === "approve" || action === "reject" ? "human" : "system";
+      const actorType = action === "approve" || action === "reject" || action === "abort" ? "human" : "system";
+      if (!idempotencyKey) return NextResponse.json({ ok: false, error: "IDEMPOTENCY_KEY_REQUIRED" }, { status: 400 });
+      const claim = await claimPersistedAction(id, action, idempotencyKey);
+      if (!claim.claimed) return NextResponse.json({ ok: true, duplicate: true, mission: persisted, action, persistence: "supabase" });
       let learning = null;
 
       if (action === "learn") {
@@ -102,7 +110,7 @@ export async function POST(request: Request) {
       }
 
       const result = await transitionPersistedMission(id, next, actorType);
-      if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
+      if (action === "execute" || action === "retry") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
       if (action === "measure") {
         await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", { ...outcome, assessment });
         const realizedR = typeof outcome.realizedR === "number" && Number.isFinite(outcome.realizedR) ? outcome.realizedR : null;
