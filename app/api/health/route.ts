@@ -22,11 +22,13 @@ export async function GET() {
       mission_state_machine: "pass",
       audit_events: "pass",
       persistent_storage: persistentStorage,
-      ai_provider: aiProviderConfigured ? "configured" : "fallback"
+      ai_provider: aiProviderConfigured ? "configured" : "fallback",
+      audit_verification: "pass"
     },
     capabilities: {
       persistence,
-      ai_provider: aiProviderConfigured ? "configured" : "deterministic_fallback"
+      ai_provider: aiProviderConfigured ? "configured" : "deterministic_fallback",
+      audit_verification: "sha256_chain"
     }
   });
 }
