@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
 import { assessOutcome } from "@/lib/outcome-quality";
-import { listPersistedEvents, listPersistedMissions, recordPersistedMissionOutcome, storageMode, transitionPersistedMission } from "@/lib/storage";
+import { buildLearningLesson } from "@/lib/learning-engine";
+import { listPersistedEvents, listPersistedMissions, recordPersistedLearning, recordPersistedMissionOutcome, storageMode, transitionPersistedMission } from "@/lib/storage";
 
 const MAX_BODY_BYTES = 16_000;
 
@@ -74,7 +75,10 @@ export async function POST(request: Request) {
     : {};
   if (Object.keys(outcome).length > 20) return NextResponse.json({ ok: false, error: "OUTCOME_TOO_LARGE" }, { status: 400 });
 
-  const assessment = action === "measure" || action === "complete" ? assessOutcome(outcome) : null;
+  const assessment = action === "measure" || action === "complete" || action === "learn" ? assessOutcome(outcome) : null;
+  if (action === "learn" && assessment?.quality === "UNVERIFIED") {
+    return NextResponse.json({ ok: false, error: "LEARNING_UNVERIFIED", assessment }, { status: 422 });
+  }
   if (action === "complete" && assessment?.quality === "UNVERIFIED") {
     return NextResponse.json({ ok: false, error: "OUTCOME_UNVERIFIED", assessment }, { status: 422 });
   }
@@ -85,17 +89,27 @@ export async function POST(request: Request) {
       if (!persisted) return NextResponse.json({ ok: false, error: "MISSION_NOT_FOUND" }, { status: 404 });
 
       const actorType = action === "approve" || action === "reject" ? "human" : "system";
+      let learning = null;
+
+      if (action === "learn") {
+        const lesson = buildLearningLesson(assessment!, {
+          missionObjective: persisted.objective,
+          kpi: persisted.kpi
+        });
+        learning = await recordPersistedLearning(id, lesson);
+      }
+
       const result = await transitionPersistedMission(id, next, actorType);
       if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
       if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", { ...outcome, assessment });
-      if (action === "learn") await recordPersistedMissionOutcome(id, "LEARNING_RECORDED", { ...outcome, assessment });
+
       const updated = {
         ...persisted,
         state: result.to_state,
         executionCount: result.execution_count,
         updatedAt: new Date().toISOString()
       };
-      return NextResponse.json({ ok: true, mission: updated, action, assessment, persistence: "supabase" });
+      return NextResponse.json({ ok: true, mission: updated, action, assessment, learning, persistence: "supabase" });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       const status = detail.includes("MISSION_NOT_FOUND") ? 404 : detail.includes("INVALID_TRANSITION") ? 409 : 503;
@@ -113,14 +127,25 @@ export async function POST(request: Request) {
     const updated = transitionMission(mission, next);
     updated.executionCount = action === "execute" ? mission.executionCount + 1 : mission.executionCount;
     missions.set(id, updated);
+    let learning = null;
     if (action === "execute" || action === "measure" || action === "learn") {
+      if (action === "learn") {
+        learning = buildLearningLesson(assessment!, {
+          missionObjective: updated.objective,
+          kpi: updated.kpi
+        });
+      }
       recordMissionEvent({
         missionId: id,
         decisionId: updated.decisionId,
         eventType: action === "execute" ? "EXECUTION_RECORDED" : action === "measure" ? "MEASUREMENT_RECORDED" : "LEARNING_RECORDED",
         toState: updated.state,
         actorType: "system",
-        metadata: { ...outcome, ...(assessment ? { assessment } : {}) }
+        metadata: {
+          ...outcome,
+          ...(assessment ? { assessment } : {}),
+          ...(learning ? { learning } : {})
+        }
       });
     }
 
@@ -132,7 +157,7 @@ export async function POST(request: Request) {
       toState: updated.state,
       actorType: action === "approve" || action === "reject" ? "human" : "system"
     });
-    return NextResponse.json({ ok: true, mission: updated, action, assessment, event, persistence: "in-memory-runtime" });
+    return NextResponse.json({ ok: true, mission: updated, action, assessment, learning, event, persistence: "in-memory-runtime" });
   } catch {
     return NextResponse.json({ ok: false, error: "INVALID_TRANSITION" }, { status: 409 });
   }
