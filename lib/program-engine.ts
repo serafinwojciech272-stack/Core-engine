@@ -136,3 +136,31 @@ export function continueProgram(plan: ProgramPlan): ProgramPlan {
   return { ...plan, status: nextStage === null ? "COMPLETED" : "RUNNING", stages, nextStage, updatedAt: now() };
 }
 
+
+
+export function expandProgram(plan: ProgramPlan, requestedStages: number): ProgramPlan {
+  const extra = Math.max(0, Math.min(plan.scope.maxStages - plan.stages.length, Math.floor(requestedStages)));
+  if (extra === 0) return plan;
+  const base = Math.max(...plan.stages.map((s) => s.id), 112);
+  const additions: ProgramStage[] = Array.from({ length: extra }, (_, i) => ({
+    id: base + i + 1,
+    name: "DYNAMIC_STAGE_" + (base + i + 1),
+    phase: "DYNAMIC",
+    status: "PENDING",
+    evidence: ["dynamically_expanded_by_policy"]
+  }));
+  return { ...plan, stages: [...plan.stages, ...additions], updatedAt: now() };
+}
+
+export function buildCheckpoint(plan: ProgramPlan) {
+  const stage = plan.stages.find((s) => s.id === plan.nextStage);
+  return {
+    checkpointId: crypto.randomUUID(),
+    programId: plan.programId,
+    stageId: stage?.id ?? null,
+    state: plan.status,
+    nextStage: plan.nextStage,
+    integrity: "CHECKPOINT_V1",
+    createdAt: now()
+  };
+}
