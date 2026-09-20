@@ -32,7 +32,8 @@ function deterministic(signals: EngineSignal[], domain?: string): DecisionPayloa
       evidence: signals.map((s) => s.name + ": " + s.value + " [" + s.source + "]"),
       probabilities: analysis.probabilities,
       expectedR: analysis.expectedR,
-      riskGate: analysis.riskGate
+      riskGate: analysis.riskGate,
+      signalConflict: analysis.signalConflict
     };
   }
 
@@ -101,7 +102,19 @@ function validate(value: unknown, signals: EngineSignal[]): DecisionPayload | nu
     evidence: groundedEvidence.length ? groundedEvidence.slice(0, 12) : signals.map((s) => `${s.name}: ${s.value} [${s.source}]`),
     probabilities: validateProbabilities(x.probabilities),
     expectedR: typeof x.expectedR === "number" && Number.isFinite(x.expectedR) ? x.expectedR : undefined,
-    riskGate: x.riskGate === "PASS" || x.riskGate === "CAUTION" || x.riskGate === "BLOCK" ? x.riskGate : undefined
+    riskGate: x.riskGate === "PASS" || x.riskGate === "CAUTION" || x.riskGate === "BLOCK" ? x.riskGate : undefined,
+    signalConflict:
+      x.signalConflict && typeof x.signalConflict === "object"
+        ? (() => {
+            const c = x.signalConflict as Record<string, unknown>;
+            const status = c.status === "DETECTED" ? "DETECTED" : c.status === "NONE" ? "NONE" : undefined;
+            if (!status) return undefined;
+            const supporting = Array.isArray(c.supporting) ? c.supporting.filter((v): v is string => typeof v === "string").slice(0, 12) : [];
+            const conflicting = Array.isArray(c.conflicting) ? c.conflicting.filter((v): v is string => typeof v === "string").slice(0, 12) : [];
+            const reasons = Array.isArray(c.reasons) ? c.reasons.filter((v): v is string => typeof v === "string").slice(0, 12) : [];
+            return { status, supporting, conflicting, dominant: typeof c.dominant === "string" ? c.dominant.slice(0, 100) : "NONE", reasons };
+          })()
+        : undefined
   };
 }
 
