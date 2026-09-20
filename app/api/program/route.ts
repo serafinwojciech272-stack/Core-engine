@@ -59,13 +59,14 @@ export async function POST(request: Request) {
     }
     const id = String(body.programId ?? "");
     if (!id) return NextResponse.json({ok:false,error:"PROGRAM_ID_REQUIRED"},{status:400});
-    plan = await load(id);
-    if (!plan) return NextResponse.json({ok:false,error:"PROGRAM_NOT_FOUND"},{status:404});
+    const loaded = await load(id);
+    if (!loaded) return NextResponse.json({ok:false,error:"PROGRAM_NOT_FOUND"},{status:404});
+    plan = loaded;
     if (action === "validate") return NextResponse.json({ok:true,action,validation:validateProgram(plan),plan});
     if (action === "scope") return NextResponse.json({ok:true,action,scope:enforceScope(plan,String(body.domain??"business"),String(body.toolAction??"analyze"))});
     if (action === "approve") {
       plan = approveProgram(plan);
-      mem.__corePrograms?.set(plan.programId,plan);
+      mem.__corePrograms?.set(plan!.programId,plan!);
       return NextResponse.json({ok:true,action,plan,persistence:await persist(plan,{type:"PROGRAM_APPROVED"})});
     }
     if (action === "checkpoint") {
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       if(!stage) return NextResponse.json({ok:true,action,status:"COMPLETED",plan});
       const gate=executionGate(plan,stage);
       if(!gate.allowed) return NextResponse.json({ok:false,action,error:"EXECUTION_GATE_BLOCKED",reason:gate.reason,plan},{status:409});
-      plan={...plan,stages:plan.stages.map(s=>s.id===stage.id?{...s,status:"RUNNING",evidence:[...s.evidence,"transaction_boundary_open","validation_evidence_ready"]}:s),updatedAt:new Date().toISOString()};
+      plan={...plan!,stages:plan!.stages.map(s=>s.id===stage.id?{...s,status:"RUNNING",evidence:[...s.evidence,"transaction_boundary_open","validation_evidence_ready"]}:s),updatedAt:new Date().toISOString()};
       mem.__corePrograms?.set(plan.programId,plan);
       return NextResponse.json({ok:true,action,stage,plan,persistence:await persist(plan,{type:"STAGE_EXECUTION_STARTED",stageId:stage.id})});
     }
