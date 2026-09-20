@@ -5,18 +5,33 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: core-engine-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          # npm cache intentionally disabled until a lockfile is committed
-      - run: npm install
+          # No lockfile yet: keep npm resolution deterministic at the network layer
+          # and prevent registry stalls from holding the quality gate indefinitely.
+      - name: Install dependencies
+        run: |
+          npm config set audit false
+          npm config set fund false
+          npm config set fetch-retries 2
+          npm config set fetch-retry-mintimeout 1000
+          npm config set fetch-retry-maxtimeout 5000
+          npm config set fetch-timeout 120000
+          timeout 8m npm install --no-audit --no-fund --progress=false
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
