@@ -1,0 +1,2 @@
+export const securityControls={requestSizeLimit:true,signalCountLimit:true,idempotency:true,serverOnlySupabaseKey:true,failClosedRiskGate:true,noBrokerExecution:true,auditChain:true} as const;
+export function getSecurityControls(){return securityControls;}
