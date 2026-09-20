@@ -1,3 +1,4 @@
+import "./tender.css";
 "use client";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, CheckCircle2, CircleAlert, FileText, Gauge, Layers3, ShieldAlert, Sparkles, Target, Zap } from "lucide-react";
