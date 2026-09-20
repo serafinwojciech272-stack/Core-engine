@@ -89,3 +89,7 @@ body{background:radial-gradient(circle at 12% 8%,rgba(255,41,77,.055),transparen
 .auditstate.checking{color:var(--orange2);border-color:rgba(255,138,36,.5);background:rgba(255,138,36,.06)}
 .auditstate.verified{color:#76ffad;border-color:rgba(53,229,138,.65);background:rgba(53,229,138,.08);box-shadow:0 0 18px rgba(53,229,138,.08)}
 .auditstate.invalid{color:#ff7183;border-color:rgba(255,41,77,.65);background:rgba(255,41,77,.08);box-shadow:0 0 18px rgba(255,41,77,.08)}
+
+
+.controlstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:linear-gradient(90deg,rgba(124,58,237,.09),rgba(249,115,22,.06),rgba(34,197,94,.05));backdrop-filter:blur(12px)}
+.controlstrip span{display:flex;align-items:center;gap:6px;color:#a7a7b4;font-size:10px;letter-spacing:.08em}.controlstrip b{margin-left:auto;color:#fff;font-size:10px}.controlstrip svg{opacity:.8}@media(max-width:760px){.controlstrip{grid-template-columns:repeat(2,1fr)}}
