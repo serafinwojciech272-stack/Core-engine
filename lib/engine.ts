@@ -20,6 +20,7 @@ export type Decision = {
   expectedR?: number;
   riskGate?: "PASS" | "CAUTION" | "BLOCK";
   multiTimeframe?: MultiTimeframeAnalysis;
+  features?: import("@/lib/feature-engine").FeatureSnapshot;
   signalConflict?: {
     status: "NONE" | "DETECTED";
     supporting: string[];
