@@ -2,23 +2,25 @@ import { NextResponse } from "next/server";
 import { missions, events, recordMissionEvent, transitionMission, type MissionState } from "@/lib/engine";
 import { assessOutcome } from "@/lib/outcome-quality";
 import { buildLearningLesson } from "@/lib/learning-engine";
-import { listPersistedEvents, listPersistedMissions, recordPersistedLearning, recordPersistedMissionOutcome, storageMode, transitionPersistedMission } from "@/lib/storage";
+import { listPersistedEvents, listPersistedMissions, listPersistedPredictions, recordPersistedLearning, recordPersistedMissionOutcome, resolvePersistedPrediction, storageMode, transitionPersistedMission } from "@/lib/storage";
 
 const MAX_BODY_BYTES = 16_000;
 
 export async function GET() {
   if (storageMode() === "supabase") {
     try {
-      const [persistedMissions, persistedEvents] = await Promise.all([
+      const [persistedMissions, persistedEvents, predictions] = await Promise.all([
         listPersistedMissions(),
-        listPersistedEvents()
+        listPersistedEvents(),
+        listPersistedPredictions()
       ]);
       return NextResponse.json({
         ok: true,
         missions: persistedMissions,
         count: persistedMissions.length,
         persistence: "supabase",
-        events: persistedEvents
+        events: persistedEvents,
+        predictions
       });
     } catch {
       return NextResponse.json({ ok: false, error: "PERSISTENCE_READ_FAILED" }, { status: 503 });
@@ -101,7 +103,14 @@ export async function POST(request: Request) {
 
       const result = await transitionPersistedMission(id, next, actorType);
       if (action === "execute") await recordPersistedMissionOutcome(id, "EXECUTION_RECORDED", outcome);
-      if (action === "measure") await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", { ...outcome, assessment });
+      if (action === "measure") {
+        await recordPersistedMissionOutcome(id, "MEASUREMENT_RECORDED", { ...outcome, assessment });
+        const realizedR = typeof outcome.realizedR === "number" && Number.isFinite(outcome.realizedR) ? outcome.realizedR : null;
+        if (realizedR !== null) {
+          const outcomeStatus = realizedR > 0 ? "WON" : realizedR < 0 ? "LOST" : "UNRESOLVED";
+          await resolvePersistedPrediction(id, realizedR, outcomeStatus, { ...outcome, assessment });
+        }
+      }
 
       const updated = {
         ...persisted,
@@ -109,7 +118,13 @@ export async function POST(request: Request) {
         executionCount: result.execution_count,
         updatedAt: new Date().toISOString()
       };
-      return NextResponse.json({ ok: true, mission: updated, action, assessment, learning, persistence: "supabase" });
+      let prediction = null;
+      try {
+        prediction = (await listPersistedPredictions(100)).find((item) => item.missionId === id) ?? null;
+      } catch {
+        prediction = null;
+      }
+      return NextResponse.json({ ok: true, mission: updated, action, assessment, learning, prediction, persistence: "supabase" });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       const status = detail.includes("MISSION_NOT_FOUND") ? 404 : detail.includes("INVALID_TRANSITION") ? 409 : 503;
