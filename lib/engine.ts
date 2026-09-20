@@ -15,6 +15,13 @@ export type Decision = {
   probabilities?: { p1R: number; p2R: number; p3R: number };
   expectedR?: number;
   riskGate?: "PASS" | "CAUTION" | "BLOCK";
+  signalConflict?: {
+    status: "NONE" | "DETECTED";
+    supporting: string[];
+    conflicting: string[];
+    dominant: string;
+    reasons: string[];
+  };
 };
 export type Mission = {
   id: string;
