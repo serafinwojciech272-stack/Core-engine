@@ -111,3 +111,17 @@ body{background:radial-gradient(circle at 12% 8%,rgba(255,41,77,.055),transparen
 .programlegend span{display:flex;align-items:center;gap:7px}.programlegend i{width:7px;height:7px;border-radius:50%;display:inline-block}.legendgreen{background:var(--green);box-shadow:0 0 12px var(--green)}.legendorange{background:var(--orange);box-shadow:0 0 12px var(--orange)}.legendred{background:var(--blood);box-shadow:0 0 12px var(--blood)}.legendviolet{background:var(--violet);box-shadow:0 0 12px var(--violet)}
 @media(max-width:1100px){.programrail{grid-template-columns:repeat(6,1fr)}}
 @media(max-width:600px){.programfield{padding:80px 6vw}.programrail{grid-template-columns:repeat(2,1fr)}.programnode{min-height:125px}.programfield:before{display:none}}
+
+/* FINAL VISUAL POLISH · SIGNAL / MISSION CONTROL */
+.hero,.programfield,.quality,.architecture,.control,.products{isolation:isolate}
+.sectionhead{position:relative}
+.sectionhead:after{content:"";display:block;width:74px;height:2px;margin-top:18px;background:linear-gradient(90deg,var(--blood),var(--orange),var(--violet),var(--green));box-shadow:0 0 18px rgba(139,92,246,.25)}
+.navbtn{background:linear-gradient(105deg,#6d28d9,#8b5cf6 48%,#ff7a18);border-color:rgba(255,179,71,.55)}
+.status{color:#77717f}
+.status .dot{background:var(--green);box-shadow:0 0 16px var(--green)}
+.decisiongrid div{background:rgba(0,0,0,.16);border-radius:9px}
+.decisiongrid div:hover{border-color:rgba(255,138,36,.35);transform:translateY(-2px)}
+.missionbar{background:linear-gradient(90deg,rgba(255,255,255,.015),transparent);border-radius:8px}
+.metrics div:hover{background:rgba(139,92,246,.035)}
+footer{border-top:1px solid rgba(255,255,255,.025)}
+@media(max-width:760px){.navbtn{padding:10px 12px}.navbtn span{display:none}}
