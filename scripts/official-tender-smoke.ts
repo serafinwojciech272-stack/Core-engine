@@ -22,7 +22,7 @@ function attachmentLinks(html: string) {
 const source = new URL(SOURCE);
 if (source.hostname !== HOST) throw new Error("OFFICIAL_HOST_MISMATCH");
 
-const page = await fetch(SOURCE, { cache: "no-store", headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36", "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "accept-language": "pl-PL,pl;q=0.9,en;q=0.8", "referer": "https://zabrze.logintrade.net/" } });
+const browserHeaders = { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36", "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "accept-language": "pl-PL,pl;q=0.9,en;q=0.8", "referer": "https://zabrze.logintrade.net/" };\nconst bootstrap = await fetch("https://zabrze.logintrade.net/", { cache: "no-store", headers: browserHeaders });\nconst setCookies = typeof (bootstrap.headers as any).getSetCookie === "function" ? (bootstrap.headers as any).getSetCookie() : [];\nconst cookie = setCookies.map((v:string) => v.split(";")[0]).join("; ");\nconst page = await fetch(SOURCE, { cache: "no-store", headers: { ...browserHeaders, ...(cookie ? { cookie } : {}) } });
 if (!page.ok) throw new Error(`OFFICIAL_SOURCE_FETCH_${page.status}`);
 const html = await page.text();
 const links = attachmentLinks(html);
