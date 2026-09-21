@@ -35,8 +35,15 @@ export default function AlertPage() {
   const [auditSent, setAuditSent] = useState(false);
   const [surface, setSurface] = useState("Hala produkcyjna");
   const [area, setArea] = useState("5000");
-  const [systems, setSystems] = useState<string[]>(["CCTV", "SSWiN"]);\n  const [progress, setProgress] = useState(0);\n  const [menuOpen, setMenuOpen] = useState(false);
-  const selectedSector = useMemo(() => sectors.find((x) => x.id === sector) ?? sectors[0], [sector]);\n  useEffect(() => {\n    const onScroll = () => { const max = document.documentElement.scrollHeight - window.innerHeight; setProgress(max > 0 ? (window.scrollY / max) * 100 : 0); };\n    onScroll(); window.addEventListener("scroll", onScroll, { passive: true });\n    return () => window.removeEventListener("scroll", onScroll);\n  }, []);
+  const [systems, setSystems] = useState<string[]>(["CCTV", "SSWiN"]);
+  const [progress, setProgress] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const selectedSector = useMemo(() => sectors.find((x) => x.id === sector) ?? sectors[0], [sector]);
+  useEffect(() => {
+    const onScroll = () => { const max = document.documentElement.scrollHeight - window.innerHeight; setProgress(max > 0 ? (window.scrollY / max) * 100 : 0); };
+    onScroll(); window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   function toggleSystem(value: string) { setSystems((current) => current.includes(value) ? current.filter((x) => x !== value) : [...current, value]); }
 
   return <main className={styles.page}>
@@ -102,7 +109,7 @@ export default function AlertPage() {
 
     <section className={styles.future}><div className={styles.futureCard}><span className={styles.kicker}>THE NEW ALERT</span><h2>Security technology partner. <em>Not another installer.</em></h2><p>ALERT ma aktywa potrzebne do przejścia wyżej w łańcuchu wartości: historia od 1990 roku, kompetencje techniczne, szeroki stack, serwis i referencje. Następny etap to produktowa komunikacja, specjalizacja verticalowa, recurring revenue i własna warstwa cyfrowa.</p><div className={styles.futureGrid}><span>ENGINEERING</span><span>INTEGRATION</span><span>AI</span><span>SERVICE</span><span>MODERNIZATION</span><span>DATA</span></div></div></section>
 
-    <section id="kontakt" className={styles.contact}><div><span className={styles.kicker}>10 · NEXT MOVE</span><h2>Masz obiekt. <em>ALERT buduje plan.</em></h2><p>Proponowany pierwszy krok biznesowy: bezpłatny audyt obecnej infrastruktury + mapa modernizacji + plan działań sprzedażowych.</p></div><div className={styles.contactActions}><a className={styles.primary} href="tel:+48322761320">Porozmawiaj z ALERT <ArrowRight size={16}/></a><a className={styles.secondary} href="mailto:biuro@alert.net.pl">biuro@alert.net.pl <ArrowRight size={16}/></a></div></section>
+    <section id="kontakt" className={styles.contact}><div><span className={styles.kicker}>10 · NEXT MOVE</span><h2>Masz obiekt. <em>ALERT buduje plan.</em></h2><p>Proponowany pierwszy krok biznesowy: bezpłatny audyt obecnej infrastruktury + mapa modernizacji + plan działań sprzedażowych.</p></div><div className={styles.contactActions}><a className={styles.primary} href="tel:+48322761320">Porozmawiaj z ALERT <ArrowRight size={16}/></a><a className={styles.secondary} href="mailto:alert@alert.net.pl">alert@alert.net.pl <ArrowRight size={16}/></a></div></section>
     <footer className={styles.footer}><div className={styles.brand}><span className={styles.logoMark}><span/><span/><span/></span><span><b>ALERT</b><small>SECURITY ENGINEERING</small></span></div><span>Myśliwska 69 · 41-800 Zabrze · od 1990</span><span>Technical Security · Teletechnika · IT</span></footer>
   </main>;
 }
