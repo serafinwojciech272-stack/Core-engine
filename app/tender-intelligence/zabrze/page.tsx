@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import {
   documents, questions, requirements, tenderFacts, type Priority,
-  analysisStages, fccEvidence, strategicChecks
+  analysisStages, fccEvidence, strategicChecks, competitorEvidence, tenderNoticeSections
 } from "@/app/tender-intelligence/zabrze/data";
 
 const tabs = [
   "Podsumowanie",
+  "Treść zapytania",
   "Analiza krok po kroku",
   "Pytania do zamawiającego",
   "Dlaczego FCC?",
@@ -78,7 +79,7 @@ export default function TenderIntelligence() {
           <div className="hero-actions">
             <button onClick={() => setTab("Analiza krok po kroku")}><Workflow size={15} /> Przejdź przez analizę</button>
             <button onClick={() => setTab("Dlaczego FCC?")}><Target size={15} /> Sprawdź hipotezę FCC</button>
-            <a href={tenderFacts.sourceUrl} target="_blank" rel="noreferrer">Otwórz źródło <ArrowUpRight size={14} /></a>
+            <a href={tenderFacts.sourceUrl} target="_blank" rel="noreferrer">Otwórz oficjalne źródło <ArrowUpRight size={14} /></a>
           </div>
         </div>
 
@@ -185,6 +186,31 @@ export default function TenderIntelligence() {
           </div>
         )}
 
+        {tab === "Treść zapytania" && (
+          <div className="notice-board">
+            <div className="notice-head">
+              <div>
+                <span className="card-kicker"><FileText size={14} /> PEŁNY OBRAZ POSTĘPOWANIA</span>
+                <h2>Co dokładnie wiemy z oficjalnego ogłoszenia — i czego jeszcze nie wolno udawać, że wiemy.</h2>
+                <p>Ta sekcja odtwarza wszystkie elementy postępowania, które są obecnie potwierdzone w źródle publicznym. Pełna treść SWZ, OPZ, PPU, XLS i ZIP pozostaje osobnym etapem ekstrakcji dokumentowej.</p>
+              </div>
+              <a href={tenderFacts.sourceUrl} target="_blank" rel="noreferrer">OFICJALNE ŹRÓDŁO <ArrowUpRight size={14}/></a>
+            </div>
+            <div className="notice-sections">
+              {tenderNoticeSections.map(s => (
+                <article key={s.title}>
+                  <span>{s.title}</span>
+                  {s.items.map(item => <p key={item}><CheckCircle2 size={13}/>{item}</p>)}
+                </article>
+              ))}
+            </div>
+            <div className="notice-warning">
+              <CircleAlert size={17}/>
+              <div><b>WAŻNE: „WYKAZANY” NIE ZNACZY „ODCZYTANY”.</b><p>Core Engine nie powinien generować pozornej pewności na podstawie samej listy załączników. Następny gate to pobranie, odczyt i kontrola spójności wszystkich dziewięciu plików.</p></div>
+            </div>
+          </div>
+        )}
+
         {tab === "Analiza krok po kroku" && (
           <div className="analysis-board">
             <div className="analysis-head">
@@ -268,6 +294,30 @@ export default function TenderIntelligence() {
           <div className="fcc-board">
             <div className="fcc-hero">
               <div>
+                <span className="card-kicker"><Target size={14} /> ANALIZA KONKURENCJI · FCC</span>
+                <h2>FCC kontra rzeczywiste źródła przewagi i presji cenowej.</h2>
+                <p>Nie znamy jeszcze złożonych ofert w tym postępowaniu. Dlatego porównanie opiera się na udokumentowanej historii rynku, lokalnych zasobach i scenariuszach konkurencyjnych — bez przypisywania konkurentom nieznanych cen lub ofert.</p>
+              </div>
+              <div className="fcc-hypothesis"><span>MODEL</span><b>LOKALNOŚĆ + ZASOBY + RECYKLING + CENA</b><small>Przewaga istnieje dopiero wtedy, gdy potwierdzi ją model kosztowy.</small></div>
+            </div>
+            <div className="competitor-grid">
+              {competitorEvidence.map((e,i) => <article key={e.name+i} className={e.type.includes("PUNKT") || e.type.includes("KONKURENCJI") ? "history" : ""}>
+                <div><span>0{i+1}</span><b>{e.type}</b></div><h3>{e.name}</h3><p>{e.text}</p><small>{e.source}</small><strong>IMPLIKACJA: {e.implication}</strong>
+              </article>)}
+            </div>
+            <div className="fcc-model">
+              <div className="fcc-model-head"><span className="card-kicker"><Calculator size={14} /> PORÓWNANIE SCENARIUSZY</span><h2>Co FCC musi wygrać ekonomicznie, żeby lokalność miała znaczenie?</h2></div>
+              <div className="fcc-factors">
+                {[["Koszt mobilizacji","Czy FCC potrzebuje mniej nowych zasobów niż wykonawca spoza Zabrza?"],["Koszt transportu","Czy lokalna baza i instalacje skracają puste przebiegi i dojazdy?"],["Koszt recyklingu","Czy FCC może zwiększyć punkty bez nieproporcjonalnego wzrostu kosztu?"],["CAPEX floty","Czy istniejąca flota spełnia wymagania, w tym elektromobilność?"],["Ryzyko operacyjne","Czy znajomość systemu miejskiego ogranicza ryzyko startu i reklamacji?"],["Cena ofertowa","Czy przewaga kosztowa zostaje oddana w cenie, czy pochłania ją dodatkowa marża/ryzyko?"]].map(([t,d],i)=><div key={t}><span>0{i+1}</span><b>{t}</b><p>{d}</p></div>)}
+              </div>
+            </div>
+          </div>
+        )}
+
+
+          <div className="fcc-board">
+            <div className="fcc-hero">
+              <div>
                 <span className="card-kicker"><Target size={14} /> ANALIZA KONKURENCYJNA · FCC</span>
                 <h2>Dlaczego FCC może wygrać ten przetarg?</h2>
                 <p>
@@ -345,7 +395,7 @@ export default function TenderIntelligence() {
               <h2>Źródło przed wnioskiem.</h2>
               <p>{tenderFacts.documentStatus}</p>
               <div className="doc-principle"><Scale size={16} /><span>Brak dowodu = brak potwierdzenia.</span></div>
-              <div className="doc-principle"><ClipboardCheck size={16} /><span>Po odczycie: ekstrakcja → cross-check → wpływ na cenę → pytania.</span></div>
+              <div className="doc-principle"><ClipboardCheck size={16} /><span>Po odczycie: ekstrakcja → kontrola spójności → wpływ na cenę → pytania.</span></div>
             </div>
             <div className="doc-list">
               {documents.map(d => (
