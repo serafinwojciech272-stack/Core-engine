@@ -8,7 +8,7 @@ import {
   Layers3, ShieldAlert, Sparkles, Target, Zap, ChevronRight,
   Search, Scale, Calculator, ClipboardCheck
 } from "lucide-react";
-import { documents, questions, requirements, tenderFacts, type Priority } from "@/app/tender-intelligence/zabrze/data";
+import { boardDecision, documents, executiveRisks, executiveWorkstreams, questions, requirements, tenderFacts, type Priority } from "@/app/tender-intelligence/zabrze/data";
 
 const tabs = ["Podsumowanie", "Wymagania", "Pytania do zamawiającego", "Dokumenty"] as const;
 type Tab = typeof tabs[number];
@@ -145,6 +145,35 @@ export default function TenderIntelligence() {
           </section>
         )}
 
+
+        <section className="board-brief" aria-label="Brief dla zarządu">
+          <div className="board-head">
+            <div>
+              <span className="card-kicker"><Target size={14} /> BOARD ROOM · ZABRZE</span>
+              <h2>Jedna strona dla zarządu. Jeden model decyzyjny dla zespołu ofertowego.</h2>
+              <p>Celem jest zbudowanie oferty konkurencyjnej cenowo i operacyjnie bez przeoczenia warunku formalnego, kosztowego ani kontraktowego.</p>
+            </div>
+            <div className="board-gate"><small>STATUS DECYZYJNY</small><b>WARUNKOWO OTWARTE</b><span>Nie zamykamy ceny przed zamknięciem dowodów.</span></div>
+          </div>
+          <div className="board-grid">
+            <div className="board-objective"><span>CEL</span><b>{boardDecision.objective}</b><small>{boardDecision.principle}</small></div>
+            <div className="board-blockers"><span>BLOCKERY PRZED FINALNĄ OFERTĄ</span>{boardDecision.blockers.map((x,i)=><div key={x}><b>{String(i+1).padStart(2,"0")}</b><span>{x}</span></div>)}</div>
+          </div>
+          <div className="workstream-grid">
+            {executiveWorkstreams.map(x=><div className="workstream" key={x[0]}><small>{x[0]}</small><b>{x[1]}</b><span>{x[2]}</span><i>{x[3]}</i><em>{x[4]}</em></div>)}
+          </div>
+        </section>
+
+        <section className="risk-command" aria-label="Rejestr ryzyk zarządczych">
+          <div className="section-label"><ShieldAlert size={14} /> REJESTR RYZYK · CO MOŻE ZMIENIĆ DECYZJĘ LUB CENĘ</div>
+          <div className="risk-grid">
+            {executiveRisks.map(r=><article className={"risk-card "+r.severity.toLowerCase().replace("ę","e")} key={r.id}>
+              <div><small>{r.id} · {r.severity}</small><b>{r.title}</b><span>{r.area}</span></div>
+              <p>{r.effect}</p>
+              <footer><span>{r.owner}</span><strong>{r.action}</strong></footer>
+            </article>)}
+          </div>
+        </section>
         <nav className="ti-tabs">
           {tabs.map(t => <button key={t} onClick={() => setTab(t)} className={tab === t ? "active" : ""}>{t}</button>)}
         </nav>
