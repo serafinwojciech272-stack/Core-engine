@@ -114,7 +114,52 @@ export default function TenderIntelligence() {
           <div><span>SKŁADANIE OFERT</span><b>12.10.2026 · 09:00</b></div>
           <div><span>WADIUM</span><b>4 000 000 PLN</b></div>
           <div><span>PYTANIA</span><b>{questions.length} do przeglądu</b></div>
-        </div>
+
+        <section className="command-pulse" aria-label="Command pulse">
+          <div className="pulse-head">
+            <div>
+              <span className="card-kicker"><Target size={14} /> COMMAND PULSE · Z154/68879</span>
+              <h2>Oferta jako system operacyjny, nie pojedynczy arkusz.</h2>
+              <p>Jedna warstwa łączy dowód źródłowy, zgodność, koszt, operacje, ryzyko kontraktowe i finalną kontrolę złożenia. Żadna liczba nie powinna trafić do ceny bez śladu pochodzenia.</p>
+            </div>
+            <div className="deadline-orbit">
+              <span>DEADLINE PLATFORMY</span>
+              <b>12.10.2026 · 09:00</b>
+              <small>CEL WEWNĘTRZNY · MIN. 24 H WCZEŚNIEJ</small>
+            </div>
+          </div>
+          <div className="pulse-grid">
+            <article className="pulse-card pulse-primary">
+              <div className="pulse-number">01</div>
+              <span>DOWÓD</span>
+              <b>Każde wymaganie ma źródło i status.</b>
+              <small>Ogłoszenie ≠ pełna SWZ. Dokument niewczytany pozostaje otwartym dowodem.</small>
+            </article>
+            <article className="pulse-card">
+              <div className="pulse-number">02</div>
+              <span>COST ENGINE</span>
+              <b>Wolumen → jednostka → trasa → zasób → koszt.</b>
+              <small>Nie zamykamy ceny, dopóki zakres i jednostki nie są jednoznaczne.</small>
+            </article>
+            <article className="pulse-card">
+              <div className="pulse-number">03</div>
+              <span>RECYKLING</span>
+              <b>30% kryterium wymaga osobnego modelu.</b>
+              <small>Poziom recyklingu wpływa na punktację i może mieć konsekwencje operacyjne oraz kontraktowe.</small>
+            </article>
+            <article className="pulse-card">
+              <div className="pulse-number">04</div>
+              <span>LEGAL GATE</span>
+              <b>Warunek formalny może zakończyć analizę ceny.</b>
+              <small>Najpierw kwalifikowalność, wadium, dokumenty i podpis; potem optymalizacja.</small>
+            </article>
+          </div>
+          <div className="evidence-rail">
+            <div><span className="rail-dot confirmed-dot" /><b>ZWERYFIKOWANE PUBLICZNIE</b><small>termin · wadium · tryb · zakres · kryteria</small></div>
+            <div><span className="rail-dot partial-dot" /><b>WYMAGA KORELACJI</b><small>warunki · recykling · okres · odpowiedzialność</small></div>
+            <div><span className="rail-dot verify-dot" /><b>WYMAGA DOKUMENTU</b><small>SWZ · OPZ · PPU · XLS · ZIP</small></div>
+          </div>
+        </section>
 
         {runtime && (
           <section className="runtime-panel" aria-label="Rzeczywisty przebieg misji Core Engine">
