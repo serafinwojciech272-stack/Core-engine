@@ -10,7 +10,7 @@ function attachmentLinks(html: string) {
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
     const href = m[1];
-    const label = m[2].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
+    const label = m[2].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
     const name = label || decodeURIComponent(href.split("/").pop() || "").split("?")[0];
     if (/\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name) || /\.(pdf|docx?|xlsx?|zip|xml|rtf)(?:$|[?#])/i.test(href)) {
       links.push({ name, url: new URL(href, SOURCE).toString() });
@@ -50,7 +50,7 @@ const required = [
   "Załącznik nr 2 do SWZ - Wzór umowy - Projektowane postanowienia umowy (PPU).doc",
   "Załącznik nr 5 do SWZ - KALKULACJA CENY.xls"
 ];
-const missing = required.filter(name => !names.includes(name));
+const missing = required.filter(name => !names.some(parsedName => parsedName.replace(/\s+/g, " ").trim() === name));
 if (failures.length || missing.length) {
   console.error(JSON.stringify({ ok: false, discovered: links.map(x => x.name), parsed: names, failures, missing }, null, 2));
   process.exit(1);
