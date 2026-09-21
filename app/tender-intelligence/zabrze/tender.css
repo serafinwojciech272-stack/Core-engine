@@ -29,3 +29,36 @@
 @media(max-width:1100px){.workstream-grid{grid-template-columns:repeat(3,1fr)}.risk-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.board-head,.board-grid{display:block}.board-gate{margin-top:12px}.workstream-grid{grid-template-columns:repeat(2,1fr)}.risk-grid{grid-template-columns:1fr}.board-head h2{font-size:23px}}
 @media(max-width:480px){.workstream-grid{grid-template-columns:1fr}.board-brief{padding:17px}}
+
+
+/* COMMAND PULSE · EXECUTIVE WAR ROOM */
+.command-pulse{margin:10px 0;border:1px solid #3b304a;border-radius:14px;padding:26px;background:
+radial-gradient(circle at 8% 0,rgba(255,122,24,.09),transparent 28%),
+radial-gradient(circle at 92% 10%,rgba(139,92,246,.15),transparent 34%),#08080b;
+box-shadow:0 30px 110px rgba(0,0,0,.3);position:relative;overflow:hidden}
+.command-pulse:after{content:"";position:absolute;inset:auto -15% 0;height:1px;background:linear-gradient(90deg,transparent,#ff7a18,#9d6cff,#55e69a,transparent);opacity:.45}
+.pulse-head{display:flex;justify-content:space-between;gap:28px;align-items:flex-start}
+.pulse-head h2{font-size:32px;line-height:1.02;letter-spacing:-.045em;max-width:800px;margin:12px 0 9px}
+.pulse-head p{font-size:10px;line-height:1.7;color:#807985;max-width:780px;margin:0}
+.deadline-orbit{min-width:235px;padding:16px;border:1px solid #4a3929;background:linear-gradient(145deg,#110e0a,#0a090b);border-radius:10px;box-shadow:inset 0 0 35px rgba(255,122,24,.035)}
+.deadline-orbit span,.deadline-orbit small{display:block;font:800 7px ui-monospace;color:#81766b;letter-spacing:.12em}
+.deadline-orbit b{display:block;font:900 16px ui-monospace;color:#ffc477;margin:8px 0}
+.deadline-orbit small{color:#9a6f3f}
+.pulse-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:19px}
+.pulse-card{min-height:170px;border:1px solid #29252f;background:rgba(5,5,7,.72);border-radius:10px;padding:16px;position:relative;overflow:hidden}
+.pulse-card:before{content:"";position:absolute;left:0;top:0;width:2px;height:100%;background:#49366a}
+.pulse-primary:before{background:#ff7a18}
+.pulse-number{font:900 9px ui-monospace;color:#625b69}
+.pulse-card>span{display:block;font:800 7px ui-monospace;color:#9b8da8;letter-spacing:.12em;margin-top:24px}
+.pulse-card>b{display:block;font-size:12px;line-height:1.35;margin-top:8px}
+.pulse-card>small{display:block;font-size:9px;line-height:1.55;color:#77717e;margin-top:10px}
+.evidence-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px}
+.evidence-rail>div{display:grid;grid-template-columns:10px 1fr;column-gap:8px;padding:12px 14px;border:1px solid #27232c;background:#07070a;border-radius:9px}
+.rail-dot{grid-row:1/3;width:7px;height:7px;border-radius:50%;margin-top:2px}
+.confirmed-dot{background:#55e69a;box-shadow:0 0 12px #55e69a}
+.partial-dot{background:#e4ad60;box-shadow:0 0 12px rgba(228,173,96,.35)}
+.verify-dot{background:#ff657a;box-shadow:0 0 12px rgba(255,101,122,.35)}
+.evidence-rail b{font:800 7px ui-monospace;color:#aaa1af;letter-spacing:.08em}
+.evidence-rail small{font-size:8px;color:#6f6876;line-height:1.45;margin-top:3px}
+@media(max-width:950px){.pulse-head{display:block}.deadline-orbit{margin-top:15px}.pulse-grid{grid-template-columns:1fr 1fr}.evidence-rail{grid-template-columns:1fr}}
+@media(max-width:620px){.command-pulse{padding:19px}.pulse-head h2{font-size:24px}.pulse-grid{grid-template-columns:1fr}.pulse-card{min-height:auto}.deadline-orbit{min-width:0}.evidence-rail{grid-template-columns:1fr}}
