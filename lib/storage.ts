@@ -34,3 +34,15 @@ export async function getPersistedTenderCase(caseId:string){
  if(!r.ok) throw new Error("SUPABASE_TENDER_CASE_READ_"+r.status);
  const rows=await r.json() as Record<string,unknown>[]; return rows[0]||null;
 }
+
+export async function getPersistedMissionSnapshot(missionId:string){
+ const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+ const [mr,er,lr]=await Promise.all([
+  sf(c.url+"/rest/v1/ce_missions?id=eq."+encodeURIComponent(missionId)+"&select=id,decision_id,objective,state,kpi,created_at,updated_at,execution_count&limit=1",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}}),
+  sf(c.url+"/rest/v1/ce_events?mission_id=eq."+encodeURIComponent(missionId)+"&select=id,event_type,from_state,to_state,actor_type,metadata,created_at&order=created_at.asc",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}}),
+  sf(c.url+"/rest/v1/ce_learning?mission_id=eq."+encodeURIComponent(missionId)+"&select=id,lesson_type,quality,improved,delta,delta_pct,lesson,reason,created_at&order=created_at.desc&limit=10",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}})
+ ]);
+ if(!mr.ok||!er.ok||!lr.ok) throw new Error("SUPABASE_MISSION_SNAPSHOT_READ_FAILED");
+ const missions=await mr.json() as Record<string,unknown>[];
+ return {mission:missions[0]||null,events:await er.json(),learning:await lr.json()};
+}
