@@ -88,3 +88,32 @@ export const questions: BuyerQuestion[] = [
   {id:"Q-P3-01",priority:"P3",area:"Raportowanie",issue:"Niezweryfikowany zakres raportów, danych GPS, wag i terminów przekazywania.",rationale:"Koszty IT i administracji mogą być pomijalne albo znaczące zależnie od wymagań.",pricingImpact:"Średni",question:"Prosimy o potwierdzenie wszystkich obowiązków raportowych, wymaganych systemów/interfejsów, częstotliwości przekazywania danych oraz odpowiedzialności za koszty integracji.",evidence:"OPZ/PPU — wymaga odczytu"},
   {id:"Q-P3-02",priority:"P3",area:"Zmiany zakresu",issue:"Niezweryfikowane zasady zmian liczby nieruchomości, częstotliwości i tras.",rationale:"Dynamiczna zmiana zakresu może wpływać na routing i zasoby.",pricingImpact:"Średni",question:"Prosimy o wskazanie zasad aktualizacji danych o nieruchomościach, harmonogramach i trasach oraz minimalnego wyprzedzenia, z jakim Zamawiający będzie przekazywał zmiany.",evidence:"OPZ/PPU — wymaga odczytu"}
 ];
+
+
+export const executiveRisks = [
+  {id:"R1",severity:"KRYTYCZNE",area:"Dokumentacja źródłowa",title:"Brak pełnego odczytu SWZ / OPZ / PPU / XLS / ZIP",effect:"Nie można zamknąć kalkulacji ani potwierdzić wszystkich warunków udziału.",owner:"Prawny + Ofertowanie",action:"Pełny OCR/parsowanie → indeks dowodów → cross-check → sign-off."},
+  {id:"R2",severity:"KRYTYCZNE",area:"Ekonomia",title:"Wolumeny i jednostki rozliczeniowe",effect:"Błąd bazowych wolumenów może przenieść się bezpośrednio na cenę i marżę.",owner:"Controlling + Operacje",action:"OPZ ↔ XLS ↔ trasy ↔ frakcje ↔ cost drivers."},
+  {id:"R3",severity:"KRYTYCZNE",area:"Recykling",title:"30% oceny + ryzyko wykonawcze",effect:"Wyższy poziom może zwiększać punkty, ale również koszt i ryzyko realizacji.",owner:"Technologia + Operacje",action:"Model punktowy + koszt zagospodarowania + scenariusze ryzyka."},
+  {id:"R4",severity:"WYSOKIE",area:"Wadium",title:"4 000 000 PLN",effect:"Kapitał / limit gwarancyjny i ryzyko formalne.",owner:"Finanse",action:"Potwierdzić formę, beneficjenta, rachunek i treść gwarancji."},
+  {id:"R5",severity:"WYSOKIE",area:"Flota",title:"Elektromobilność",effect:"Możliwy CAPEX/OPEX i warunki mobilizacji.",owner:"Flota + ESG",action:"Odczytać załącznik i policzyć zgodność floty."},
+  {id:"R6",severity:"WYSOKIE",area:"Umowa",title:"Kary, waloryzacja, zmiany zakresu",effect:"Ryzyko marży i cash-flow w kontrakcie 36-miesięcznym.",owner:"Prawny + Finanse",action:"Katalog sankcji + indeksacja + limity + scenariusze."},
+  {id:"R7",severity:"ŚREDNIE",area:"Opcje",title:"Opcje i odkup pojemników",effect:"Dodatkowa ekspozycja logistyczna i cenowa.",owner:"Operacje + Controlling",action:"Modelować osobno od zakresu podstawowego."},
+  {id:"R8",severity:"ŚREDNIE",area:"Submission",title:"Elektroniczna oferta i podpis kwalifikowany",effect:"Błąd techniczny może zniweczyć poprawną ofertę.",owner:"Bid Manager",action:"Próba techniczna + wewnętrzny deadline + dwóch kontrolerów."}
+] as const;
+
+export const executiveWorkstreams = [
+  ["01","DOKUMENTY","SWZ · OPZ · PPU · XLS · ZIP","Prawny / Bid","Zamknąć źródła i dowody"],
+  ["02","COST ENGINE","Wolumeny · trasy · frakcje · instalacje","Controlling / Operacje","Cena + marża + stress test"],
+  ["03","RECYKLING","33 / 40 / 45 / 50% + metodologia","Operacje / ESG","Punkty vs koszt vs ryzyko"],
+  ["04","LEGAL GATE","Warunki · kary · waloryzacja · opcje","Prawny","No-Go blockers"],
+  ["05","FLEET & CAPEX","Elektromobilność · pojemniki · mobilizacja","Flota / Finanse","Gotowość wykonawcza"],
+  ["06","SUBMISSION","JEDZ · podpis · platforma · checksum","Bid Manager","Zero-defect submission"]
+] as const;
+
+export const boardDecision = {
+  objective:"Zbudować ofertę konkurencyjną cenowo i operacyjnie, przy jednoczesnym zamknięciu wszystkich ryzyk formalnych i kontraktowych.",
+  currentGate:"WARUNKOWO OTWARTE",
+  blockers:["Pełny odczyt SWZ/OPZ/PPU/XLS/ZIP","Potwierdzenie warunków udziału","Model wolumenów i jednostek","Model recyklingu 30%","Katalog kar i waloryzacji"],
+  principle:"Nie wyceniać tego, czego nie potrafimy udowodnić w dokumentach źródłowych.",
+  internalDeadline:"Oferta wewnętrznie gotowa minimum 24 h przed deadline'em platformy."
+} as const;
