@@ -61,4 +61,4 @@ console.log(JSON.stringify({
   documents: parsed.map(x => ({ name: x.name, format: x.format, bytes: x.bytes, textLength: x.text.length, tableCount: x.tables.length, headingCount: x.headings.length, source: x.source }))
 }, null, 2));
 
-// Production gate verification branch.
+// Final production E2E verification gate: official source -> attachment discovery -> parser -> normalized evidence.
