@@ -29,4 +29,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: Official tender document ingestion smoke
+        run: node --test --experimental-strip-types scripts/official-tender-smoke.ts
       - run: npm run build
