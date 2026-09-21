@@ -1,5 +1,6 @@
 "use client";
 import "./tender.css";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, CheckCircle2, CircleAlert, FileText, Gauge, Layers3, ShieldAlert, Sparkles, Target, Zap } from "lucide-react";
 import { documents, questions, requirements, tenderFacts, type Priority } from "@/app/tender-intelligence/zabrze/data";
@@ -18,9 +19,9 @@ export default function TenderIntelligence() {
 
   return <main className="tender-shell">
     <header className="tender-nav">
-      <a href="/" className="ti-brand"><span className="ti-orb"><Sparkles size={16}/></span><span>CORE ENGINE <i>/ TENDER INTELLIGENCE</i></span></a>
+      <Link href="/" className="ti-brand"><span className="ti-orb"><Sparkles size={16}/></span><span>CORE ENGINE <i>/ TENDER INTELLIGENCE</i></span></Link>
       <div className="ti-navmeta"><span className="live-dot"/> LIVE CASE · ZABRZE 2026</div>
-      <a className="backlink" href="/">Core Engine <ArrowUpRight size={14}/></a>
+      <Link className="backlink" href="/">Core Engine <ArrowUpRight size={14}/></Link>
     </header>
 
     <section className="tender-hero">
