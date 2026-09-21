@@ -114,6 +114,7 @@ export default function TenderIntelligence() {
           <div><span>SKŁADANIE OFERT</span><b>12.10.2026 · 09:00</b></div>
           <div><span>WADIUM</span><b>4 000 000 PLN</b></div>
           <div><span>PYTANIA</span><b>{questions.length} do przeglądu</b></div>
+        </div>
 
         <section className="command-pulse" aria-label="Command pulse">
           <div className="pulse-head">
