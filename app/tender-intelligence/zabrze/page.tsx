@@ -2,7 +2,7 @@
 
 import "./tender.css";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight, CheckCircle2, CircleAlert, FileText, Gauge,
   Layers3, ShieldAlert, Sparkles, Target, Zap, ChevronRight,
@@ -37,6 +37,20 @@ export default function TenderIntelligence() {
   const confirmed = requirements.filter(r => r.status === "CONFIRMED").length;
   const partial = requirements.filter(r => r.status === "PARTIAL").length;
   const verify = requirements.filter(r => r.status === "REQUIRES_VERIFICATION").length;
+  const [runtime, setRuntime] = useState<{
+    mission?: { state?: string; execution_count?: number; kpi?: string };
+    events?: Array<{ event_type:string; from_state?:string|null; to_state?:string|null; actor_type:string; created_at:string }>;
+    learning?: { lesson?:string; quality?:string; delta?:number|null; delta_pct?:number|null };
+    outcome?: { before:number; after:number; delta:number; deltaPct:number|null };
+    executionClassification?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/tender-intelligence/zabrze", { headers: { Accept: "application/json" } })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("runtime")))
+      .then(setRuntime)
+      .catch(() => setRuntime(null));
+  }, []);
 
   return (
     <main className="tender-shell">
@@ -101,6 +115,35 @@ export default function TenderIntelligence() {
           <div><span>WADIUM</span><b>4 000 000 PLN</b></div>
           <div><span>PYTANIA</span><b>{questions.length} do przeglądu</b></div>
         </div>
+
+        {runtime && (
+          <section className="runtime-panel" aria-label="Rzeczywisty przebieg misji Core Engine">
+            <div className="runtime-head">
+              <div>
+                <span className="card-kicker"><Zap size={14} /> RUNTIME · MISJA ZABRZE</span>
+                <h2>Od rzeczywistego przypadku do decyzji, pomiaru i uczenia.</h2>
+                <p>Stan jest odczytywany z trwałego zapisu Core Engine w Supabase. Wykonanie oznaczone jako E2E_ORCHESTRATED nie oznacza wysłania oferty ani wykonania zewnętrznej czynności przetargowej.</p>
+              </div>
+              <div className="runtime-state"><b>{runtime.mission?.state || "—"}</b><span>{runtime.executionClassification || "—"}</span></div>
+            </div>
+            <div className="runtime-flow">
+              {(runtime.events || []).filter(e => e.event_type === "STATE_CHANGED" || e.event_type === "MISSION_CREATED").map((e,i) => (
+                <div className="runtime-step" key={e.created_at+i}>
+                  <small>{String(i+1).padStart(2,"0")}</small>
+                  <b>{e.to_state || e.event_type}</b>
+                  <span>{e.actor_type === "human" ? "człowiek" : "silnik"}</span>
+                </div>
+              ))}
+            </div>
+            <div className="runtime-metrics">
+              <div><span>Wynik przed</span><b>{runtime.outcome?.before ?? "—"}</b></div>
+              <div><span>Wynik po</span><b>{runtime.outcome?.after ?? "—"}</b></div>
+              <div><span>Zmiana</span><b>{runtime.outcome ? "+" + runtime.outcome.delta : "—"}</b></div>
+              <div><span>Uczenie</span><b>{runtime.learning?.quality || "—"}</b></div>
+            </div>
+            {runtime.learning?.lesson && <div className="runtime-learning"><span>LEKCJA Z WYNIKU</span><b>{runtime.learning.lesson}</b></div>}
+          </section>
+        )}
 
         <nav className="ti-tabs">
           {tabs.map(t => <button key={t} onClick={() => setTab(t)} className={tab === t ? "active" : ""}>{t}</button>)}
