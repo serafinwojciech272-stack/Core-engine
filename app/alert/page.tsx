@@ -47,7 +47,7 @@ export default function AlertPage() {
 
   function createMission() {
     setAuditOpen(true);
-    document.getElementById("misja")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("misje")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   return <main className={styles.page}>
