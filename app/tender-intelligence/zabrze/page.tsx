@@ -257,15 +257,15 @@ export default function TenderIntelligence() {
 
         <div className="workflow-strip">
           {[
-            ["01", "DOKUMENTY", FileText],
-            ["02", "EKSTRAKCJA", Search],
-            ["03", "CROSS-CHECK", Scale],
-            ["04", "WPŁYW NA CENĘ", Calculator],
-            ["05", "PYTANIA", ShieldAlert],
-            ["06", "DECYZJA", ClipboardCheck],
-          ].map(([n, label, Icon], i) => (
+            { n: "01", label: "DOKUMENTY", Icon: FileText },
+            { n: "02", label: "EKSTRAKCJA", Icon: Search },
+            { n: "03", label: "CROSS-CHECK", Icon: Scale },
+            { n: "04", label: "WPŁYW NA CENĘ", Icon: Calculator },
+            { n: "05", label: "PYTANIA", Icon: ShieldAlert },
+            { n: "06", label: "DECYZJA", Icon: ClipboardCheck },
+          ].map(({ n, label, Icon }, i) => (
             <div className="workflow-step" key={n}>
-              <span>{n}</span><Icon size={14} /><b>{label as string}</b>{i < 5 && <ChevronRight size={12} className="workflow-arrow" />}
+              <span>{n}</span><Icon size={14} /><b>{label}</b>{i < 5 && <ChevronRight size={12} className="workflow-arrow" />}
             </div>
           ))}
         </div>
