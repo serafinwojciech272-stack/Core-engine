@@ -297,16 +297,15 @@ export default function TenderIntelligence() {
               </div>
               <div className="fcc-factors">
                 {[
-                  [MapPinned, "Lokalność", "Baza i infrastruktura w Zabrzu mogą ograniczyć mobilizację."],
-                  [Truck, "Flota", "Sprawdzić dostępność pojazdów, rezerwy i elektromobilność."],
-                  [Layers3, "Infrastruktura", "Sprawdzić moce, instalacje, PSZOK i ścieżkę zagospodarowania."],
-                  [Coins, "Ekonomia", "Policzyć CAPEX + OPEX + koszt ryzyka vs punkty."],
-                  [BadgeCheck, "Recykling", "Udowodnić zdolność osiągnięcia deklarowanego poziomu."],
-                  [ShieldAlert, "Ryzyko", "Porównać kary, SLA i mobilizację z realnym zapleczem."],
-                ].map(([Icon, title, textValue]) => {
-                  const I = Icon as typeof MapPinned;
-                  return <div key={String(title)}><I size={17}/><b>{title}</b><p>{textValue}</p></div>;
-                })}
+                  { Icon: MapPinned, title: "Lokalność", text: "Baza i infrastruktura w Zabrzu mogą ograniczyć mobilizację." },
+                  { Icon: Truck, title: "Flota", text: "Sprawdzić dostępność pojazdów, rezerwy i elektromobilność." },
+                  { Icon: Layers3, title: "Infrastruktura", text: "Sprawdzić moce, instalacje, PSZOK i ścieżkę zagospodarowania." },
+                  { Icon: Coins, title: "Ekonomia", text: "Policzyć CAPEX + OPEX + koszt ryzyka vs punkty." },
+                  { Icon: BadgeCheck, title: "Recykling", text: "Udowodnić zdolność osiągnięcia deklarowanego poziomu." },
+                  { Icon: ShieldAlert, title: "Ryzyko", text: "Porównać kary, SLA i mobilizację z realnym zapleczem." },
+                ].map(({ Icon, title, text }) => (
+                  <div key={title}><Icon size={17}/><b>{title}</b><p>{text}</p></div>
+                ))}
               </div>
             </div>
 
