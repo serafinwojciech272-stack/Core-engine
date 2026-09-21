@@ -48,12 +48,12 @@ export async function parseTenderDocument(buffer: Uint8Array, name: string, sour
   if (format === "xml") {
     const raw = Buffer.from(buffer).toString("utf8");
     const text = raw
-      .replace(/<\\?xml[^>]*>/gi, " ")
-      .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gi, "$1")
+      .replace(/<\?xml[^>]*>/gi, " ")
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1")
       .replace(/<[^>]+>/g, " ")
       .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-      .replace(/\\s+/g, " ").trim();
+      .replace(/\s+/g, " ").trim();
     return { name, format, bytes: buffer.byteLength, sha256, text, markdown: text, headings: [], tables: [], source };
   }
   const ast: any = await OfficeParser.parseOffice(Buffer.from(buffer), { newlineDelimiter: "\n" });
