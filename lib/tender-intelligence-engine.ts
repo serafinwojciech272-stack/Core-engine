@@ -20,7 +20,7 @@ export type TenderDataset = {
 
 const clean=(s:string)=>s.replace(/\u00a0/g," ").replace(/[ \t]+/g," ").trim();
 const allText=(docs:ParsedTenderDocument[])=>docs.map(d=>`[${d.name}]\n${d.text}`).join("\n\n");
-const matches=(text:string,re:RegExp)=>Array.from(text.matchAll(re)).map(m=>clean(m[1]||m[0])).filter(Boolean);
+const matches=(text:string,re:RegExp)=>{ const flags=re.flags.includes("g")?re.flags:re.flags+"g"; const globalRe=new RegExp(re.source,flags); return Array.from(text.matchAll(globalRe)).map(m=>clean(m[1]||m[0])).filter(Boolean); };
 const unique=(v:string[])=>[...new Set(v)];
 
 function makeQuestions(docs:ParsedTenderDocument[],risks:TenderRisk[]):BuyerQuestion[]{
