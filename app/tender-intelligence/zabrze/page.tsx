@@ -259,7 +259,7 @@ export default function TenderIntelligence() {
           {[
             { n: "01", label: "DOKUMENTY", Icon: FileText },
             { n: "02", label: "EKSTRAKCJA", Icon: Search },
-            { n: "03", label: "CROSS-CHECK", Icon: Scale },
+            { n: "03", label: "KONTROLA SPÓJNOŚCI", Icon: Scale },
             { n: "04", label: "WPŁYW NA CENĘ", Icon: Calculator },
             { n: "05", label: "PYTANIA", Icon: ShieldAlert },
             { n: "06", label: "DECYZJA", Icon: ClipboardCheck },
