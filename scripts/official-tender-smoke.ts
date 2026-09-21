@@ -26,7 +26,7 @@ const page = await fetch(SOURCE, { cache: "no-store", headers: { "user-agent": "
 if (!page.ok) throw new Error(`OFFICIAL_SOURCE_FETCH_${page.status}`);
 const html = await page.text();
 const links = attachmentLinks(html);
-if (links.length < 9) throw new Error(`OFFICIAL_ATTACHMENT_DISCOVERY_TOO_LOW:${links.length}`);
+if (links.length < 9) { console.error(JSON.stringify({ discovery: "failed", linkCount: links.length, htmlHead: html.slice(0, 12000), hrefs: [...html.matchAll(/href\\s*=\\s*["\']([^"\']+)["\']/gi)].map(m => m[1]).slice(0, 100) }, null, 2)); throw new Error(`OFFICIAL_ATTACHMENT_DISCOVERY_TOO_LOW:${links.length}`); }
 
 const parsed: ParsedTenderDocument[] = [];
 const failures: string[] = [];
