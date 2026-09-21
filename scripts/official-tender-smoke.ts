@@ -66,3 +66,5 @@ console.log(JSON.stringify({
   nonEmptyTextCount: nonEmpty.length,
   documents: parsed.map(x => ({ name: x.name, format: x.format, bytes: x.bytes, textLength: x.text.length, tableCount: x.tables.length, headingCount: x.headings.length, source: x.source }))
 }, null, 2));
+
+// Production gate verification branch.
