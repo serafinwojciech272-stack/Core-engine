@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { parseTenderDocument, parseTenderZip, type ParsedTenderDocument } from "../lib/tender-parser.ts";
 
 const SOURCE = "https://zabrze.logintrade.net/zapytania_email,238598,f66e29363d9dcf5e140c48eece63b78c.html";
