@@ -146,3 +146,23 @@ export const strategicChecks = [
   "Czy PPU nie przenosi na wykonawcę ryzyka, którego nie widać w samym ogłoszeniu?",
   "Czy każdy warunek udziału ma dziś potwierdzony dowód i właściciela?"
 ];
+
+
+export const competitorEvidence = [
+  {name:"PreZero Service Południe",type:"PUNKT ODNIESIENIA",text:"W poprzednim postępowaniu dotyczącym odbioru odpadów w Zabrzu oferta PreZero została wybrana jako korzystniejsza finansowo; Miasto wskazywało różnicę ponad 13 mln zł względem konkurencji.",source:"Miasto Zabrze, 30.03.2025",implication:"FCC musi przede wszystkim kontrolować koszt całkowity i założenia wolumenowe."},
+  {name:"WPO Alba + FCC Śląsk",type:"HISTORIA KONKURENCJI",text:"W poprzednim postępowaniu konsorcjum WPO Alba i FCC Śląsk odwołało się od wyboru PreZero; Miasto podało, że KIO oddaliła odwołanie.",source:"Miasto Zabrze, 30.03.2025",implication:"Poprzedni przetarg pokazuje, że różnica cenowa i formalna jakość oferty są kluczowe."},
+  {name:"FCC Śląsk",type:"LOKALNA BAZA",text:"FCC Śląsk jest wykonawcą prowadzącym PSZOK w Zabrzu przy ul. Cmentarnej 19F i działa z adresem przy ul. Lecha 10.",source:"Regulamin PSZOK Miasta Zabrze 2026",implication:"Potencjalnie niższy koszt mobilizacji i znajomość lokalnego systemu — do udowodnienia modelem."},
+  {name:"FCC Polska + FCC Śląsk",type:"AKTYWNOŚĆ RYNKOWA",text:"W 2026 r. FCC Polska i FCC Śląsk występowały wspólnie w lokalnych zamówieniach; osobno FCC Śląsk uzyskał zamówienie na organizację i prowadzenie PSZOK w Zabrzu o wartości 15 310 333 zł.",source:"e-Zamówienia / dane o udzielonych zamówieniach",implication:"Doświadczenie lokalne może skrócić czas mobilizacji, ale nie zastępuje kalkulacji kosztowej."},
+  {name:"Remondis",type:"POTENCJALNY KONKURENT",text:"Remondis jest aktywnym wykonawcą usług odpadowych w regionie; w 2026 r. występował przeciwko FCC w innych zamówieniach śląskich.",source:"dane zamówień publicznych 2026",implication:"Porównać lokalną bazę, flotę, instalacje, koszty transportu i strategię recyklingową."},
+  {name:"PreZero / Remondis / inni",type:"MAPA RYNKU",text:"Aktualna lista złożonych ofert w postępowaniu Z154/68879 nie jest jeszcze publicznym wynikiem — nie należy przedstawiać potencjalnych wykonawców jako faktycznych oferentów.",source:"Stan na etap przed terminem składania ofert",implication:"Model konkurencji ma działać scenariuszowo, bez udawania znajomości ofert konkurentów."}
+];
+
+export const tenderNoticeSections = [
+  {title:"Identyfikacja",items:["Postępowanie Z154/68879","Znak sprawy BZP.271.60.2026.MK","Miasto Zabrze – Prezydent Miasta","Przetarg nieograniczony","Zamówienie na usługi","Progi unijne"]},
+  {title:"Przedmiot",items:["Odbiór i zagospodarowanie odpadów komunalnych od właścicieli nieruchomości położonych na terenie Zabrza","Szczegółowy opis przedmiotu znajduje się w Części III SWZ"]},
+  {title:"Terminy",items:["Składanie ofert: 12.10.2026, 09:00","Otwarcie: 12.10.2026, 09:30","Termin związania ofertą: 08.02.2027, 23:59","Planowany okres: 36 miesięcy od faktycznego rozpoczęcia lub do wyczerpania środków"]},
+  {title:"Ekonomia",items:["Wadium: 4 000 000 PLN","Cena: 70%","Poziom recyklingu: 30%","W ogłoszeniu wskazano poziomy 33%, 40%, 45%, 50% oraz poziom wymagany prawem"]},
+  {title:"Opcje",items:["Odpady budowlane i rozbiórkowe z gospodarstw domowych","Odkup pojemników","Możliwość zwiększenia zakresu do 20% wartości zamówienia podstawowego"]},
+  {title:"Dokumentacja",items:["JEDZ.xml","Ogłoszenie o zamówieniu.pdf","Oświadczenie o elektromobilności.docx","SWZ.doc","OPZ.doc","PPU.doc","RODO.doc","Kalkulacja ceny.xls","Załączniki do OPZ.zip"]},
+  {title:"Zasada analityczna",items:["Ogłoszenie daje ramy postępowania.","Pełna kalkulacja wymaga OPZ + PPU + XLS + ZIP + JEDZ.","Brak odczytanego dokumentu nie może być przedstawiany jako potwierdzony fakt."]}
+];
