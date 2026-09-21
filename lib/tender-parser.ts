@@ -14,7 +14,7 @@ export type ParsedTenderDocument = {
   source: "uploaded" | "official-intake";
 };
 
-const EXTENSIONS = new Set(["pdf","doc","docx","xls","xlsx","rtf","odt","ods","ppt","pptx","csv","txt","md","html"]);
+const EXTENSIONS = new Set(["pdf","doc","docx","xls","xlsx","rtf","odt","ods","ppt","pptx","csv","txt","md","html","xml"]);
 
 function ext(name: string) {
   return name.toLowerCase().split(".").pop() || "";
@@ -45,6 +45,17 @@ export async function parseTenderDocument(buffer: Uint8Array, name: string, sour
   const format = ext(name);
   if (!EXTENSIONS.has(format)) throw new Error("UNSUPPORTED_DOCUMENT_FORMAT:" + format);
   const sha256 = createHash("sha256").update(Buffer.from(buffer)).digest("hex");
+  if (format === "xml") {
+    const raw = Buffer.from(buffer).toString("utf8");
+    const text = raw
+      .replace(/<\\?xml[^>]*>/gi, " ")
+      .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/gi, "$1")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/\\s+/g, " ").trim();
+    return { name, format, bytes: buffer.byteLength, sha256, text, markdown: text, headings: [], tables: [], source };
+  }
   const ast: any = await OfficeParser.parseOffice(Buffer.from(buffer), { newlineDelimiter: "\n" });
   const text = String(ast.toText?.() ?? "").trim();
   const markdown = String(ast.toMarkdown?.() ?? "").trim();
