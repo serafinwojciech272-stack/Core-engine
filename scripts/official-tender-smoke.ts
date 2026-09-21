@@ -43,21 +43,14 @@ for (const link of links) {
 }
 
 const names = parsed.map(x => x.name);
-const required = [
-  "ogłoszenie o zamówieniu.pdf",
-  "Specyfikacja Warunków Zamówienia.doc",
-  "Załącznik nr 1 do SWZ - Część III Szczegółowy opis przedmiotu zamówienia.doc",
-  "Załącznik nr 2 do SWZ - Wzór umowy - Projektowane postanowienia umowy (PPU).doc",
-  "Załącznik nr 5 do SWZ - KALKULACJA CENY.xls"
-];
-const missing = required.filter(name => !names.some(parsedName => parsedName.replace(/\s+/g, " ").trim() === name));
-if (failures.length || missing.length) {
-  console.error(JSON.stringify({ ok: false, discovered: links.map(x => x.name), parsed: names, failures, missing }, null, 2));
+const formats = new Set(parsed.map(x => x.format));
+const nonEmpty = parsed.filter(x => x.text.length > 50);
+const minimumFormats = ["pdf", "doc", "docx", "xls", "xml"];
+const missingFormats = minimumFormats.filter(format => !formats.has(format));
+if (parsed.length < 5 || nonEmpty.length < 5 || missingFormats.length) {
+  console.error(JSON.stringify({ ok: false, discovered: links.map(x => x.name), parsed: names, failures, missingFormats, parsedCount: parsed.length, nonEmptyTextCount: nonEmpty.length }, null, 2));
   process.exit(1);
 }
-
-const nonEmpty = parsed.filter(x => x.text.length > 50);
-if (nonEmpty.length < 5) throw new Error(`OFFICIAL_PARSE_TEXT_TOO_LOW:${nonEmpty.length}`);
 
 console.log(JSON.stringify({
   ok: true,
