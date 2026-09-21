@@ -18,6 +18,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci --ignore-scripts --omit=optional --no-audit --no-fund --progress=false --legacy-peer-deps
+      - name: Pin lint runtime compatibility
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund --progress=false --legacy-peer-deps eslint@9.39.5
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
