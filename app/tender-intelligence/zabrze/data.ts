@@ -88,3 +88,43 @@ export const questions: BuyerQuestion[] = [
   {id:"Q-P3-01",priority:"P3",area:"Raportowanie",issue:"Niezweryfikowany zakres raportów, danych GPS, wag i terminów przekazywania.",rationale:"Koszty IT i administracji mogą być pomijalne albo znaczące zależnie od wymagań.",pricingImpact:"Średni",question:"Prosimy o potwierdzenie wszystkich obowiązków raportowych, wymaganych systemów/interfejsów, częstotliwości przekazywania danych oraz odpowiedzialności za koszty integracji.",evidence:"OPZ/PPU — wymaga odczytu"},
   {id:"Q-P3-02",priority:"P3",area:"Zmiany zakresu",issue:"Niezweryfikowane zasady zmian liczby nieruchomości, częstotliwości i tras.",rationale:"Dynamiczna zmiana zakresu może wpływać na routing i zasoby.",pricingImpact:"Średni",question:"Prosimy o wskazanie zasad aktualizacji danych o nieruchomościach, harmonogramach i trasach oraz minimalnego wyprzedzenia, z jakim Zamawiający będzie przekazywał zmiany.",evidence:"OPZ/PPU — wymaga odczytu"}
 ];
+
+
+export type AnalysisStage = {
+  id: string;
+  title: string;
+  why: string;
+  evidence: string;
+  question: string;
+  impact: string;
+};
+
+export const analysisStages: AnalysisStage[] = [
+  {id:"01",title:"1. Zamknąć zakres świadczenia",why:"Najpierw trzeba wiedzieć dokładnie, co wykonawca ma odebrać, skąd, jak często, czym i gdzie zagospodarować.",evidence:"OPZ + załączniki ZIP",question:"Czy wszystkie frakcje, lokalizacje, częstotliwości, pojemniki i obowiązki są jednoznacznie zdefiniowane i przypisane do ceny podstawowej?",impact:"Bardzo wysoki — zakres jest bazą całej kalkulacji."},
+  {id:"02",title:"2. Ustalić wolumeny i jednostki",why:"Nie wolno budować ceny na samym opisie usługi. Każdy koszt musi mieć driver: Mg, szt., kurs, km, pojemnik, gospodarstwo, trasa lub okres.",evidence:"XLS + OPZ + dane historyczne",question:"Które ilości są wiążące do kalkulacji i jaką jednostkę rozliczeniową należy przyjąć dla każdej pozycji?",impact:"Krytyczny — błędny wolumen może wypaczyć cenę całego kontraktu."},
+  {id:"03",title:"3. Zbudować model operacyjny",why:"Po wolumenach trzeba odtworzyć routing, liczbę ekip, pojazdy, zmiany, zaplecze, instalacje i moce przerobowe.",evidence:"OPZ + harmonogramy + wymagania techniczne",question:"Jakie są minimalne częstotliwości, czasy reakcji, wymagania sprzętowe i zasady zmian tras?",impact:"Bardzo wysoki — determinuje CAPEX/OPEX."},
+  {id:"04",title:"4. Polićzyć recykling jako koszt i punkty",why:"Recykling jest jednocześnie kryterium oceny i potencjalnym źródłem kosztu oraz ryzyka kontraktowego.",evidence:"Ogłoszenie + PPU + OPZ",question:"Jaki dokładnie algorytm mierzy poziom recyklingu i jakie są konsekwencje niewykonania zadeklarowanego poziomu?",impact:"Krytyczny — 30% oceny nie powinno być analizowane w oderwaniu od ekonomiki."},
+  {id:"05",title:"5. Przejrzeć PPU jak umowę ryzyka",why:"Cena bez kosztu ryzyka jest pozorna. Trzeba policzyć kary, SLA, waloryzację, odpowiedzialność i jednostronne mechanizmy zmian.",evidence:"PPU",question:"Jakie zdarzenia generują kary, jakie są limity, terminy, mechanizmy waloryzacji i możliwości zmian zakresu?",impact:"Bardzo wysoki — ryzyko musi zostać wycenione."},
+  {id:"06",title:"6. Zbudować warianty cenowe",why:"Przy cenie 70% i recyklingu 30% należy policzyć kilka strategii, zamiast wybierać cenę intuicyjnie.",evidence:"XLS + kryteria + model kosztowy",question:"Jaki poziom recyklingu daje najlepszą relację punktów do dodatkowego kosztu i ryzyka?",impact:"Krytyczny — decyzja powinna wynikać z modelu, nie z narracji."},
+  {id:"07",title:"7. Przejść formalny gate",why:"Dopiero po zamknięciu ekonomii należy sprawdzić JEDZ, doświadczenie, zasoby, podpisy, wadium i submission.",evidence:"SWZ + JEDZ + platforma",question:"Czy każdy warunek udziału ma przypisany dokument, właściciela i termin dostarczenia?",impact:"Krytyczny — błąd formalny może wyeliminować ofertę niezależnie od ceny."}
+];
+
+export const fccEvidence = [
+  {title:"Lokalna baza w Zabrzu",text:"FCC Śląsk podaje adres przy ul. Lecha 10 w Zabrzu i deklaruje obsługę gospodarki odpadami na Górnym Śląsku, w tym Zabrza.",source:"Oficjalna strona FCC Śląsk",kind:"FAKT"},
+  {title:"Istniejący PSZOK w Zabrzu",text:"FCC Śląsk prowadzi PSZOK przy ul. Cmentarnej 19F w Zabrzu. To może być istotnym atutem operacyjnym, jeżeli zakres nowego zamówienia wykorzystuje podobną infrastrukturę.",source:"FCC + regulamin PSZOK",kind:"FAKT"},
+  {title:"Doświadczenie lokalne",text:"W 2026 r. publicznie odnotowano udzielenie FCC Śląsk zamówienia Miasta Zabrze na organizację i prowadzenie PSZOK o wartości 15 310 333 PLN.",source:"Dane o zamówieniach publicznych",kind:"FAKT"},
+  {title:"Doświadczenie w lokalnych usługach odpadowych",text:"FCC Polska realizowało także usługę wywozu odpadów dla ZUS Oddział w Zabrzu; umowę 24-miesięczną zakończono w czerwcu 2026 r. zgodnie z terminem.",source:"e-Zamówienia",kind:"FAKT"},
+  {title:"Hipoteza przewagi do sprawdzenia",text:"Jeżeli OPZ wymaga zasobów, infrastruktury i logistyki dostępnych już lokalnie, FCC może mieć możliwość ograniczenia kosztów mobilizacji i ryzyka startu. To hipoteza ekonomiczna, nie dowód przewagi w tym postępowaniu.",source:"Wniosek analityczny Core Engine",kind:"HIPOTEZA"},
+  {title:"Warunek ceny",text:"Lokalność sama nie wystarczy. Przy kryteriach Cena 70% + Recykling 30% przewaga musi zostać potwierdzona modelem kosztowym, zdolnością do osiągnięcia deklarowanego poziomu recyklingu i zgodnością formalną.",source:"Ogłoszenie postępowania",kind:"KRYTERIUM"}
+];
+
+export const strategicChecks = [
+  "Czy FCC ma już zasoby, które można przypisać do tego kontraktu bez istotnego CAPEX?",
+  "Czy istniejąca infrastruktura w Zabrzu może obsłużyć wymagane wolumeny i frakcje?",
+  "Czy aktualny model PSZOK i zaplecza może obniżyć koszt mobilizacji?",
+  "Czy lokalna flota spełnia wymagania elektromobilności bez dodatkowych inwestycji?",
+  "Czy FCC może osiągnąć 40/45/50% recyklingu przy koszcie niższym niż wartość dodatkowych punktów?",
+  "Czy ceny jednostkowe są odporne na opcję +20% i inne warianty zakresu?",
+  "Czy PPU nie przenosi na wykonawcę ryzyka, którego nie widać w samym ogłoszeniu?",
+  "Czy każdy warunek udziału ma dziś potwierdzony dowód i właściciela?"
+];
