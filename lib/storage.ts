@@ -15,3 +15,22 @@ function mapPrediction(x:Record<string,unknown>):PredictionLedgerEntry{return{id
 export async function resolvePersistedPrediction(id:string,realizedR:number|null,status:PredictionLedgerEntry["outcomeStatus"],payload:Record<string,unknown>={}){return rpc("ce_resolve_prediction",{p_mission_id:id,p_realized_r:realizedR,p_outcome_status:status,p_outcome_payload:payload})}
 export async function listPersistedPredictions(limit=100):Promise<PredictionLedgerEntry[]>{const c=cfg();if(!c)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");const r=await sf(c.url+"/rest/v1/ce_prediction_ledger?select=id,decision_id,mission_id,engine_version,p1r,p2r,p3r,expected_r,risk_gate,prediction_source,calibration_status,outcome_status,realized_r,outcome_payload,created_at,resolved_at&order=created_at.desc&limit="+Math.min(200,Math.max(1,limit)),{headers:{apikey:c.key,Authorization:"Bearer "+c.key}});if(!r.ok)throw new Error("SUPABASE_PREDICTION_READ_"+r.status);return(await r.json() as Record<string,unknown>[]).map(mapPrediction)}
 export async function getPersistedPrediction(missionId:string){const c=cfg();if(!c)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");const r=await sf(c.url+"/rest/v1/ce_prediction_ledger?mission_id=eq."+encodeURIComponent(missionId)+"&select=id,decision_id,mission_id,engine_version,p1r,p2r,p3r,expected_r,risk_gate,prediction_source,calibration_status,outcome_status,realized_r,outcome_payload,created_at,resolved_at&limit=1",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}});if(!r.ok)throw new Error("SUPABASE_PREDICTION_READ_"+r.status);const rows=await r.json() as Record<string,unknown>[];return rows[0]?mapPrediction(rows[0]):null}
+
+export async function persistTenderCase(caseId:string,title:string,fingerprint:string,dataset:Record<string,unknown>){
+ const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+ const r=await sf(c.url+"/rest/v1/ce_tender_cases?on_conflict=case_id",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify({case_id:caseId,title,fingerprint,dataset,updated_at:new Date().toISOString()})});
+ if(!r.ok) throw new Error("SUPABASE_TENDER_CASE_"+r.status);
+ const rows=await r.json() as Record<string,unknown>[]; return rows[0]||null;
+}
+export async function linkTenderCaseMission(caseId:string,missionId:string){
+ const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+ const r=await sf(c.url+"/rest/v1/ce_tender_cases?case_id=eq."+encodeURIComponent(caseId),{method:"PATCH",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({mission_id:missionId,updated_at:new Date().toISOString()})});
+ if(!r.ok) throw new Error("SUPABASE_TENDER_CASE_LINK_"+r.status);
+ return (await r.json() as Record<string,unknown>[])[0]||null;
+}
+export async function getPersistedTenderCase(caseId:string){
+ const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+ const r=await sf(c.url+"/rest/v1/ce_tender_cases?case_id=eq."+encodeURIComponent(caseId)+"&select=*&limit=1",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}});
+ if(!r.ok) throw new Error("SUPABASE_TENDER_CASE_READ_"+r.status);
+ const rows=await r.json() as Record<string,unknown>[]; return rows[0]||null;
+}
