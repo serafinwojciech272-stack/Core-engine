@@ -16,7 +16,6 @@ import type { EvidenceInput } from "@/lib/evidence-engine";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
 import { buildGrowthMissionPlan } from "@/lib/growth-mission";
-import { planGrowthCapabilities } from "@/lib/capability-planner";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -115,6 +114,14 @@ export async function POST(request: Request) {
       });
     }
 
+    const growthMission = buildGrowthMissionPlan({
+      missionId: mission.id,
+      objective: mission.objective,
+      diagnosis: decision.diagnosis,
+      recommendation: decision.recommendation,
+      signals: signals.map((s) => `${s.name} ${s.value}`)
+    });
+
     const trace = [
       { stage: "OBSERVE", status: "COMPLETE", evidence: signals.map((s) => s.name), output: signals.length + " signals accepted" },
       { stage: "CONTEXT", status: "COMPLETE", evidence: contextEvidence.evidence.map((e) => e.id), output: contextEvidence.context.domain },
@@ -123,7 +130,8 @@ export async function POST(request: Request) {
       { stage: "PRIORITIZE", status: "COMPLETE", evidence: ["priority=" + decision.priority, "confidence=" + decision.confidence.toFixed(3)], output: decision.priority },
       { stage: "DECIDE", status: "COMPLETE", evidence: [decision.recommendation, ...(decision.signalConflict?.reasons || [])], output: decision.recommendation },
       { stage: "DECISION_MATRIX", status: "COMPLETE", evidence: decision.decisionMatrix?.reasons, output: decision.decisionMatrix?.action || "UNAVAILABLE" },
-      { stage: "GROWTH_CAPABILITIES", status: "PLANNED", evidence: growthMission.selectedPacks.map((p) => p.id), output: `${growthMission.selectedPacks.length} capability packs; ${growthMission.actions.length} actions` },\n      { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
+      { stage: "GROWTH_CAPABILITIES", status: "PLANNED", evidence: growthMission.selectedPacks.map((p) => p.id), output: `${growthMission.selectedPacks.length} capability packs; ${growthMission.actions.length} actions` },
+      { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
       { stage: "AWAITING_APPROVAL", status: "PENDING", output: mission.state }
     ];
 
