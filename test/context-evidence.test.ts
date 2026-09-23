@@ -19,7 +19,7 @@ test("context and evidence expose provenance, freshness, reliability and graph q
 
   assert.equal(context.domain, "business");
   assert.equal(context.signals.length, 2);
-  assert.equal(context.metadata.request_id, "test-001");
+  assert.equal(context.metadata?.request_id, "test-001");
   assert.equal(evidence.length, 2);
   assert.ok(evidence.every((item) => item.id.startsWith("ev_")));
   assert.ok(evidence.every((item) => item.provenance?.sourceRegistered));
