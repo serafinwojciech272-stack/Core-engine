@@ -1,6 +1,6 @@
 import type { Context, Diagnosis, Evidence, MissionContract } from "@/lib/core-contracts";
 import { validateConfidence } from "@/lib/core-contracts";
-import type { DomainPack } from "@/lib/core-contracts";
+import type { DomainPack, DecisionContract } from "@/lib/core-contracts";
 
 const names = (context: Context) => context.signals.map((s) => s.name);
 
@@ -43,9 +43,9 @@ function diagnose(context: Context, evidence: Evidence[]): Diagnosis {
   };
 }
 
-function buildMission(decision: { id: string; recommendation: string; diagnosis: Diagnosis }): MissionContract {
+function buildMission(decision: DecisionContract): MissionContract {
   const lead = decision.diagnosis.summary.includes("Lead");
-  const ops = decision.diagnosis.summary.includes("Backlog");
+  const ops = decision.diagnosis.summary.summary?.includes("Backlog");
   return {
     id: crypto.randomUUID(),
     decisionId: decision.id,
