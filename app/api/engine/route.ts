@@ -13,6 +13,8 @@ import { guardMutation } from "@/lib/http";
 import { buildMissionFromDomainPack } from "@/lib/domain-runtime";
 import { buildContextEvidence } from "@/lib/context-evidence-runtime";
 import type { EvidenceInput } from "@/lib/evidence-engine";
+import { ensureCapabilityPacks } from "@/lib/capability-packs";
+import { listCapabilityPacks } from "@/lib/capability-registry";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -156,12 +158,14 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  ensureCapabilityPacks();
   return NextResponse.json({
     ok: true,
     engine: "core-engine",
     version: ENGINE_VERSION,
     status: "READY",
-    capabilities: ["observe", "context", "evidence", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "mt5-read-only"],
+    capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "mt5-read-only"],
+    capabilityPacks: listCapabilityPacks().map((pack) => ({ id: pack.id, name: pack.name, category: pack.category, version: pack.version, capabilities: pack.capabilities, actions: pack.actions.map((action) => ({ id: action.id, name: action.name, risk: action.risk, requiresApproval: action.requiresApproval })) })),
     readiness: getProductionReadiness(),
     mt5: getMT5ReadOnlyStatus(),
     resilience: getResilienceStatus(),
