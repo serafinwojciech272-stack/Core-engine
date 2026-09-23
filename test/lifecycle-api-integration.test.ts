@@ -71,9 +71,31 @@ test("real HTTP API executes the complete mission lifecycle", async () => {
     { name: "conversion_rate", value: "2.8%", source: "analytics" }
   ];
 
+  const context = await api("/api/context", {
+    domain: "business",
+    signals,
+    evidence: [
+      { claim: "Qualified leads are 84", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Response latency is 47 minutes", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Conversion rate is 2.8%", source: "analytics", supports: true, reliability: 0.95 }
+    ]
+  });
+
+  assert.equal(context.response.status, 200);
+  assert.equal(context.json.ok, true);
+  assert.equal(context.json.stage, "CONTEXT_EVIDENCE");
+  assert.equal(context.json.evidenceCount, 3);
+  assert.ok(context.json.evidenceGraph?.nodes?.length === 3);
+  assert.ok(typeof context.json.evidenceQuality?.score === "number");
+
   const engine = await api("/api/engine", {
     domain: "business",
-    signals
+    signals,
+    evidence: [
+      { claim: "Qualified leads are 84", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Response latency is 47 minutes", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Conversion rate is 2.8%", source: "analytics", supports: true, reliability: 0.95 }
+    ]
   });
 
   assert.equal(engine.response.status, 200);
@@ -81,6 +103,9 @@ test("real HTTP API executes the complete mission lifecycle", async () => {
   assert.equal(engine.json.state, "AWAITING_APPROVAL");
   assert.ok(engine.json.mission?.id);
   assert.ok(engine.json.decision?.id);
+  assert.ok(engine.json.evidence?.length === 3);
+  assert.ok(engine.json.evidenceGraph?.nodes?.length === 3);
+  assert.ok(typeof engine.json.evidenceQuality?.score === "number");
   assert.ok(engine.json.audit?.chainLength >= 4);
 
   const missionId = String(engine.json.mission.id);
