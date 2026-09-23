@@ -26,7 +26,7 @@ export function buildEvidence(
       claim: item.claim.trim().slice(0, 500),
       source: item.source.trim().slice(0, 200),
       supports: item.supports !== false,
-      timestamp: item.timestamp,
+      observedAt: item.timestamp,
       metadata: {
         ...item.metadata,
         source_registered: String(allowedSources.has(item.source))
