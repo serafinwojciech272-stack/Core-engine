@@ -1,5 +1,5 @@
 import type { Decision, Mission } from "@/lib/engine";
-import type { Diagnosis } from "@/lib/core-contracts";
+import type { DecisionContract, Diagnosis } from "@/lib/core-contracts";
 import { ensureBuiltInDomainPacks } from "@/lib/domain-packs";
 import { getDomainPack } from "@/lib/domain-registry";
 
@@ -23,11 +23,21 @@ export async function buildMissionFromDomainPack(
   const pack = getDomainPack(domain);
 
   if (pack?.buildMission) {
-    const contract = await pack.buildMission({
+    const diagnosis = contractDiagnosis(decision);
+    const contractDecision: DecisionContract = {
       id: decision.id,
+      domain: domain || pack.id,
+      diagnosis,
+      options: [],
       recommendation: decision.recommendation,
-      diagnosis: contractDiagnosis(decision)
-    });
+      confidence: decision.confidence,
+      priority: decision.priority,
+      risk: decision.riskGate === "BLOCK" ? "CRITICAL" : decision.riskGate === "CAUTION" ? "HIGH" : "LOW",
+      assumptions: diagnosis.assumptions,
+      evidenceIds: diagnosis.evidenceIds,
+      reasoningSource: decision.reasoningSource
+    };
+    const contract = await pack.buildMission(contractDecision);
     return {
       decisionId: decision.id,
       objective: contract.objective,
