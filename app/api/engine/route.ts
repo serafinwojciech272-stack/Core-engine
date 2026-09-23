@@ -152,6 +152,7 @@ export async function POST(request: Request) {
       decision,
       learning: { applied: learning.length, lessons: learning.slice(0, 4) },
       mission,
+      growthMission,
       trace,
       audit: {
         algorithm: integrity === "SIGNED" ? "HMAC-SHA256 chained audit v2" : "SHA-256 chained audit v1",
@@ -174,7 +175,7 @@ export async function GET() {
     engine: "core-engine",
     version: ENGINE_VERSION,
     status: "READY",
-    capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "mt5-read-only"],
+    capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "capability-action-fabric", "mt5-read-only"],
     capabilityPacks: listCapabilityPacks().map((pack) => ({ id: pack.id, name: pack.name, category: pack.category, version: pack.version, capabilities: pack.capabilities, actions: pack.actions.map((action) => ({ id: action.id, name: action.name, risk: action.risk, requiresApproval: action.requiresApproval })) })),
     readiness: getProductionReadiness(),
     mt5: getMT5ReadOnlyStatus(),
