@@ -1,10 +1,10 @@
-export const ENGINE_VERSION="1.0";
+export const ENGINE_VERSION="1.1";
 export const MISSION_STATES=["DISCOVERED","DIAGNOSED","PROPOSED","AWAITING_APPROVAL","APPROVED","EXECUTING","MEASURING","COMPLETED","LEARNED","FAILED","REJECTED","EXPIRED"] as const;
 export type MissionState=typeof MISSION_STATES[number];
 export type EngineSignal={name:string;value:string;source:string};
 import type {ProbabilityEstimate} from "@/lib/probability-engine";import type {MultiTimeframeAnalysis} from "@/lib/multi-timeframe-engine";
 export type Decision={id:string;diagnosis:string;recommendation:string;confidence:number;priority:"HIGH"|"MEDIUM"|"LOW";evidence:string[];reasoningSource:"LLM"|"DETERMINISTIC_RULES";probabilities?:{p1R:number;p2R:number;p3R:number};probability?:ProbabilityEstimate;expectedR?:number;riskGate?:"PASS"|"CAUTION"|"BLOCK";multiTimeframe?:MultiTimeframeAnalysis;features?:import("@/lib/feature-engine").FeatureSnapshot;decisionMatrix?:import("@/lib/decision-matrix").DecisionMatrix;signalConflict?:{status:"NONE"|"DETECTED";supporting:string[];conflicting:string[];dominant:string;reasons:string[]}};
-export type Mission={id:string;decisionId:string;objective:string;state:MissionState;kpi:string;createdAt:string;updatedAt:string;executionCount:number};
+export type Mission={id:string;decisionId:string;objective:string;state:MissionState;kpi:string;createdAt:string;updatedAt:string;executionCount:number;domain?:string};
 const transitions:Record<MissionState,MissionState[]>={DISCOVERED:["DIAGNOSED","EXPIRED"],DIAGNOSED:["PROPOSED","FAILED"],PROPOSED:["AWAITING_APPROVAL","EXPIRED"],AWAITING_APPROVAL:["APPROVED","REJECTED","EXPIRED"],APPROVED:["EXECUTING","REJECTED"],EXECUTING:["MEASURING","FAILED"],MEASURING:["COMPLETED","FAILED"],COMPLETED:["LEARNED"],LEARNED:[],FAILED:["EXECUTING","REJECTED"],REJECTED:[],EXPIRED:[]};
 export function canTransition(from:MissionState,to:MissionState){return transitions[from].includes(to)}
 export function transitionMission(mission:Mission,next:MissionState){if(!canTransition(mission.state,next))throw new Error("INVALID_TRANSITION");return{...mission,state:next,updatedAt:new Date().toISOString()}}
