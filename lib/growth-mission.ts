@@ -4,7 +4,7 @@ import { planGrowthCapabilities, type GrowthCapabilityPlan } from "@/lib/capabil
 export type GrowthMissionAction = CapabilityAction & {
   packId: string;
   sequence: number;
-  status: "PLANNED" | "BLOCKED";
+  status: "PLANNED" | "AWAITING_APPROVAL" | "READY";
 };
 
 export type GrowthMissionPlan = GrowthCapabilityPlan & {
@@ -29,7 +29,7 @@ export function buildGrowthMissionPlan(input: {
         ...action,
         packId: pack.id,
         sequence: sequence++,
-        status: action.requiresApproval || action.risk === "HIGH" || action.risk === "CRITICAL" ? "BLOCKED" : "PLANNED"
+        status: action.requiresApproval || action.risk === "HIGH" || action.risk === "CRITICAL" ? "AWAITING_APPROVAL" : "PLANNED"
       });
     }
   }
@@ -41,10 +41,17 @@ export function buildGrowthMissionPlan(input: {
   };
 }
 
-export function canExecuteGrowthAction(plan: GrowthMissionPlan, actionId: string, missionState: string) {
+export function canExecuteGrowthAction(
+  plan: GrowthMissionPlan,
+  actionId: string,
+  missionState: string,
+  approvedActionIds: string[] = []
+) {
   const action = plan.actions.find(a => a.id === actionId);
   if (!action) return { allowed: false, reason: "ACTION_NOT_FOUND" };
   if (missionState !== "APPROVED") return { allowed: false, reason: "MISSION_NOT_APPROVED" };
-  if (action.status === "BLOCKED") return { allowed: false, reason: "CAPABILITY_APPROVAL_REQUIRED" };
+  if (action.requiresApproval && !approvedActionIds.includes(action.id)) {
+    return { allowed: false, reason: "CAPABILITY_APPROVAL_REQUIRED" };
+  }
   return { allowed: true, reason: "ACTION_ALLOWED" };
 }
