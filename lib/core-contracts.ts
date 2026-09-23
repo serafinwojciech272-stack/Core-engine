@@ -29,6 +29,11 @@ export type Evidence = {
   freshness?: number;
   reliability?: number;
   supports?: boolean;
+  provenance?: {
+    sourceType?: string;
+    sourceRegistered: boolean;
+    hash: string;
+  };
   metadata?: Record<string, unknown>;
 };
 
