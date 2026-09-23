@@ -23,8 +23,16 @@ test("business domain pack diagnoses qualified leads and builds a mission", asyn
 
   const mission = await businessDomainPack.buildMission?.({
     id: "decision-1",
+    domain: "business",
+    diagnosis,
+    options: [],
     recommendation: "Run a controlled sales-response experiment.",
-    diagnosis
+    confidence: diagnosis.confidence,
+    priority: "HIGH",
+    risk: "LOW",
+    assumptions: diagnosis.assumptions,
+    evidenceIds: diagnosis.evidenceIds,
+    reasoningSource: "DETERMINISTIC_RULES"
   });
 
   assert.ok(mission);
