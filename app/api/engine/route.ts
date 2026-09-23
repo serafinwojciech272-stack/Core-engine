@@ -15,6 +15,7 @@ import { buildContextEvidence } from "@/lib/context-evidence-runtime";
 import type { EvidenceInput } from "@/lib/evidence-engine";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
+import { buildGrowthMissionPlan } from "@/lib/growth-mission";
 import { planGrowthCapabilities } from "@/lib/capability-planner";
 
 const MAX_BODY_BYTES = 64000;
