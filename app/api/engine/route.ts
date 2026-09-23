@@ -15,6 +15,7 @@ import { buildContextEvidence } from "@/lib/context-evidence-runtime";
 import type { EvidenceInput } from "@/lib/evidence-engine";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
+import { planGrowthCapabilities } from "@/lib/capability-planner";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
       { stage: "PRIORITIZE", status: "COMPLETE", evidence: ["priority=" + decision.priority, "confidence=" + decision.confidence.toFixed(3)], output: decision.priority },
       { stage: "DECIDE", status: "COMPLETE", evidence: [decision.recommendation, ...(decision.signalConflict?.reasons || [])], output: decision.recommendation },
       { stage: "DECISION_MATRIX", status: "COMPLETE", evidence: decision.decisionMatrix?.reasons, output: decision.decisionMatrix?.action || "UNAVAILABLE" },
-      { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
+      { stage: "GROWTH_CAPABILITIES", status: "PLANNED", evidence: growthMission.selectedPacks.map((p) => p.id), output: `${growthMission.selectedPacks.length} capability packs; ${growthMission.actions.length} actions` },\n      { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
       { stage: "AWAITING_APPROVAL", status: "PENDING", output: mission.state }
     ];
 
