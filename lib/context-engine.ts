@@ -21,12 +21,12 @@ export function buildContext(
     name: clean(raw.name, 100),
     value: clean(raw.value, 200),
     source: clean(raw.source, 100),
-    timestamp: raw.timestamp,
+    observedAt: raw.timestamp,
     metadata: raw.metadata
   }));
 
   return {
-    domain: domain?.trim().slice(0, 40),
+    domain: domain?.trim().slice(0, 40) || "default",
     signals,
     metadata: Object.fromEntries(
       Object.entries(metadata).map(([key, value]) => [clean(key, 80), clean(value, 200)])
