@@ -25,7 +25,7 @@ function claimKey(claim: string) {
   return claim
     .toLowerCase()
     .replace(/[^a-z0-9ąćęłńóśźż ]/gi, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
