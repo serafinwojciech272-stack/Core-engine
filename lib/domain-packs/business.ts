@@ -45,7 +45,7 @@ function diagnose(context: Context, evidence: Evidence[]): Diagnosis {
 
 function buildMission(decision: DecisionContract): MissionContract {
   const lead = decision.diagnosis.summary.includes("Lead");
-  const ops = decision.diagnosis.summary.summary?.includes("Backlog");
+  const ops = decision.diagnosis.summary.includes("Backlog");
   return {
     id: crypto.randomUUID(),
     decisionId: decision.id,
