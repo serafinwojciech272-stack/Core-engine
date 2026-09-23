@@ -15,8 +15,7 @@ function contractDiagnosis(decision: Decision): Diagnosis {
 
 export async function buildMissionFromDomainPack(
   decision: Decision,
-  domain: string | undefined,
-  id: string
+  domain: string | undefined
 ): Promise<Omit<Mission, "id">> {
   const now = new Date().toISOString();
   ensureBuiltInDomainPacks();
