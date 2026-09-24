@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { buildGrowthMissionPlan, canExecuteGrowthAction } from "@/lib/growth-mission";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildGrowthMissionPlan, canExecuteGrowthAction } from "../lib/growth-mission.ts";
 
-describe("growth mission execution fabric", () => {
-  it("binds capabilities to the existing mission approval gate", () => {
+test("growth mission execution fabric", async (t) => {
+  await t.test("binds capabilities to the existing mission approval gate", () => {
     const plan = buildGrowthMissionPlan({
       missionId: "m1",
       objective: "Improve website security",
@@ -10,13 +11,13 @@ describe("growth mission execution fabric", () => {
       recommendation: "Harden security",
       signals: ["security vulnerability"]
     });
-    expect(plan.missionId).toBe("m1");
-    expect(plan.approvalGate).toBe("REQUIRED");
-    expect(plan.actions.length).toBeGreaterThan(0);
-    expect(canExecuteGrowthAction(plan, plan.actions[0].id, "AWAITING_APPROVAL").allowed).toBe(false);
+    assert.equal(plan.missionId, "m1");
+    assert.equal(plan.approvalGate, "REQUIRED");
+    assert.ok(plan.actions.length > 0);
+    assert.equal(canExecuteGrowthAction(plan, plan.actions[0].id, "AWAITING_APPROVAL").allowed, false);
   });
 
-  it("allows only approved, non-blocked capability actions", () => {
+  await t.test("allows only approved, non-blocked capability actions", () => {
     const plan = buildGrowthMissionPlan({
       missionId: "m2",
       objective: "Improve SEO",
@@ -25,7 +26,7 @@ describe("growth mission execution fabric", () => {
       signals: ["organic search"]
     });
     const action = plan.actions.find(a => a.id === "seo.audit");
-    expect(action).toBeTruthy();
-    expect(canExecuteGrowthAction(plan, "seo.audit", "APPROVED").allowed).toBe(true);
+    assert.ok(action);
+    assert.equal(canExecuteGrowthAction(plan, "seo.audit", "APPROVED").allowed, true);
   });
 });

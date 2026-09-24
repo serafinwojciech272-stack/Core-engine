@@ -1,4 +1,5 @@
 import type {CapabilityAction} from "@/lib/capability-contracts";
+import {externalWebhookAdapter} from "@/lib/external-webhook-adapter";
 
 export type CapabilityAdapterContext = {
   missionId?: string;
@@ -31,18 +32,18 @@ const simulationAdapter: CapabilityAdapter = {
       startedAt,
       completedAt: new Date().toISOString(),
       sideEffect: false,
-      message: `Adapter accepted ${action.id}. External side effects remain disabled until a product integration adapter is explicitly registered.`,
+      message: "Adapter accepted " + action.id + ". External side effects remain disabled until a product integration adapter is explicitly registered.",
       output: {adapterId: "core.simulation.v1", actionId: action.id}
     };
   }
 };
 
-const adapters: CapabilityAdapter[] = [simulationAdapter];
+const adapters: CapabilityAdapter[] = [externalWebhookAdapter, simulationAdapter];
 
 export function registerCapabilityAdapter(adapter: CapabilityAdapter) {
   if (!adapter.id.trim()) throw new Error("CAPABILITY_ADAPTER_ID_REQUIRED");
   if (adapters.some((item) => item.id === adapter.id)) throw new Error("CAPABILITY_ADAPTER_ALREADY_REGISTERED");
-  adapters.push(adapter);
+  adapters.unshift(adapter);
 }
 
 export function resolveCapabilityAdapter(action: CapabilityAction) {

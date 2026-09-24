@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { businessDomainPack } from "@/lib/domain-packs/business";
+import { businessDomainPack } from "../lib/domain-packs/business.ts";
 
 test("business domain pack diagnoses qualified leads and builds a mission", async () => {
   const diagnosis = await businessDomainPack.diagnose(
