@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildEvidenceGraph, evidenceGraphQuality } from "@/lib/evidence-graph";
-import type { Evidence } from "@/lib/core-contracts";
+import { buildEvidenceGraph, evidenceGraphQuality } from "../lib/evidence-graph";
+import type { Evidence } from "../lib/core-contracts";
 
 function ev(id: string, supports: boolean, reliability = 0.9, freshness = 0.9): Evidence {
   return {
