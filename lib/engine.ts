@@ -1,4 +1,4 @@
-export const ENGINE_VERSION="1.1";
+export const ENGINE_VERSION="1.2";
 export const MISSION_STATES=["DISCOVERED","DIAGNOSED","PROPOSED","AWAITING_APPROVAL","APPROVED","EXECUTING","MEASURING","COMPLETED","LEARNED","FAILED","REJECTED","EXPIRED"] as const;
 export type MissionState=typeof MISSION_STATES[number];
 export type EngineSignal={name:string;value:string;source:string};
@@ -8,8 +8,11 @@ export type Mission={id:string;decisionId:string;objective:string;state:MissionS
 const transitions:Record<MissionState,MissionState[]>={DISCOVERED:["DIAGNOSED","EXPIRED"],DIAGNOSED:["PROPOSED","FAILED"],PROPOSED:["AWAITING_APPROVAL","EXPIRED"],AWAITING_APPROVAL:["APPROVED","REJECTED","EXPIRED"],APPROVED:["EXECUTING","REJECTED"],EXECUTING:["MEASURING","FAILED"],MEASURING:["COMPLETED","FAILED"],COMPLETED:["LEARNED"],LEARNED:[],FAILED:["EXECUTING","REJECTED"],REJECTED:[],EXPIRED:[]};
 export function canTransition(from:MissionState,to:MissionState){return transitions[from].includes(to)}
 export function transitionMission(mission:Mission,next:MissionState){if(!canTransition(mission.state,next))throw new Error("INVALID_TRANSITION");return{...mission,state:next,updatedAt:new Date().toISOString()}}
-export type EngineEvent={id:string;missionId:string;decisionId?:string;eventType:"MISSION_CREATED"|"STATE_CHANGED"|"EXECUTION_RECORDED"|"MEASUREMENT_RECORDED"|"LEARNING_RECORDED";fromState?:MissionState;toState?:MissionState;actorType:"system"|"human"|"agent";metadata?:Record<string,unknown>;createdAt:string};
-const root=globalThis as typeof globalThis&{__coreEngineEvents?:EngineEvent[];__coreEngineMissions?:Map<string,Mission>;__coreActionKeys?:Map<string,unknown>};root.__coreEngineEvents??=[];root.__coreEngineMissions??=new Map();root.__coreActionKeys??=new Map();
+export type EngineEvent={id:string;missionId:string;decisionId?:string;eventType:"MISSION_CREATED"|"STATE_CHANGED"|"EXECUTION_RECORDED"|"MEASUREMENT_RECORDED"|"LEARNING_RECORDED"|"CAPABILITY_APPROVED"|"CAPABILITY_EXECUTED"|"CAPABILITY_OUTCOME_RECORDED";fromState?:MissionState;toState?:MissionState;actorType:"system"|"human"|"agent";metadata?:Record<string,unknown>;createdAt:string};
+const root=globalThis as typeof globalThis&{__coreEngineEvents?:EngineEvent[];__coreEngineMissions?:Map<string,Mission>;__coreActionKeys?:Map<string,unknown>;__coreCapabilityApprovals?:Map<string,number>};root.__coreEngineEvents??=[];root.__coreEngineMissions??=new Map();root.__coreActionKeys??=new Map();root.__coreCapabilityApprovals??=new Map();
 export const events=root.__coreEngineEvents;export const missions=root.__coreEngineMissions;
 export function recordMissionEvent(input:Omit<EngineEvent,"id"|"createdAt">){const event={...input,id:crypto.randomUUID(),createdAt:new Date().toISOString()};events.push(event);if(events.length>500)events.splice(0,events.length-500);return event}
 export function claimMemoryAction(missionId:string,action:string,key:string){const id=missionId+":"+action+":"+key;if(root.__coreActionKeys!.has(id))return false;root.__coreActionKeys!.set(id,Date.now());if(root.__coreActionKeys!.size>5000){const first=root.__coreActionKeys!.keys().next().value;if(first)root.__coreActionKeys!.delete(first)}return true}
+export function approveCapabilityAction(missionId:string,actionId:string,key:string){if(!claimMemoryAction(missionId,"capability-approve",key))return false;root.__coreCapabilityApprovals!.set(missionId+":"+actionId,Date.now());return true}
+export function isCapabilityApproved(missionId:string,actionId:string){return root.__coreCapabilityApprovals!.has(missionId+":"+actionId)}
+export function claimCapabilityExecution(missionId:string,actionId:string,key:string){return claimMemoryAction(missionId,"capability-execute:"+actionId,key)}
