@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { findCapabilities, listCapabilityPacks } from "@/lib/capability-registry";
+import { listCapabilityAdapters } from "@/lib/capability-adapters";
 
 export async function GET(request: Request) {
   ensureCapabilityPacks();
@@ -10,6 +11,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     contract: "capability-v1",
+    adapterContract: "capability-adapter-v1",
+    adapters: listCapabilityAdapters(),
     count: packs.length,
     packs: packs.map((pack) => ({
       id: pack.id,
