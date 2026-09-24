@@ -1,21 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { executeCapabilityAction, getCapabilityAction } from "@/lib/capability-action-registry";
+import test from "node:test";
+import assert from "node:assert/strict";
+import {executeCapabilityAction,getCapabilityAction} from "../lib/capability-action-registry.ts";
 
-describe("capability action registry", () => {
-  it("resolves registered actions", () => {
-    expect(getCapabilityAction("seo.audit")?.packId).toBe("seo-suite");
-  });
+test("capability action registry resolves registered actions",()=>{
+  assert.equal(getCapabilityAction("seo.audit")?.packId,"seo-suite");
+});
 
-  it("requires explicit approval for critical actions", () => {
-    const blocked = executeCapabilityAction({ actionId: "security.harden", approved: false });
-    expect(blocked.status).toBe("APPROVAL_REQUIRED");
+test("capability action registry requires explicit approval for critical actions",async()=>{
+  const blocked=await executeCapabilityAction({actionId:"security.harden",approved:false});
+  assert.equal(blocked.status,"APPROVAL_REQUIRED");
 
-    const approved = executeCapabilityAction({ actionId: "security.harden", approved: true });
-    expect(approved.status).toBe("EXECUTED");
-    expect(approved.sideEffect).toBe(false);
-  });
+  const approved=await executeCapabilityAction({actionId:"security.harden",approved:true});
+  assert.equal(approved.status,"EXECUTED");
+  assert.equal(approved.sideEffect,false);
+  assert.equal(approved.adapterId,"core.simulation.v1");
+});
 
-  it("rejects unknown actions", () => {
-    expect(executeCapabilityAction({ actionId: "does.not.exist", approved: true }).status).toBe("NOT_FOUND");
-  });
+test("capability action registry rejects unknown actions",async()=>{
+  const result=await executeCapabilityAction({actionId:"does.not.exist",approved:true});
+  assert.equal(result.status,"NOT_FOUND");
 });
