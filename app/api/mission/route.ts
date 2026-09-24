@@ -51,7 +51,7 @@ export async function POST(request:Request){
           if(!approved)return NextResponse.json({ok:false,error:"CAPABILITY_APPROVAL_REQUIRED",capabilityActionId},{status:403});
         }
         if(action==="execute"||action==="retry"){
-          const receipt=executeCapabilityAction({actionId:capabilityActionId,approved:true});
+          const receipt=await executeCapabilityAction({actionId:capabilityActionId,approved:true,missionId:id,idempotencyKey:claimKey,input:b.input});
           await recordCapabilityLedgerEvent(id,"CAPABILITY_EXECUTED",{capabilityActionId,receipt});
           await recordCapabilityLedgerEvent(id,"CAPABILITY_OUTCOME_RECORDED",{capabilityActionId,status:receipt.status,sideEffect:receipt.sideEffect});
         }
@@ -81,7 +81,7 @@ export async function POST(request:Request){
       if((action==="execute"||action==="retry")&&capability.requiresApproval&&!isCapabilityApproved(id,capabilityActionId))return NextResponse.json({ok:false,error:"CAPABILITY_APPROVAL_REQUIRED",capabilityActionId},{status:403});
       if(action==="execute"||action==="retry"){
         if(!claimCapabilityExecution(id,capabilityActionId,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId,persistence:"in-memory-runtime",durable:false});
-        capabilityReceipt=executeCapabilityAction({actionId:capabilityActionId,approved:true});
+        capabilityReceipt=await executeCapabilityAction({actionId:capabilityActionId,approved:true,missionId:id,idempotencyKey:memoryClaimKey,input:b.input});
         recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_EXECUTED",actorType:policy.actor,metadata:{capabilityActionId,receipt:capabilityReceipt}});
         recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_OUTCOME_RECORDED",actorType:"system",metadata:{capabilityActionId,status:capabilityReceipt.status,sideEffect:capabilityReceipt.sideEffect}});
       }
