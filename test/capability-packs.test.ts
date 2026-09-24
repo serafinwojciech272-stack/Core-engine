@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ensureCapabilityPacks } from "@/lib/capability-packs";
-import { listCapabilityPacks, findCapabilities } from "@/lib/capability-registry";
+import { ensureCapabilityPacks } from "../lib/capability-packs";
+import { listCapabilityPacks, findCapabilities } from "../lib/capability-registry";
 
 test("WordPress-inspired capability catalog covers core website powers", () => {
   ensureCapabilityPacks();
