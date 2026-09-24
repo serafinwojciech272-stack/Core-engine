@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildContextEvidence } from "@/lib/context-evidence-runtime";
+import { buildContextEvidence } from "../lib/context-evidence-runtime";
 
 test("context and evidence expose provenance, freshness, reliability and graph quality", () => {
   const { context, evidence, evidenceGraph, evidenceQuality } = buildContextEvidence({
