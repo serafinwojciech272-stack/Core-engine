@@ -1,32 +1,33 @@
-import { describe, expect, it } from "vitest";
-import { missions, events, approveCapabilityAction, isCapabilityApproved, claimCapabilityExecution } from "@/lib/engine";
-import { executeCapabilityAction } from "@/lib/capability-action-registry";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { missions, events, approveCapabilityAction, isCapabilityApproved, claimCapabilityExecution } from "../lib/engine";
+import { executeCapabilityAction } from "../lib/capability-action-registry";
 
 describe("capability action mission lifecycle", () => {
-  it("tracks capability approval against a mission", () => {
+  await t.test("tracks capability approval against a mission", () => {
     const missionId = "test-mission-approval";
     const key = "approval-1";
     const first = approveCapabilityAction(missionId, "security.harden", key);
     const duplicate = approveCapabilityAction(missionId, "security.harden", key);
-    expect(first).toBe(true);
-    expect(duplicate).toBe(false);
-    expect(isCapabilityApproved(missionId, "security.harden")).toBe(true);
+    assert.first).equal(true);
+    assert.duplicate).equal(false);
+    assert.isCapabilityApproved(missionId, "security.harden")).equal(true);
   });
 
-  it("makes capability execution idempotent", () => {
+  await t.test("makes capability execution idempotent", () => {
     const missionId = "test-mission-execution";
     const first = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
     const duplicate = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
-    expect(first).toBe(true);
-    expect(duplicate).toBe(false);
+    assert.first).equal(true);
+    assert.duplicate).equal(false);
     const receipt = executeCapabilityAction({ actionId: "seo.audit", approved: true });
-    expect(receipt.status).toBe("EXECUTED");
-    expect(receipt.sideEffect).toBe(false);
+    assert.receipt.status).equal("EXECUTED");
+    assert.receipt.sideEffect).equal(false);
   });
 
-  it("preserves the single mission state machine", () => {
-    expect(missions).toBeDefined();
-    expect(events).toBeDefined();
-    expect(Array.isArray(events)).toBe(true);
+  await t.test("preserves the single mission state machine", () => {
+    assert.missions).toBeDefined();
+    assert.events).toBeDefined();
+    assert.Array.isArray(events)).equal(true);
   });
 });
