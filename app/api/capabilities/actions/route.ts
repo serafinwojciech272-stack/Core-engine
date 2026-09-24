@@ -22,11 +22,15 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     const actionId = typeof body.actionId === "string" ? body.actionId.trim() : "";
     const approved = body.approved === true;
+    const missionId = typeof body.missionId === "string" ? body.missionId.trim() : undefined;
+    const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : undefined;
     if (!actionId) return NextResponse.json({ ok: false, error: "ACTION_ID_REQUIRED" }, { status: 400 });
 
-    const receipt = executeCapabilityAction({ actionId, approved });
+    const receipt = await executeCapabilityAction({ actionId, approved, missionId, idempotencyKey });
     if (receipt.status === "NOT_FOUND") return NextResponse.json({ ok: false, receipt }, { status: 404 });
     if (receipt.status === "APPROVAL_REQUIRED") return NextResponse.json({ ok: false, receipt }, { status: 403 });
+    if (receipt.status === "ADAPTER_NOT_FOUND") return NextResponse.json({ ok: false, receipt }, { status: 501 });
+    if (receipt.status === "FAILED") return NextResponse.json({ ok: false, receipt }, { status: 502 });
     return NextResponse.json({ ok: true, receipt });
   } catch {
     return NextResponse.json({ ok: false, error: "INVALID_REQUEST" }, { status: 400 });
