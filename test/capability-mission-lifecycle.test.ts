@@ -1,33 +1,33 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { missions, events, approveCapabilityAction, isCapabilityApproved, claimCapabilityExecution } from "../lib/engine";
-import { executeCapabilityAction } from "../lib/capability-action-registry";
+import { missions, events, approveCapabilityAction, isCapabilityApproved, claimCapabilityExecution } from "../lib/engine.ts";
+import { executeCapabilityAction } from "../lib/capability-action-registry.ts";
 
-describe("capability action mission lifecycle", () => {
+test("capability action mission lifecycle", async (t) => {
   await t.test("tracks capability approval against a mission", () => {
     const missionId = "test-mission-approval";
     const key = "approval-1";
     const first = approveCapabilityAction(missionId, "security.harden", key);
     const duplicate = approveCapabilityAction(missionId, "security.harden", key);
-    assert.first).equal(true);
-    assert.duplicate).equal(false);
-    assert.isCapabilityApproved(missionId, "security.harden")).equal(true);
+    assert.equal(first, true);
+    assert.equal(duplicate, false);
+    assert.equal(isCapabilityApproved(missionId, "security.harden"), true);
   });
 
   await t.test("makes capability execution idempotent", () => {
     const missionId = "test-mission-execution";
     const first = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
     const duplicate = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
-    assert.first).equal(true);
-    assert.duplicate).equal(false);
+    assert.equal(first, true);
+    assert.equal(duplicate, false);
     const receipt = executeCapabilityAction({ actionId: "seo.audit", approved: true });
-    assert.receipt.status).equal("EXECUTED");
-    assert.receipt.sideEffect).equal(false);
+    assert.equal(receipt.status, "EXECUTED");
+    assert.equal(receipt.sideEffect, false);
   });
 
   await t.test("preserves the single mission state machine", () => {
-    assert.missions).toBeDefined();
-    assert.events).toBeDefined();
-    assert.Array.isArray(events)).equal(true);
+    assert.ok(missions);
+    assert.ok(events);
+    assert.equal(Array.isArray(events), true);
   });
 });
