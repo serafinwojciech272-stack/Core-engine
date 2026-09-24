@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types --test-concurrency=1 --test-timeout=120000 test/*.test.ts",
+    "test": "node --experimental-loader ./scripts/test-loader.mjs --test --experimental-strip-types --test-concurrency=1 --test-timeout=120000 test/*.test.ts",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
