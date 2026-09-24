@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildGrowthMissionPlan, canExecuteGrowthAction } from "../lib/growth-mission";
+import { buildGrowthMissionPlan, canExecuteGrowthAction } from "../lib/growth-mission.ts";
 
 test("growth mission execution fabric", async (t) => {
   await t.test("binds capabilities to the existing mission approval gate", () => {
@@ -11,10 +11,10 @@ test("growth mission execution fabric", async (t) => {
       recommendation: "Harden security",
       signals: ["security vulnerability"]
     });
-    assert.plan.missionId).equal("m1");
-    assert.plan.approvalGate).equal("REQUIRED");
-    assert.plan.actions.length).toBeGreaterThan(0);
-    assert.canExecuteGrowthAction(plan, plan.actions[0].id, "AWAITING_APPROVAL").allowed).equal(false);
+    assert.equal(plan.missionId, "m1");
+    assert.equal(plan.approvalGate, "REQUIRED");
+    assert.ok(plan.actions.length > 0);
+    assert.equal(canExecuteGrowthAction(plan, plan.actions[0].id, "AWAITING_APPROVAL").allowed, false);
   });
 
   await t.test("allows only approved, non-blocked capability actions", () => {
@@ -26,7 +26,7 @@ test("growth mission execution fabric", async (t) => {
       signals: ["organic search"]
     });
     const action = plan.actions.find(a => a.id === "seo.audit");
-    assert.action).ok(Boolean(.toBeTruthy()));
-    assert.canExecuteGrowthAction(plan, "seo.audit", "APPROVED").allowed).equal(true);
+    assert.ok(action);
+    assert.equal(canExecuteGrowthAction(plan, "seo.audit", "APPROVED").allowed, true);
   });
 });
