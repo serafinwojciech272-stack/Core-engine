@@ -34,8 +34,8 @@ async function api(path: string, body: Record<string, unknown>) {
 
 before(async () => {
   server = spawn(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["next", "dev", "-p", String(port)],
+    process.execPath,
+    ["node_modules/next/dist/bin/next", "dev", "-p", String(port)],
     {
       env: {
         ...process.env,
@@ -43,7 +43,8 @@ before(async () => {
         CORE_ENGINE_ALLOW_ANONYMOUS: "true",
         NEXT_TELEMETRY_DISABLED: "1"
       },
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32"
     }
   );
   await waitForServer();
@@ -51,7 +52,11 @@ before(async () => {
 
 after(async () => {
   if (!server || server.killed) return;
-  server.kill("SIGTERM");
+  if (process.platform !== "win32" && server.pid) {
+    try { process.kill(-server.pid, "SIGTERM"); } catch {}
+  } else {
+    server.kill("SIGTERM");
+  }
   await new Promise<void>((resolve) => {
     const timer = setTimeout(() => {
       if (server && !server.killed) server.kill("SIGKILL");
