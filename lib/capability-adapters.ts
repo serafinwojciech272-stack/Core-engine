@@ -65,7 +65,7 @@ const publicWebAuditAdapter: CapabilityAdapter = {
         headers: { "user-agent": "Core-Engine-Agent/1.0" }
       });
       const html = (await response.text()).slice(0, 1000000);
-      const title = html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1]?.replace(/\\s+/g, " ").trim() || null;
+      const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim() || null;
       const description = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)?.[1]?.trim() || null;
       const hasCanonical = /<link[^>]+rel=["']canonical["']/i.test(html);
       const hasViewport = /<meta[^>]+name=["']viewport["']/i.test(html);
