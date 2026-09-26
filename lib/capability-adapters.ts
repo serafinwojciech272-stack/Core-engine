@@ -58,7 +58,7 @@ const publicWebAuditAdapter: CapabilityAdapter = {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const response = await fetch(url, {
+      const response = await fetch(url.toString(), {
         method: "GET",
         redirect: "error",
         signal: controller.signal,
