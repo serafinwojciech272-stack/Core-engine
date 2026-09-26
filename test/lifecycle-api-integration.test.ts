@@ -229,7 +229,7 @@ test("M9 live agent E2E executes a real public web capability", { skip: !process
   assert.equal(execute.json.capabilityReceipt.status, "EXECUTED");
   assert.equal(execute.json.capabilityReceipt.adapterId, "core.web-audit.v1");
   assert.equal(execute.json.capabilityReceipt.sideEffect, false);
-  assert.equal(execute.json.capabilityReceipt.output.url, target);
+  assert.equal(execute.json.capabilityReceipt.output.url, new URL(target).toString());
 
   const measure = await api("/api/mission", {
     id: missionId,
