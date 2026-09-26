@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // The investor landing has an explicitly bounded, simulation-only public demo.
   // Production mutations remain authenticated; the demo is opt-in via a dedicated header
   // and still runs through the same engine, risk gate, evidence and mission pipeline.
-  const isInvestorDemo = request.headers.get("x-core-engine-demo") === "investor-v1";
+  const isInvestorDemo = new URL(request.url).searchParams.get("demo") === "investor-v1";
   if (!isInvestorDemo) {
     const guard = guardMutation(request, "engine");
     if (guard) return guard;
