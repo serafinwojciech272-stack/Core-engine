@@ -4,25 +4,44 @@ import { parseTenderDocument, parseTenderZip, type ParsedTenderDocument } from "
 const SOURCE = "https://zabrze.logintrade.net/zapytania_email,238598,f66e29363d9dcf5e140c48eece63b78c.html";
 const HOST = "zabrze.logintrade.net";
 
+// The portal renders each attachment as a block whose display name lives in a
+// sibling `span.attachment-name` while the anchor itself contains only an icon.
+// Reading the filename from the anchor text therefore finds nothing, so parse
+// the block and pair the name with the download href.
 function attachmentLinks(html: string) {
   const links: { name: string; url: string }[] = [];
-  const re = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const block = /<div[^>]*class="[^"]*\battachment\b[^"]*"[^>]*>([\s\S]*?)<a[^>]+href=["']([^"']+)["']/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    const href = m[1];
-    const label = m[2].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  while ((m = block.exec(html))) {
+    const body = m[1];
+    const href = m[2];
+    const named = /class="[^"]*\battachment-name\b[^"]*"[^>]*>([\s\S]*?)<\//i.exec(body);
+    const label = (named ? named[1] : "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
     const name = label || decodeURIComponent(href.split("/").pop() || "").split("?")[0];
-    if (/\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name) || /\.(pdf|docx?|xlsx?|zip|xml|rtf)(?:$|[?#])/i.test(href)) {
+    if (/\.(pdf|docx?|xlsx?|zip|xml|rtf)$/i.test(name)) {
       links.push({ name, url: new URL(href, SOURCE).toString() });
     }
   }
   return links.filter((x, i, a) => a.findIndex(y => y.url === x.url) === i);
 }
 
+async function fetchWithTimeout(url: string, timeoutMs = 120000) {
+  return fetch(url, {
+    cache: "no-store",
+    headers: { "user-agent": "Core-Engine-Tender-Intelligence-CI/1.0" },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+}
+
 const source = new URL(SOURCE);
 if (source.hostname !== HOST) throw new Error("OFFICIAL_HOST_MISMATCH");
 
-const page = await fetch(SOURCE, { cache: "no-store", headers: { "user-agent": "Core-Engine-Tender-Intelligence-CI/1.0" } });
+const page = await fetchWithTimeout(SOURCE);
 if (!page.ok) throw new Error(`OFFICIAL_SOURCE_FETCH_${page.status}`);
 const html = await page.text();
 const links = attachmentLinks(html);
@@ -31,7 +50,7 @@ if (links.length < 9) throw new Error(`OFFICIAL_ATTACHMENT_DISCOVERY_TOO_LOW:${l
 const parsed: ParsedTenderDocument[] = [];
 const failures: string[] = [];
 for (const link of links) {
-  const response = await fetch(link.url, { cache: "no-store", headers: { "user-agent": "Core-Engine-Tender-Intelligence-CI/1.0" } });
+  const response = await fetchWithTimeout(link.url);
   if (!response.ok) { failures.push(`${link.name}:HTTP_${response.status}`); continue; }
   const bytes = new Uint8Array(await response.arrayBuffer());
   try {
