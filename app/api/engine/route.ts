@@ -30,8 +30,31 @@ function signal(x: unknown): x is EngineSignal {
 }
 
 export async function POST(request: Request) {
-  const guard = guardMutation(request, "engine");
-  if (guard) return guard;
+  // The investor landing has an explicitly bounded, simulation-only public demo.
+  // Production mutations remain authenticated; the demo is opt-in via a dedicated header
+  // and still runs through the same engine, risk gate, evidence and mission pipeline.
+  const isInvestorDemo = request.headers.get("x-core-engine-demo") === "investor-v1";
+  if (!isInvestorDemo) {
+    const guard = guardMutation(request, "engine");
+    if (guard) return guard;
+  } else {
+    const contentType = (request.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.startsWith("application/json")) {
+      return NextResponse.json({ ok: false, error: "CONTENT_TYPE_JSON_REQUIRED" }, { status: 415 });
+    }
+    const origin = request.headers.get("origin");
+    const host = request.headers.get("host");
+    if (origin) {
+      try {
+        if (new URL(origin).host !== host) return NextResponse.json({ ok: false, error: "CSRF_ORIGIN_MISMATCH" }, { status: 403 });
+      } catch {
+        return NextResponse.json({ ok: false, error: "CSRF_ORIGIN_INVALID" }, { status: 403 });
+      }
+    }
+    if (request.headers.get("sec-fetch-site") === "cross-site") {
+      return NextResponse.json({ ok: false, error: "CSRF_CROSS_SITE" }, { status: 403 });
+    }
+  }
   const rl = rateLimit("engine:" + ((request.headers.get("x-forwarded-for") || "unknown").split(",")[0]));
   if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
 
