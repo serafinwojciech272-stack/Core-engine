@@ -41,7 +41,7 @@ export default function UltraCommandCenter() {
   async function run() {
     setRunning(true); setError(""); setResult(null);
     try {
-      const r = await fetch("/api/engine", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ signals: domains[domain], domain: domain.toLowerCase() }) });
+      const r = await fetch("/api/engine?demo=investor-v1", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ signals: domains[domain], domain: domain.toLowerCase(), demo: true }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "ENGINE_REQUEST_FAILED");
       setResult(data);
