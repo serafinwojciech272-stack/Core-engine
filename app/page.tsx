@@ -1,5 +1,5 @@
-import InvestorExperience from "@/components/InvestorExperience";
+import UltraCommandCenter from "@/components/UltraCommandCenter";
 
 export default function Home() {
-  return <InvestorExperience />;
+  return <UltraCommandCenter />;
 }
