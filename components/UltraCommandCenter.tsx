@@ -97,7 +97,7 @@ export default function UltraCommandCenter() {
 
       {result && <div className="ultra-results">
         <div className="ultra-result-head"><div><span className="ultra-label">02 / ENGINE OUTPUT</span><h2>{result.engine || "CORE ENGINE"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "ANALYZED"}</div></div>
-        <div className="ultra-agent-strip"><span>AGENT CONTRACT</span><b>{agent?.agent?.name || "Core Engine Agent"}</b><small>{agent?.runtime?.persistence || "runtime persistence"} · {agent?.runtime?.capabilityPacks ?? 0} capability packs · external side effects {agent?.runtime?.liveExternalSideEffects ? "enabled" : "disabled"}</small></div><div className="ultra-metrics">
+        <div className="ultra-agent-strip"><span>AGENT CONTRACT</span><b>{agent?.agent?.name || "Core Engine Agent"}</b><small>{agent?.agent?.contract || "agent-runtime"} · {agent?.agent?.autonomy || "HUMAN_APPROVED"} · {agent?.runtime?.persistence || "runtime persistence"} · {agent?.runtime?.capabilityPacks ?? 0} capability packs · external side effects {agent?.runtime?.liveExternalSideEffects ? "enabled" : "disabled"}</small></div><div className="ultra-metrics">
           <div><small>CONFIDENCE</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "N/A"}</strong><span>decision matrix</span></div>
           <div><small>EVIDENCE QUALITY</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "N/A"}</strong><span>provenance score</span></div>
           <div><small>RISK GATE</small><strong>{result.decision?.riskGate || "PASS"}</strong><span>policy evaluation</span></div>
