@@ -40,7 +40,19 @@ jobs:
         if: steps.typecheck.outcome == 'failure'
         run: exit 1
       - run: npm run lint
-      - run: npm test
+      - name: Test diagnostic
+        id: tests
+        continue-on-error: true
+        run: npm test 2>&1 | tee test.log
+      - name: Upload test diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9-test-diagnostic
+          path: test.log
+      - name: Enforce tests
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
       - name: Official tender document ingestion smoke
         run: node --test --experimental-strip-types scripts/official-tender-smoke.ts
       - run: npm run build
