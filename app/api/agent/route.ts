@@ -1,44 +1,36 @@
 import { NextResponse } from "next/server";
-import { CORE_CONTRACT_VERSION } from "@/lib/core-contracts";
-import { ENGINE_VERSION, MISSION_STATES } from "@/lib/engine";
-import { ensureCapabilityPacks } from "@/lib/capability-packs";
-import { listCapabilityPacks } from "@/lib/capability-registry";
-import { listCapabilityAdapters } from "@/lib/capability-adapters";
+import { getAgentManifest } from "@/lib/agent-contract";
+import { getProductionReadiness } from "@/lib/production-readiness";
 import { storageMode } from "@/lib/storage";
-
-export const dynamic = "force-dynamic";
+import { listCapabilityAdapters } from "@/lib/capability-adapters";
+import { listCapabilityPacks } from "@/lib/capability-registry";
+import { ensureCapabilityPacks } from "@/lib/capability-packs";
 
 export async function GET() {
   ensureCapabilityPacks();
-
-  const packs = listCapabilityPacks();
-  const actions = packs.flatMap((pack) => pack.actions);
-  const adapters = listCapabilityAdapters();
+  const manifest = getAgentManifest();
+  const persistence = storageMode();
 
   return NextResponse.json({
     ok: true,
-    agent: {
-      name: "Core Engine Agent",
-      contractVersion: CORE_CONTRACT_VERSION,
-      loop: ["OBSERVE", "CONTEXT", "EVIDENCE", "DIAGNOSE", "DECIDE", "MISSION", "APPROVAL", "EXECUTE", "MEASURE", "LEARN"],
-      missionStates: MISSION_STATES,
-      governance: {
-        proposalBeforeExecution: true,
-        explicitApprovalRequired: actions.filter((action) => action.requiresApproval).length > 0,
-        humanApprovalBoundary: "APPROVAL"
-      }
-    },
+    agent: manifest,
     runtime: {
       status: "READY",
-      engineVersion: ENGINE_VERSION,
-      persistence: storageMode(),
-      capabilityPacks: packs.length,
-      capabilityActions: actions.length,
-      adapters,
-      executionMode: "ADAPTER",
-      liveExternalSideEffects: false
+      persistence,
+      durable: persistence === "supabase",
+      adapters: listCapabilityAdapters(),
+      capabilityPacks: listCapabilityPacks().length,
+      execution: getProductionReadiness().execution,
+      liveExternalSideEffects: false,
+      approvalRequiredForHighRiskActions: true
+    },
+    integration: {
+      plan: "POST /api/engine",
+      missionControl: "POST /api/mission",
+      capabilityDiscovery: "GET /api/capabilities",
+      health: "GET /api/health"
     }
   }, {
-    headers: { "Cache-Control": "no-store" }
+    headers: { "Cache-Control": "public, max-age=30, s-maxage=30" }
   });
 }
