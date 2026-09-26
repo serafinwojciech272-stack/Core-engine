@@ -15,11 +15,11 @@ test("capability action mission lifecycle tracks approval", () => {
 
 test("capability execution is idempotent", async () => {
   const missionId = "test-mission-execution";
-  const first = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
-  const duplicate = claimCapabilityExecution(missionId, "seo.audit", "exec-1");
+  const first = claimCapabilityExecution(missionId, "security.harden", "exec-1");
+  const duplicate = claimCapabilityExecution(missionId, "security.harden", "exec-1");
   assert.equal(first, true);
   assert.equal(duplicate, false);
-  const receipt = await executeCapabilityAction({ actionId: "seo.audit", approved: true });
+  const receipt = await executeCapabilityAction({ actionId: "security.harden", approved: true });
   assert.equal(receipt.status, "EXECUTED");
   assert.equal(receipt.sideEffect, false);
 });
