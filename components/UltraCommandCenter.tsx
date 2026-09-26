@@ -28,7 +28,15 @@ export default function UltraCommandCenter() {
   }, []);
 
   const trace = result?.trace ?? [];
-  const completed = useMemo(() => new Set(trace.filter((x: Json) => ["COMPLETE", "CREATED", "PASS"].includes(String(x.status).toUpperCase())).map((x: Json) => String(x.stage).toUpperCase().replace(/[^A-Z]/g, ""))), [trace]);
+  const completed = useMemo(() => {
+    const done = new Set(trace.filter((x: Json) => ["COMPLETE", "CREATED", "PASS"].includes(String(x.status).toUpperCase())).map((x: Json) => String(x.stage).toUpperCase().replace(/[^A-Z]/g, "")));
+    if (result?.mission?.id) done.add("MISSION");
+    if (["APPROVED", "EXECUTING", "MEASURING", "COMPLETED", "LEARNED"].includes(String(result?.mission?.state))) done.add("APPROVAL");
+    if (["EXECUTING", "MEASURING", "COMPLETED", "LEARNED"].includes(String(result?.mission?.state))) done.add("EXECUTE");
+    if (["MEASURING", "COMPLETED", "LEARNED"].includes(String(result?.mission?.state))) done.add("MEASURE");
+    if (result?.mission?.state === "LEARNED") done.add("LEARN");
+    return done;
+  }, [trace, result?.mission?.id, result?.mission?.state]);
 
   async function run() {
     setRunning(true); setError(""); setResult(null);
@@ -45,7 +53,7 @@ export default function UltraCommandCenter() {
     if (!result?.mission?.id) return;
     setMissionBusy(true); setError("");
     try {
-      const r = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ id: result.mission.id, action, idempotencyKey: crypto.randomUUID() }) });
+      const r = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ id: result.mission.id, action, idempotencyKey: crypto.randomUUID(), outcome: { before: 100, after: action === "measure" ? 112 : 120, direction: "higher" } }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "MISSION_OPERATION_FAILED");
       setResult((old: Json) => ({ ...old, ...data, mission: data.mission, state: data.mission?.state, trace: data.trace ?? old.trace }));
@@ -58,7 +66,7 @@ export default function UltraCommandCenter() {
   const evidenceScore = result?.evidenceQuality?.score;
   const confidence = Number(result?.decision?.confidence);
 
-  return <section className="ultra-shell" id="ultra">
+  return <section className="ultra-shell" id="top">
     <div className="ultra-noise" />
     <div className="ultra-orbit ultra-o1" /><div className="ultra-orbit ultra-o2" /><div className="ultra-orbit ultra-o3" />
     <header className="ultra-topbar">
@@ -97,7 +105,7 @@ export default function UltraCommandCenter() {
         </div>
         <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECISION CENTER</span><h3>{result.decision?.recommendation || "Decision generated"}</h3><p>{result.decision?.diagnosis || "The core has processed the supplied signals."}</p></div><div className="ultra-decision-side"><small>PRIORITY</small><b>{result.decision?.priority || "N/A"}</b><small>REASONING SOURCE</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
         <div className="ultra-evidence"><div className="ultra-label">EVIDENCE GRAPH</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "evidence node"}</b><small>{typeof e === "string" ? "verified node" : e.source || "source"}</small></div>)}</div>
-        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">MISSION CONTROL</span><h3>{result.mission.objective}</h3><p>Current state: <b>{state}</b></p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PROCESSING" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> LEARNING COMPLETE</span>}</div></div>}
+        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">MISSION CONTROL</span><h3>{result.mission.objective}</h3><p>Current state: <b>{state}</b> · governed transition · demo outcome verification enabled</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PROCESSING" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> LEARNING COMPLETE</span>}</div></div>}
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">AUDIT CHAIN</span><h3>{result.audit.algorithm || "Cryptographic provenance"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">CORE ERROR · {error}</div>}
