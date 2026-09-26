@@ -4,9 +4,10 @@ import { spawn, type ChildProcess } from "node:child_process";
 
 const port = 4317;
 const base = `http://127.0.0.1:${port}`;
+const nextBin = new URL("../node_modules/next/dist/bin/next", import.meta.url).pathname;
 let server: ChildProcess | undefined;
 
-async function waitForServer(timeoutMs = 30000) {
+async function waitForServer(timeoutMs = 60000) {
   const deadline = Date.now() + timeoutMs;
   let lastError = "server not ready";
   while (Date.now() < deadline) {
@@ -33,35 +34,43 @@ async function api(path: string, body: Record<string, unknown>) {
 }
 
 before(async () => {
-  server = spawn(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["next", "dev", "-p", String(port)],
-    {
-      env: {
-        ...process.env,
-        NODE_ENV: "test",
-        CORE_ENGINE_ALLOW_ANONYMOUS: "true",
-        NEXT_TELEMETRY_DISABLED: "1"
-      },
-      stdio: ["ignore", "pipe", "pipe"]
-    }
-  );
+  // `npx next dev` wraps the real server in a second process that survives a
+  // SIGTERM to the wrapper, leaving an orphan holding this port and the stdio
+  // pipes open. Run the local Next binary directly in its own process group so
+  // the whole tree can be terminated deterministically.
+  server = spawn(process.execPath, [nextBin, "dev", "-p", String(port)], {
+    detached: process.platform !== "win32",
+    env: {
+      ...process.env,
+      NODE_ENV: "test",
+      CORE_ENGINE_ALLOW_ANONYMOUS: "true",
+      NEXT_TELEMETRY_DISABLED: "1"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  // Drain the pipes; an unconsumed pipe buffer blocks the server and keeps the
+  // test process alive after the assertions finish.
+  server.stdout?.resume();
+  server.stderr?.resume();
   await waitForServer();
 });
 
 after(async () => {
-  if (!server || server.killed) return;
-  server.kill("SIGTERM");
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      if (server && !server.killed) server.kill("SIGKILL");
-      resolve();
-    }, 3000);
-    server?.once("exit", () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
+  const child = server;
+  if (!child || child.exitCode !== null) return;
+  const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const signal = (name: NodeJS.Signals) => {
+    try {
+      if (process.platform !== "win32" && child.pid) process.kill(-child.pid, name);
+      else child.kill(name);
+    } catch {
+      /* already gone */
+    }
+  };
+  signal("SIGTERM");
+  const timer = setTimeout(() => signal("SIGKILL"), 5000);
+  await exited;
+  clearTimeout(timer);
 });
 
 test("real HTTP API executes the complete mission lifecycle", async () => {
