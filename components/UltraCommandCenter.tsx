@@ -64,7 +64,7 @@ export default function UltraCommandCenter() {
     <header className="ultra-topbar">
       <div className="ultra-brand"><span><BrainCircuit size={18}/></span><b>CORE ENGINE</b><small>AI CONTROL PLANE</small></div>
       <div className="ultra-live"><i /> LIVE INTELLIGENCE FABRIC</div>
-      <a href="#portfolio">PORTFOLIO <ArrowRight size={13}/></a>
+      <div className="ultra-toplinks"><a href="#portfolio">PORTFOLIO <ArrowRight size={13}/></a><a href="#roadmap">ROADMAP</a></div>
     </header>
 
     <div className="ultra-hero">
