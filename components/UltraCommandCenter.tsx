@@ -14,17 +14,21 @@ const stages = ["OBSERVE", "CONTEXT", "EVIDENCE", "DIAGNOSE", "DECIDE", "MISSION
 export default function UltraCommandCenter() {
   const [domain, setDomain] = useState<keyof typeof domains>("Growth");
   const [runtime, setRuntime] = useState<Json | null>(null);
+  const [agent, setAgent] = useState<Json | null>(null);
   const [result, setResult] = useState<Json | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [missionBusy, setMissionBusy] = useState(false);
 
   useEffect(() => {
-    fetch("/api/engine", { headers: { Accept: "application/json" } }).then(r => r.json()).then(setRuntime).catch(() => setRuntime(null));
+    Promise.all([
+      fetch("/api/engine", { headers: { Accept: "application/json" } }).then(r => r.json()),
+      fetch("/api/agent", { headers: { Accept: "application/json" } }).then(r => r.json())
+    ]).then(([engine, agentData]) => { setRuntime(engine); setAgent(agentData); }).catch(() => { setRuntime(null); setAgent(null); });
   }, []);
 
   const trace = result?.trace ?? [];
-  const completed = useMemo(() => new Set(trace.filter((x: Json) => ["COMPLETE", "CREATED", "PASS"].includes(String(x.status).toUpperCase())).map((x: Json) => String(x.stage).toUpperCase())), [trace]);
+  const completed = useMemo(() => new Set(trace.filter((x: Json) => ["COMPLETE", "CREATED", "PASS"].includes(String(x.status).toUpperCase())).map((x: Json) => String(x.stage).toUpperCase().replace(/[^A-Z]/g, ""))), [trace]);
 
   async function run() {
     setRunning(true); setError(""); setResult(null);
@@ -64,15 +68,15 @@ export default function UltraCommandCenter() {
     </header>
 
     <div className="ultra-hero">
-      <div className="ultra-kicker"><span>INVESTOR EXPERIENCE 02</span><em>CORE RUNTIME</em></div>
+      <div className="ultra-kicker"><span>INVESTOR EXPERIENCE 03</span><em>AGENT RUNTIME · {agent?.runtime?.status || "CONNECTING"}</em></div>
       <h1>Intelligence<br/><span>in motion.</span></h1>
-      <p>One control plane turns fragmented business signals into evidence, decisions, governed missions and measurable learning.</p>
+      <p>One control plane turns fragmented business signals into evidence, decisions, governed missions and measurable learning. The same agent contract powers every product surface.</p>
       <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> RUN THE CORE</a><a className="ultra-secondary" href="#ultra-map">VIEW SYSTEM MAP <ArrowRight size={14}/></a></div>
       <div className="ultra-proof"><span><ShieldCheck size={14}/> evidence first</span><span><LockKeyhole size={14}/> approval boundary</span><span><GitBranch size={14}/> auditable state</span></div>
     </div>
 
     <div className="ultra-command" id="ultra-demo">
-      <div className="ultra-command-head"><div><span className="ultra-label">01 / SIGNAL INTAKE</span><h2>Give the core a business situation.</h2></div><div className="ultra-runtime"><i/>{runtime?.status || "CONNECTING"} <b>{runtime?.version || "CORE"}</b></div></div>
+      <div className="ultra-command-head"><div><span className="ultra-label">01 / SIGNAL INTAKE · SIMULATED DEMO INPUT</span><h2>Give the core a business situation.</h2></div><div className="ultra-runtime"><i/>{agent?.runtime?.status || runtime?.status || "CONNECTING"} <b>{runtime?.version || "CORE"}</b></div></div>
       <div className="ultra-input-grid">
         <div className="ultra-domain-tabs">{(Object.keys(domains) as Array<keyof typeof domains>).map(d => <button key={d} onClick={() => setDomain(d)} className={d === domain ? "active" : ""}><Activity size={14}/>{d}</button>)}</div>
         <div className="ultra-signals">{domains[domain].map(s => <div key={s.name}><small>{s.source}</small><b>{s.name}</b><strong>{s.value}</strong></div>)}</div>
@@ -85,7 +89,7 @@ export default function UltraCommandCenter() {
 
       {result && <div className="ultra-results">
         <div className="ultra-result-head"><div><span className="ultra-label">02 / ENGINE OUTPUT</span><h2>{result.engine || "CORE ENGINE"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "ANALYZED"}</div></div>
-        <div className="ultra-metrics">
+        <div className="ultra-agent-strip"><span>AGENT CONTRACT</span><b>{agent?.agent?.name || "Core Engine Agent"}</b><small>{agent?.runtime?.persistence || "runtime persistence"} · {agent?.runtime?.capabilityPacks ?? 0} capability packs · external side effects {agent?.runtime?.liveExternalSideEffects ? "enabled" : "disabled"}</small></div><div className="ultra-metrics">
           <div><small>CONFIDENCE</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "N/A"}</strong><span>decision matrix</span></div>
           <div><small>EVIDENCE QUALITY</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "N/A"}</strong><span>provenance score</span></div>
           <div><small>RISK GATE</small><strong>{result.decision?.riskGate || "PASS"}</strong><span>policy evaluation</span></div>
@@ -121,6 +125,6 @@ export default function UltraCommandCenter() {
       </div>
     </div>
 
-    <footer className="ultra-footer"><div><BrainCircuit size={17}/> CORE ENGINE AI</div><span>ONE INTELLIGENCE CORE · MANY BUSINESSES</span><a href="#top">BACK TO TOP ↑</a></footer>
+    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / PLATFORM ROADMAP</span><h2>From working core<br/><i>to scalable platform.</i></h2></div><div className="ultra-roadmap-grid">{[["01","CORE","Agent contract, evidence, decisions and mission lifecycle"],["02","PRODUCTS","Bet Builder, Growth Advisor and Extra Szpieg as proof surfaces"],["03","DATA","Connectors, provenance and durable business context"],["04","AUTONOMY","Governed capability execution behind approval policies"],["05","LEARNING","Outcome feedback and reusable intelligence"],["06","PLATFORM","Tenancy, auth, metering and enterprise control"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> CORE ENGINE AI</div><span>ONE INTELLIGENCE CORE · MANY BUSINESSES</span><a href="#top">BACK TO TOP ↑</a></footer>
   </section>;
 }
