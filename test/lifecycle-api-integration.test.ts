@@ -191,3 +191,70 @@ test("real HTTP API blocks completion when KPI outcome is unverifiable", async (
   assert.equal(result.json.error, "OUTCOME_UNVERIFIED");
   assert.equal(result.json.assessment?.quality, "UNVERIFIED");
 });
+
+
+test("M9 live agent E2E executes a real public web capability", { skip: !process.env.CORE_ENGINE_LIVE_E2E_URL }, async () => {
+  const target = process.env.CORE_ENGINE_LIVE_E2E_URL!;
+  const engine = await api("/api/engine", {
+    domain: "business",
+    signals: [
+      { name: "conversion_rate", value: "2.8%", source: "analytics" },
+      { name: "traffic", value: "+18%", source: "analytics" },
+      { name: "checkout_dropoff", value: "41%", source: "analytics" }
+    ]
+  });
+
+  assert.equal(engine.response.status, 200);
+  assert.equal(engine.json.state, "AWAITING_APPROVAL");
+
+  const missionId = String(engine.json.mission.id);
+  const approve = await api("/api/mission", {
+    id: missionId,
+    action: "approve",
+    capabilityActionId: "seo.audit",
+    idempotencyKey: `m9-${missionId}-approve`
+  });
+  assert.equal(approve.response.status, 200);
+  assert.equal(approve.json.mission.state, "APPROVED");
+
+  const execute = await api("/api/mission", {
+    id: missionId,
+    action: "execute",
+    capabilityActionId: "seo.audit",
+    idempotencyKey: `m9-${missionId}-execute`,
+    input: { url: target }
+  });
+  assert.equal(execute.response.status, 200);
+  assert.equal(execute.json.mission.state, "EXECUTING");
+  assert.equal(execute.json.capabilityReceipt.status, "EXECUTED");
+  assert.equal(execute.json.capabilityReceipt.adapterId, "core.web-audit.v1");
+  assert.equal(execute.json.capabilityReceipt.sideEffect, false);
+  assert.equal(execute.json.capabilityReceipt.output.url, target);
+
+  const measure = await api("/api/mission", {
+    id: missionId,
+    action: "measure",
+    idempotencyKey: `m9-${missionId}-measure`,
+    outcome: { before: 1, after: 1, direction: "higher", source: "live-web-audit" }
+  });
+  assert.equal(measure.response.status, 200);
+  assert.equal(measure.json.mission.state, "MEASURING");
+
+  const complete = await api("/api/mission", {
+    id: missionId,
+    action: "complete",
+    idempotencyKey: `m9-${missionId}-complete`,
+    outcome: { before: 1, after: 1.1, direction: "higher", source: "live-web-audit" }
+  });
+  assert.equal(complete.response.status, 200);
+  assert.equal(complete.json.mission.state, "COMPLETED");
+
+  const learn = await api("/api/mission", {
+    id: missionId,
+    action: "learn",
+    idempotencyKey: `m9-${missionId}-learn`,
+    outcome: { before: 1, after: 1.1, direction: "higher", source: "live-web-audit" }
+  });
+  assert.equal(learn.response.status, 200);
+  assert.equal(learn.json.mission.state, "LEARNED");
+});
