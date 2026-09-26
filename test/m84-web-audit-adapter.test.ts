@@ -22,7 +22,10 @@ test("M8.4 blocks private web targets before network access", async () => {
 });
 
 test("M8.4 preserves the adapter receipt contract", async () => {
-  const receipt = await executeCapabilityAction({
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("<html><head><title>Example</title><meta name=\"description\" content=\"demo\"><meta name=\"viewport\" content=\"width=device-width\"><link rel=\"canonical\" href=\"https://example.com\"></head><body>ok</body></html>", { status: 200, headers: { "content-type": "text/html" } });
+  try {
+    const receipt = await executeCapabilityAction({
     actionId: "seo.audit",
     approved: true,
     missionId: "m84-contract",
@@ -34,5 +37,10 @@ test("M8.4 preserves the adapter receipt contract", async () => {
   assert.equal(receipt.adapterId, "core.web-audit.v1");
   assert.equal(receipt.sideEffect, false);
   assert.ok(receipt.startedAt);
-  assert.ok(receipt.completedAt);
+    assert.ok(receipt.completedAt);
+    assert.equal(receipt.output?.httpStatus, 200);
+    assert.equal(receipt.output?.title, "Example");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
