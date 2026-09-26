@@ -28,7 +28,10 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund --progress=false --legacy-peer-deps
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - name: Run tests + live M9 E2E
+        env:
+          CORE_ENGINE_LIVE_E2E_URL: https://example.com
+        run: npm test
       - name: Official tender document ingestion smoke
         run: node --test --experimental-strip-types scripts/official-tender-smoke.ts
       - run: npm run build
