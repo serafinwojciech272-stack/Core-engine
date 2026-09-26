@@ -44,8 +44,8 @@ function safePublicHttpUrl(value: unknown): URL {
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("UNSUPPORTED_URL_PROTOCOL");
   const host = url.hostname.toLowerCase();
   if (host === "localhost" || host === "::1" || host.endsWith(".localhost")) throw new Error("PRIVATE_URL_BLOCKED");
-  if (/^(127\\.|10\\.|192\\.168\\.|169\\.254\\.)/.test(host)) throw new Error("PRIVATE_URL_BLOCKED");
-  if (/^172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(host)) throw new Error("PRIVATE_URL_BLOCKED");
+  if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(host)) throw new Error("PRIVATE_URL_BLOCKED");
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) throw new Error("PRIVATE_URL_BLOCKED");
   return url;
 }
 
