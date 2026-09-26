@@ -26,19 +26,7 @@ jobs:
         # Optional dependencies are required: pdfjs-dist polyfills DOMMatrix via
         # the optional @napi-rs/canvas package, which PDF ingestion depends on.
         run: npm ci --ignore-scripts --no-audit --no-fund --progress=false --legacy-peer-deps
-      - name: Typecheck diagnostic
-        id: typecheck
-        continue-on-error: true
-        run: npm run typecheck 2>&1 | tee typecheck.log
-      - name: Upload typecheck diagnostic
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: m9-typecheck-diagnostic
-          path: typecheck.log
-      - name: Enforce typecheck
-        if: steps.typecheck.outcome == 'failure'
-        run: exit 1
+      - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - name: Official tender document ingestion smoke
