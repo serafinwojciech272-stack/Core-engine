@@ -38,7 +38,7 @@ const simulationAdapter: CapabilityAdapter = {
 };
 
 
-function safePublicHttpUrl(value: unknown) {
+function safePublicHttpUrl(value: unknown): URL {
   if (typeof value !== "string") throw new Error("URL_REQUIRED");
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("UNSUPPORTED_URL_PROTOCOL");
