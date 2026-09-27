@@ -58,9 +58,12 @@ export function buildPredictiveDecision(input:{
   const failureModes=[...(negative?["negative leading indicators persist"]:[]),...(input.learningCount===0?["no verified historical learning signal"]:[]),...(input.confidence<0.6?["low decision confidence"]:[]),"input distribution changes materially"].slice(0,4);
   const trigger=outcome==="IMPROVE"?"Leading indicators remain aligned with the decision thesis across the next observation window.":outcome==="DETERIORATE"?"Negative indicators persist or worsen in the next observation window.":"At least two leading indicators move materially away from the current baseline.";
   const invalidation="Invalidate the forecast when a primary signal changes direction, evidence freshness expires, or the approved intervention changes scope.";
-  const base=Number(clamp(0.55+confidence*0.2-Math.abs(net)*0.03,0.35,0.75).toFixed(3));
-  const up=Number(clamp((outcome==="IMPROVE"?0.25:0.15)+confidence*0.08,0.08,0.35).toFixed(3));
-  const down=Number((1-base-up).toFixed(3));
+  const rawBase=clamp(0.55+confidence*0.2-Math.abs(net)*0.03,0.35,0.75);
+  const rawUp=clamp((outcome==="IMPROVE"?0.25:0.15)+confidence*0.08,0.08,0.35);
+  const total=rawBase+rawUp;
+  const base=Number((rawBase/Math.max(1,total)).toFixed(3));
+  const up=Number((rawUp/Math.max(1,total)).toFixed(3));
+  const down=Number(Math.max(0,1-base-up).toFixed(3));
   return {
     version:"m9.6-predictive-v1",
     horizon:input.domain==="trading"?"24H":input.domain==="tender"?"30D":"7D",
