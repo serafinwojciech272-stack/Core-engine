@@ -1,31 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowRight, BrainCircuit, Check, CircleDot, Loader2, Search, ShieldCheck, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, BrainCircuit, Check, CircleDot, Loader2, RefreshCw, Search, ShieldCheck, Zap } from "lucide-react";
 
 type Job = {
+  id: string;
   title: string;
-  company: string;
-  location: string;
-  salary: string;
-  match: number;
-  reason: string;
+  company: string | null;
+  location: string | null;
+  salary: string | null;
+  match_score: number | null;
   source: string;
-  applyMode: "AUTO" | "REVIEW";
+  url: string;
+  decision: string | null;
+  status: string | null;
 };
 
-const demoJobs: Job[] = [
-  { title: "Business Development Manager", company: "Industrial Technology", location: "Gliwice / hybrid", salary: "18,000–24,000 PLN", match: 94, reason: "German + English + commercial management", source: "Employer ATS", applyMode: "AUTO" },
-  { title: "Customer Experience Manager", company: "B2B Services", location: "Zabrze / hybrid", salary: "15,000–21,000 PLN", match: 91, reason: "Customer service + process + team leadership", source: "Employer ATS", applyMode: "AUTO" },
-  { title: "Key Account Manager", company: "International Manufacturing", location: "Silesia / hybrid", salary: "16,000–23,000 PLN", match: 88, reason: "Sales + German + account ownership", source: "Career site", applyMode: "REVIEW" }
-];
+type Decision = { recommendation: string; diagnosis: string; confidence: number; priority: string };
 
 export default function JobsPage() {
   const [running, setRunning] = useState(false);
-  const [decision, setDecision] = useState<{ recommendation: string; diagnosis: string; confidence: number; priority: string } | null>(null);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [decision, setDecision] = useState<Decision | null>(null);
   const [autoApply, setAutoApply] = useState(true);
   const [status, setStatus] = useState("");
+  const [jobs, setJobs] = useState<Job[]>([]);
 
   const criteria = useMemo(() => [
     "Gliwice / Zabrze + 30 km",
@@ -35,6 +35,22 @@ export default function JobsPage() {
     "No driving licence required",
     "Business Development / Operations / CX / Sales / Account"
   ], []);
+
+  async function loadJobs() {
+    setLoadingJobs(true);
+    try {
+      const r = await fetch("/api/jobs", { cache: "no-store" });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Job feed unavailable");
+      setJobs(data.jobs || []);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Job feed unavailable");
+    } finally {
+      setLoadingJobs(false);
+    }
+  }
+
+  useEffect(() => { void loadJobs(); }, []);
 
   async function runCoreEngine() {
     setRunning(true);
@@ -65,12 +81,25 @@ export default function JobsPage() {
     }
   }
 
-  function apply(job: Job) {
-    if (job.applyMode === "AUTO" && autoApply) {
-      setStatus("Application queued through the permitted provider path. The engine keeps a receipt for every action.");
-    } else {
-      setStatus("Application opened for review before submission.");
+  async function syncJobs() {
+    setRunning(true);
+    setStatus("Synchronizing the opportunity pipeline...");
+    try {
+      const r = await fetch("/api/jobs/sync", { method: "POST" });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Sync failed");
+      setStatus(`Sync complete: ${data.sync.discovered} discovered, ${data.sync.inserted} stored.`);
+      await loadJobs();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setRunning(false);
     }
+  }
+
+  function apply(job: Job) {
+    window.open(job.url, "_blank", "noopener,noreferrer");
+    setStatus("Provider page opened. Submission remains under the Core Engine approval policy.");
   }
 
   return (
@@ -96,10 +125,16 @@ export default function JobsPage() {
               <div><div className="card-label">APPLICATION MODE</div><b>{autoApply ? "AUTO WHERE PERMITTED" : "REVIEW BEFORE SUBMIT"}</b></div>
               <button className={"toggle " + (autoApply ? "on" : "")} onClick={() => setAutoApply(v => !v)} aria-pressed={autoApply}><span/></button>
             </div>
-            <button className="primary jobs-run" onClick={runCoreEngine} disabled={running}>
-              {running ? <Loader2 size={16} className="spin"/> : <Zap size={16}/>}
-              {running ? "Core Engine running..." : "Run Core Engine"}
-            </button>
+            <div className="jobs-actions">
+              <button className="primary jobs-run" onClick={runCoreEngine} disabled={running}>
+                {running ? <Loader2 size={16} className="spin"/> : <Zap size={16}/>}
+                {running ? "Core Engine running..." : "Run Core Engine"}
+              </button>
+              <button className="secondary jobs-run" onClick={syncJobs} disabled={running}>
+                {running ? <Loader2 size={16} className="spin"/> : <RefreshCw size={16}/>}
+                Sync opportunities
+              </button>
+            </div>
             {status && <div className="engine-status"><CircleDot size={13}/>{status}</div>}
           </section>
 
@@ -124,20 +159,21 @@ export default function JobsPage() {
 
       <section className="jobs-results">
         <div className="results-head">
-          <div><div className="card-label">OPPORTUNITY PIPELINE</div><h2>Relevant openings</h2></div>
-          <span><Search size={14}/> {demoJobs.length} demo matches</span>
+          <div><div className="card-label">LIVE OPPORTUNITY PIPELINE</div><h2>Relevant openings</h2></div>
+          <span><Search size={14}/> {loadingJobs ? "loading..." : `${jobs.length} matches`}</span>
         </div>
         <div className="job-list">
-          {demoJobs.map(job => <article className="job-card" key={job.title}>
+          {jobs.map(job => <article className="job-card" key={job.id}>
             <div className="job-main">
-              <div className="match">{job.match}%</div>
-              <div><h3>{job.title}</h3><p>{job.company} · {job.location}</p><small>{job.reason}</small></div>
+              <div className="match">{Math.round(job.match_score ?? 0)}%</div>
+              <div><h3>{job.title}</h3><p>{job.company || "Company not extracted"} · {job.location || "Location not extracted"}</p><small>{job.source} · {job.decision || "REVIEW"}</small></div>
             </div>
-            <div className="job-meta"><b>{job.salary}</b><span>{job.source}</span></div>
-            <button className="apply" onClick={() => apply(job)}>{job.applyMode === "AUTO" && autoApply ? "AUTO APPLY" : "REVIEW & APPLY"} <ArrowRight size={14}/></button>
+            <div className="job-meta"><b>{job.salary || "Salary not disclosed"}</b><span>{job.status || "NEW"}</span></div>
+            <button className="apply" onClick={() => apply(job)}>OPEN & REVIEW <ArrowRight size={14}/></button>
           </article>)}
+          {!loadingJobs && jobs.length === 0 && <div className="empty-state">No synchronized opportunities yet. Add SERPER_API_KEY on the server and run a sync.</div>}
         </div>
-        <div className="guard"><ShieldCheck size={16}/><span>Execution follows the Core Engine approval and capability policy. Job platforms that prohibit third-party automation stay in review mode.</span></div>
+        <div className="guard"><ShieldCheck size={16}/><span>Execution follows the Core Engine approval and capability policy. Providers that prohibit third-party automation stay in review mode.</span></div>
       </section>
 
       <footer><span>CORE ENGINE · JOB AGENT</span><span>Observe → Understand → Prioritize → Decide → Approve → Execute → Measure → Learn</span></footer>
