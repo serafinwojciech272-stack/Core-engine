@@ -21,6 +21,24 @@ const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
 const MAX_EVIDENCE = 60;
 
+const INVESTOR_DEMO_SCENARIOS = {
+  growth: [
+    { name: "conversion_rate", value: "2.8%", source: "analytics" },
+    { name: "traffic", value: "+18%", source: "analytics" },
+    { name: "checkout_dropoff", value: "41%", source: "funnel" }
+  ],
+  sales: [
+    { name: "qualified_leads", value: "-14%", source: "CRM" },
+    { name: "response_time", value: "11h", source: "CRM" },
+    { name: "win_rate", value: "18%", source: "sales" }
+  ],
+  operations: [
+    { name: "order_backlog", value: "+27%", source: "operations" },
+    { name: "cycle_time", value: "3.4d", source: "ERP" },
+    { name: "capacity", value: "82%", source: "workforce" }
+  ]
+} as const;
+
 function signal(x: unknown): x is EngineSignal {
   if (!x || typeof x !== "object") return false;
   const s = x as Record<string, unknown>;
@@ -68,14 +86,27 @@ export async function POST(request: Request) {
     try { body = raw ? JSON.parse(raw) : {}; }
     catch { return NextResponse.json({ ok: false, error: "INVALID_JSON" }, { status: 400 }); }
 
-    const arr = body.signals === undefined
-      ? [
-          { name: "conversion_rate", value: "2.8%", source: "demo" },
-          { name: "traffic", value: "+18%", source: "demo" },
-          { name: "checkout_dropoff", value: "41%", source: "demo" }
-        ]
-      : body.signals;
+    const requestedDomain = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : "growth";
+    const demoScenario = isInvestorDemo
+      ? INVESTOR_DEMO_SCENARIOS[requestedDomain as keyof typeof INVESTOR_DEMO_SCENARIOS]
+      : undefined;
 
+    if (isInvestorDemo) {
+      if (body.demo !== true) {
+        return NextResponse.json({ ok: false, error: "DEMO_FLAG_REQUIRED" }, { status: 400 });
+      }
+      if (!demoScenario) {
+        return NextResponse.json({ ok: false, error: "DEMO_DOMAIN_NOT_ALLOWED" }, { status: 400 });
+      }
+      if (body.evidence !== undefined) {
+        return NextResponse.json({ ok: false, error: "DEMO_EVIDENCE_NOT_ALLOWED" }, { status: 400 });
+      }
+      if (!Array.isArray(body.signals) || JSON.stringify(body.signals) !== JSON.stringify(demoScenario)) {
+        return NextResponse.json({ ok: false, error: "DEMO_SCENARIO_MISMATCH" }, { status: 400 });
+      }
+    }
+
+    const arr = isInvestorDemo ? demoScenario : body.signals;
     if (!Array.isArray(arr) || !arr.length) return NextResponse.json({ ok: false, error: "SIGNALS_REQUIRED" }, { status: 400 });
     if (arr.length > MAX_SIGNALS || !arr.every(signal)) return NextResponse.json({ ok: false, error: "INVALID_SIGNAL_SET" }, { status: 400 });
 
@@ -168,6 +199,7 @@ export async function POST(request: Request) {
       state: mission.state,
       persistence,
       durable: persistence === "supabase",
+      simulation: isInvestorDemo,
       context: contextEvidence.context,
       evidence: contextEvidence.evidence,
       evidenceGraph: contextEvidence.evidenceGraph,
