@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+export const dynamic="force-dynamic";
+async function sb(){const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");return{url,key}}
+export async function GET(){try{const c=await sb();const r=await fetch(c.url+"/rest/v1/job_opportunities?select=id,source,url,title,company,location,salary,published_at,discovered_at,match_score,decision,status&order=match_score.desc,discovered_at.desc&limit=100",{headers:{apikey:c.key,Authorization:"Bearer "+c.key},cache:"no-store"});if(!r.ok)throw new Error("SUPABASE_"+r.status);return NextResponse.json({ok:true,jobs:await r.json()})}catch(e){return NextResponse.json({ok:false,error:String(e)},{status:503})}}
