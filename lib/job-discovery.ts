@@ -1,4 +1,5 @@
 import { buildDecision } from "@/lib/ai-decision";
+import { extractJobFeatures, scoreBucket } from "@/lib/job-learning";
 
 export type JobOpportunity={source:string;url:string;title:string;company:string|null;location:string|null;salary:string|null;description:string|null;publishedAt:string|null;raw:Record<string,unknown>};
 const sources=[["pracuj.pl","site:pracuj.pl/praca"],["indeed","site:pl.indeed.com"],["olx","site:olx.pl/praca"],["linkedin","site:linkedin.com/jobs/view"],["nofluffjobs","site:nofluffjobs.com/job"],["justjoin.it","site:justjoin.it/offers"],["rocketjobs","site:rocketjobs.pl"],["pracapolis","site:pracapolis.pl"],["adzuna","site:adzuna.pl"],["jooble","site:pl.jooble.org"]];
@@ -43,7 +44,7 @@ export async function discoverJobs(){
  return {jobs:[...dedupe.values()],errors};
 }
 
-export async function scoreJobs(jobs:JobOpportunity[],learningWeights:Record<string,number>={}){
+export async function scoreJobs(jobs:JobOpportunity[],learningWeights:Record<string,number>={},featureWeights:Record<string,number>={}){
  const policy=await buildDecision([
   {name:"target_roles",value:queries.join(";"),source:"job_agent_policy"},
   {name:"location_radius",value:"Gliwice + 30 km",source:"job_agent_policy"},
@@ -62,7 +63,26 @@ export async function scoreJobs(jobs:JobOpportunity[],learningWeights:Record<str
   if(hay.includes("gliwice"))score+=10;
   else if(hay.includes("zabrze")||hay.includes("bytom")||hay.includes("ruda śląska")||hay.includes("knurów")||hay.includes("tarnowskie góry"))score+=7;
   if(hay.includes("driving licence")||hay.includes("prawo jazdy"))score-=10;
-  return {...j,matchScore:Math.max(0,Math.min(100,score)),decision:score>=75?"APPLY_CANDIDATE":score>=60?"REVIEW":"REJECT",decisionReason:policy.recommendation,applicationMode:score>=75?"REVIEW_BEFORE_SUBMIT":"REVIEW"};
+
+  const deterministic=Math.max(0,Math.min(100,score));
+  const features=extractJobFeatures({...j,match_score:deterministic});
+  const bucketWeight=learningWeights[scoreBucket(deterministic)]??1;
+  const featureKeys=Object.entries(features).map(([key,value])=>key+"="+String(value));
+  const rawFeatureProduct=featureKeys.reduce((product,key)=>product*(featureWeights[key]??1),1);
+  const featureAdjustment=Math.max(.75,Math.min(1.25,rawFeatureProduct));
+  const calibrated=Math.max(0,Math.min(100,Math.round(deterministic*bucketWeight*featureAdjustment)));
+  const learningApplied=bucketWeight!==1||featureAdjustment!==1;
+  const reason=learningApplied
+    ? policy.recommendation+"; learning policy applied (bucket="+bucketWeight.toFixed(2)+", features="+featureAdjustment.toFixed(2)+")"
+    : policy.recommendation;
+  return {
+    ...j,
+    matchScore:calibrated,
+    decision:calibrated>=75?"APPLY_CANDIDATE":calibrated>=60?"REVIEW":"REJECT",
+    decisionReason:reason,
+    applicationMode:calibrated>=75?"REVIEW_BEFORE_SUBMIT":"REVIEW",
+    learning:{policyVersion:"feature-policy-v1",features,bucketWeight,featureAdjustment}
+  };
  });
  return {policy,scored};
 }
