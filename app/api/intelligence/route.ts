@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storeIntelligenceMemory, recallIntelligence, buildIntelligenceReflection } from "@/lib/intelligence-core";
 import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot } from "@/lib/world-model";
+import { classifyFailure, recordFailureLearning } from "@/lib/failure-recovery-learning";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -69,6 +70,32 @@ export async function POST(request: Request) {
         domain: typeof body.domain === "string" ? body.domain : undefined,
       });
       return NextResponse.json({ ok: true, reflection: result });
+    }
+
+    if (operation === "failure") {
+      if (typeof body.problem !== "string") return NextResponse.json({ ok: false, error: "PROBLEM_REQUIRED" }, { status: 400 });
+      const failureType = typeof body.failureType === "string" ? body.failureType as Parameters<typeof recordFailureLearning>[0]["failureType"] : classifyFailure({
+        failureReason: typeof body.failureReason === "string" ? body.failureReason : undefined,
+        failedAction: typeof body.failedAction === "string" ? body.failedAction : undefined,
+        errorCode: typeof body.errorCode === "string" ? body.errorCode : undefined,
+      });
+      const result = await recordFailureLearning({
+        tenantId, missionId: typeof body.missionId === "string" ? body.missionId : undefined,
+        experienceId: typeof body.experienceId === "string" ? body.experienceId : undefined,
+        problem: body.problem, failureType,
+        rootCause: typeof body.rootCause === "string" ? body.rootCause : undefined,
+        severity: typeof body.severity === "string" ? body.severity as Parameters<typeof recordFailureLearning>[0]["severity"] : undefined,
+        failedAction: typeof body.failedAction === "string" ? body.failedAction : undefined,
+        failureReason: typeof body.failureReason === "string" ? body.failureReason : undefined,
+        recoveryAction: typeof body.recoveryAction === "string" ? body.recoveryAction : undefined,
+        recoveryResult: typeof body.recoveryResult === "string" ? body.recoveryResult : undefined,
+        recoverySuccess: typeof body.recoverySuccess === "boolean" ? body.recoverySuccess : null,
+        recoveryDeltaPct: typeof body.recoveryDeltaPct === "number" ? body.recoveryDeltaPct : null,
+        evidence: Array.isArray(body.evidence) ? body.evidence : undefined,
+        prevention: Array.isArray(body.prevention) ? body.prevention : undefined,
+        confidence: typeof body.confidence === "number" ? body.confidence : undefined,
+      });
+      return NextResponse.json({ ok: true, failureLearning: result });
     }
 
     if (operation === "entity") {
