@@ -10,11 +10,12 @@ import {guardMutation} from "@/lib/http";
 import {authenticate} from "@/lib/auth";
 import {resolveTenant} from "@/lib/commercial-runtime";
 import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
+import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
 const MAX=16000;
 const nextByAction:Record<string,MissionState>={approve:"APPROVED",reject:"REJECTED",execute:"EXECUTING",measure:"MEASURING",complete:"COMPLETED",learn:"LEARNED",fail:"FAILED",retry:"EXECUTING",abort:"REJECTED"};
 
 export async function GET(request:Request){
-  const tenant=resolveTenant(request);
+  const runtime=await resolveSaaSContext(request);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId,tenantKey:runtime.identity.tenantKey}:runtime.legacyTenant!;
   const limit=Math.max(1,Math.min(100,Number(new URL(request.url).searchParams.get("limit")||50)));
   if(storageMode()==="supabase"){
     try{const ids=new Set(await tenantMissionIds(tenant.tenantId));const all=await listPersistedMissions(Math.max(limit,100));const m=all.filter(x=>ids.has(x.id)).slice(0,limit);const e=(await listPersistedEvents(Math.max(limit,100))).filter(x=>ids.has(x.missionId)).slice(0,limit);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,tenantId:tenant.tenantId,events:e})}
@@ -25,7 +26,7 @@ export async function GET(request:Request){
 
 export async function POST(request:Request){
   const guard=guardMutation(request,"mission");if(guard)return guard;
-  const actor=authenticate(request,true);const tenant=resolveTenant(request);
+  const runtime=await resolveSaaSContext(request);const actor=runtime.identity?{id:runtime.identity.userId,kind:"human" as const}:authenticate(request,true);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId,tenantKey:runtime.identity.tenantKey}:runtime.legacyTenant!;
   try{
     const raw=await request.text();
     if(new TextEncoder().encode(raw).byteLength>MAX)return NextResponse.json({ok:false,error:"REQUEST_TOO_LARGE"},{status:413});
@@ -44,6 +45,7 @@ export async function POST(request:Request){
       const policy=evaluateMissionAction(action,current.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
       const claimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
       const claim=await claimPersistedAction(id,action,claimKey);if(!claim.claimed)return NextResponse.json({ok:true,duplicate:true,mission:current,action,capabilityActionId:capabilityActionId||undefined,persistence:"supabase",durable:true});
+      const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
 
       if(capabilityActionId){
         const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
@@ -78,6 +80,7 @@ export async function POST(request:Request){
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
     const policy=evaluateMissionAction(action,m.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
 
+    const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
     let capabilityReceipt=null;let capabilityApproval=null;
     if(capabilityActionId){
       const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
