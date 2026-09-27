@@ -1,2 +1,17 @@
-import {describe,expect,it} from "vitest";import{reflectOnWorldClaim,worldClaimFreshness}from "@/lib/world-model-testable";
-describe("M10.2 world model policies",()=>{it("marks expired claims stale",()=>expect(worldClaimFreshness({status:"ACTIVE",valid_until:"2020-01-01T00:00:00Z",confidence:.9})).toBe("STALE"));it("marks low confidence explicitly",()=>expect(worldClaimFreshness({status:"ACTIVE",confidence:.2})).toBe("KNOWN_WITH_LOW_CONFIDENCE"));it("marks contradictory explicitly",()=>expect(worldClaimFreshness({status:"CONTRADICTORY",confidence:.9})).toBe("CONTRADICTORY"));it("detects different values",()=>{expect(reflectOnWorldClaim({a:{x:1},b:{x:2}})).toBe(true);expect(reflectOnWorldClaim({a:{x:1},b:{x:1}})).toBe(false);});});
+import test from "node:test";
+import assert from "node:assert/strict";
+import { reflectOnWorldClaim, worldClaimFreshness } from "@/lib/world-model-testable";
+
+test("M10.2 marks expired claims stale", () => {
+  assert.equal(worldClaimFreshness({ status: "ACTIVE", valid_until: "2020-01-01T00:00:00Z", confidence: .9 }), "STALE");
+});
+test("M10.2 marks low confidence explicitly", () => {
+  assert.equal(worldClaimFreshness({ status: "ACTIVE", confidence: .2 }), "KNOWN_WITH_LOW_CONFIDENCE");
+});
+test("M10.2 marks contradictory explicitly", () => {
+  assert.equal(worldClaimFreshness({ status: "CONTRADICTORY", confidence: .9 }), "CONTRADICTORY");
+});
+test("M10.2 detects different claim values", () => {
+  assert.equal(reflectOnWorldClaim({ a: { x: 1 }, b: { x: 2 } }), true);
+  assert.equal(reflectOnWorldClaim({ a: { x: 1 }, b: { x: 1 } }), false);
+});
