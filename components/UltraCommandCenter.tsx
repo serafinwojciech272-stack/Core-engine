@@ -24,6 +24,12 @@ export default function UltraCommandCenter() {
   const [agentAnalysis, setAgentAnalysis] = useState<Json | null>(null);
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentError, setAgentError] = useState("");
+  const agentPrompts = [
+    "Our sales team gets plenty of leads, but response time is too slow and win rate is falling. What should we investigate?",
+    "Traffic is growing, but checkout conversion is weak. Find the likely bottleneck and propose the first experiment.",
+    "Our operations backlog keeps growing while the team is near capacity. What should we diagnose before hiring?",
+    "Customer churn is increasing. How should we structure the investigation and decide what to change first?"
+  ];
 
   useEffect(() => {
     Promise.all([
@@ -119,6 +125,10 @@ export default function UltraCommandCenter() {
         </div>
         <div className="ultra-agent-badge"><BrainCircuit size={17}/> FREEFORM AGENT DEMO <span>SIMULATION</span></div>
       </div>
+      <div className="ultra-agent-prompts">
+        <span>TRY A REAL BUSINESS QUESTION</span>
+        {agentPrompts.map((prompt, i) => <button key={i} onClick={() => { setAgentQuestion(prompt); setAgentError(""); }}>{prompt}</button>)}
+      </div>
       <div className="ultra-agent-input">
         <textarea
           value={agentQuestion}
@@ -145,6 +155,7 @@ export default function UltraCommandCenter() {
           <article><span>02 / PRIORITY</span><strong>{agentAnalysis.solution?.priority}</strong><small>Evidence quality: {agentAnalysis.evidenceQuality?.score ?? "N/A"}</small></article>
           <article><span>03 / NEXT ACTIONS</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
         </div>
+        <div className="ultra-agent-layers"><span>CONTEXT</span><span>EVIDENCE</span><span>DIAGNOSIS</span><span>DECISION</span><span>GOVERNANCE</span></div>
         <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{x.stage}</span>)}</div>
         <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
       </div>}
