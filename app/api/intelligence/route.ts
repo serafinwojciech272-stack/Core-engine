@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storeIntelligenceMemory, recallIntelligence, buildIntelligenceReflection } from "@/lib/intelligence-core";
 import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot } from "@/lib/world-model";
+import { assessCausalDecision } from "@/lib/causal-decision-intelligence";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -89,6 +90,34 @@ export async function POST(request: Request) {
     if (operation === "resolve_unknown") {
       if (typeof body.unknownId !== "string" || typeof body.claimId !== "string") return NextResponse.json({ ok: false, error: "UNKNOWN_RESOLUTION_REQUIRED" }, { status: 400 });
       return NextResponse.json({ ok: true, unknown: await resolveWorldUnknown({ tenantId, unknownId: body.unknownId, claimId: body.claimId }) });
+    }
+
+    if (operation === "decision_gate") {
+      if (typeof body.confidence !== "number" || typeof body.priority !== "string" || typeof body.recommendation !== "string") {
+        return NextResponse.json({ ok: false, error: "DECISION_GATE_INPUT_REQUIRED" }, { status: 400 });
+      }
+      if (!["HIGH","MEDIUM","LOW"].includes(body.priority)) {
+        return NextResponse.json({ ok: false, error: "INVALID_PRIORITY" }, { status: 400 });
+      }
+      const world = await getWorldContext({
+        tenantId,
+        domain: typeof body.domain === "string" ? body.domain : undefined,
+        limit: typeof body.limit === "number" ? body.limit : 50
+      });
+      const assessment = assessCausalDecision({
+        confidence: body.confidence,
+        priority: body.priority as "HIGH"|"MEDIUM"|"LOW",
+        evidenceCount: typeof body.evidenceCount === "number" ? body.evidenceCount : 0,
+        recommendation: body.recommendation,
+        contradictions: world.contradictions,
+        unknowns: world.unknowns,
+        staleClaims: world.staleClaims
+      });
+      return NextResponse.json({ ok: true, assessment, worldSignals: {
+        contradictions: world.contradictions.length,
+        openUnknowns: world.unknowns.filter(x => x.status === "OPEN").length,
+        staleClaims: world.staleClaims.length
+      }});
     }
 
     if (operation === "world_context") {
