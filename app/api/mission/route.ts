@@ -25,6 +25,7 @@ export async function GET(request:Request){
 
 export async function POST(request:Request){
   const guard=guardMutation(request,"mission");if(guard)return guard;
+  const actor=authenticate(request,true);const tenant=resolveTenant(request);
   try{
     const raw=await request.text();
     if(new TextEncoder().encode(raw).byteLength>MAX)return NextResponse.json({ok:false,error:"REQUEST_TOO_LARGE"},{status:413});
