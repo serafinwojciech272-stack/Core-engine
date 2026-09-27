@@ -1,61 +1,20 @@
 import { NextResponse } from "next/server";
 import { discoverJobs, scoreJobs } from "@/lib/job-discovery";
-
-export const runtime="nodejs";
-export const dynamic="force-dynamic";
-
-function authorized(request:Request){
- const cron=request.headers.get("authorization");
- const secret=process.env.CRON_SECRET;
- if(secret && cron==="Bearer "+secret)return true;
- return process.env.NODE_ENV!=="production";
-}
+export const runtime="nodejs";export const dynamic="force-dynamic";
+function authorized(request:Request){const cron=request.headers.get("authorization"),secret=process.env.CRON_SECRET;if(secret&&cron==="Bearer "+secret)return true;return process.env.NODE_ENV!=="production"}
 async function sb(){const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");return{url,key}}
-async function requestSb(path:string,init:RequestInit={}){const c=await sb();const r=await fetch(c.url+"/rest/v1/"+path,{...init,headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json",...(init.headers||{})},cache:"no-store"});if(!r.ok)throw new Error("SUPABASE_"+r.status);return r}
-
+async function requestSb(path:string,init:RequestInit={}){const c=await sb(),r=await fetch(c.url+"/rest/v1/"+path,{...init,headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json",...(init.headers||{})},cache:"no-store"});if(!r.ok)throw new Error("SUPABASE_"+r.status);return r}
 export async function GET(request:Request){return POST(request)}
 export async function POST(request:Request){
- if(!authorized(request))return NextResponse.json({ok:false,error:"UNAUTHORIZED"},{status:401});
- const started=Date.now(); let runId:string|undefined;
+ if(!authorized(request))return NextResponse.json({ok:false,error:"UNAUTHORIZED"},{status:401});const started=Date.now();let runId:string|undefined;
  try{
-  const run=await requestSb("job_sync_runs",{method:"POST",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:"RUNNING"})});
-  runId=((await run.json()) as Array<{id:string}>)[0]?.id;
-  const found=await discoverJobs();
-  let learningWeights:Record<string,number>={},featureWeights:Record<string,number>={};
-  try {
-   const learning=await requestSb("job_learning_profiles?select=weights,calibration&profile_key=eq.default-job-agent&limit=1");
-   const rows=await learning.json() as Array<{weights:Record<string,number>|null;calibration:Record<string,unknown>|null}>;
-   learningWeights=rows[0]?.weights||{};
-   const featureStats=((rows[0]?.calibration||{}).featureStats||{}) as Record<string,{weight?:number}>;
-   featureWeights=Object.fromEntries(Object.entries(featureStats).map(([key,value])=>[key,Number(value?.weight??1)]));
-  } catch {}
-  const {policy,scored}=await scoreJobs(found.jobs,learningWeights,featureWeights);
-  let inserted=0;
-  const events:Array<Record<string,unknown>>=[];
-  const existingResponse=await requestSb("job_opportunities?select=id,source,url,match_score,decision,status&limit=1000");
-  const existingRows=await existingResponse.json() as Array<{id:string;source:string;url:string;match_score:number|null;decision:string|null;status:string|null}>;
-  const existingByKey=new Map(existingRows.map(row=>[row.source+"|"+row.url,row]));
-
-  for(const j of scored){
-   const payload={source:j.source,url:j.url,title:j.title,company:j.company,location:j.location,salary:j.salary,description:j.description,published_at:j.publishedAt,content_hash:null,match_score:j.matchScore,decision:j.decision,decision_reason:j.decisionReason,application_mode:j.applicationMode,status:"NEW",raw:{...j.raw,learning:j.learning}};
-   const previous=existingByKey.get(j.source+"|"+j.url);
-   const r=await requestSb("job_opportunities?on_conflict=source,url",{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)});
-   if(r.ok){
-    inserted++;
-    const returned=await r.json() as Array<{id:string}>;
-    const jobId=returned[0]?.id||previous?.id;
-    if(jobId){
-     if(!previous) events.push({job_id:jobId,event_type:"DISCOVERED",actor:"core_engine",from_status:null,to_status:"NEW",metadata:{source:j.source,match_score:j.matchScore,decision:j.decision,learning:j.learning}});
-     if(previous && previous.match_score!==j.matchScore) events.push({job_id:jobId,event_type:"SCORED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_score:previous.match_score,new_score:j.matchScore,decision:j.decision,learning:j.learning}});
-     if(previous && previous.decision!==j.decision) events.push({job_id:jobId,event_type:"DECIDED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_decision:previous.decision,new_decision:j.decision,reason:j.decisionReason}});
-    }
-   }
-  }
-  if(events.length) await requestSb("job_events",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(events)});
-  if(runId)await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",headers:{"Prefer":"return=minimal"},body:JSON.stringify({finished_at:new Date().toISOString(),discovered:scored.length,inserted,errors:found.errors,status:"COMPLETE"})});
-  return NextResponse.json({ok:true,sync:{durationMs:Date.now()-started,discovered:scored.length,inserted,errors:found.errors,policy:{confidence:policy.confidence,priority:policy.priority},learningWeights,featureWeights},sources:["pracuj.pl","indeed","olx","linkedin","nofluffjobs","justjoin.it","rocketjobs","pracapolis","adzuna","jooble"],criteria:"Gliwice + 30 km"});
- }catch(e){
-  if(runId)try{await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",body:JSON.stringify({finished_at:new Date().toISOString(),errors:[String(e)],status:"FAILED"})})}catch{}
-  return NextResponse.json({ok:false,error:String(e),durationMs:Date.now()-started},{status:503});
- }
+  const run=await requestSb("job_sync_runs",{method:"POST",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:"RUNNING"})});runId=((await run.json()) as Array<{id:string}>)[0]?.id;
+  const found=await discoverJobs();let learningWeights:Record<string,number>={},featureWeights:Record<string,number>={},interactionWeights:Record<string,number>={};
+  try{const lr=await requestSb("job_learning_profiles?select=weights,calibration&profile_key=eq.default-job-agent&limit=1");const rows=await lr.json() as Array<{weights:Record<string,number>|null;calibration:Record<string,unknown>|null}>;learningWeights=rows[0]?.weights||{};const cal=rows[0]?.calibration||{};featureWeights=Object.fromEntries(Object.entries((cal.featureStats||{}) as Record<string,{weight?:number}>).map(([k,v])=>[k,Number(v?.weight??1)]));interactionWeights=Object.fromEntries(Object.entries((cal.interactionStats||{}) as Record<string,{weight?:number}>).map(([k,v])=>[k,Number(v?.weight??1)]))}catch{}
+  const {policy,scored}=await scoreJobs(found.jobs,learningWeights,featureWeights,interactionWeights);let inserted=0;const events:Array<Record<string,unknown>>=[];
+  const er=await requestSb("job_opportunities?select=id,source,url,match_score,decision,status&limit=1000"),existingRows=await er.json() as Array<{id:string;source:string;url:string;match_score:number|null;decision:string|null;status:string|null}>,existingByKey=new Map(existingRows.map(row=>[row.source+"|"+row.url,row]));
+  for(const j of scored){const payload={source:j.source,url:j.url,title:j.title,company:j.company,location:j.location,salary:j.salary,description:j.description,published_at:j.publishedAt,content_hash:null,match_score:j.matchScore,decision:j.decision,decision_reason:j.decisionReason,application_mode:j.applicationMode,status:"NEW",raw:{...j.raw,learning:j.learning}},previous=existingByKey.get(j.source+"|"+j.url),r=await requestSb("job_opportunities?on_conflict=source,url",{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)});if(r.ok){inserted++;const returned=await r.json() as Array<{id:string}>,jobId=returned[0]?.id||previous?.id;if(jobId){if(!previous)events.push({job_id:jobId,event_type:"DISCOVERED",actor:"core_engine",from_status:null,to_status:"NEW",metadata:{source:j.source,match_score:j.matchScore,decision:j.decision,learning:j.learning}});if(previous&&previous.match_score!==j.matchScore)events.push({job_id:jobId,event_type:"SCORED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_score:previous.match_score,new_score:j.matchScore,learning:j.learning}});if(previous&&previous.decision!==j.decision)events.push({job_id:jobId,event_type:"DECIDED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_decision:previous.decision,new_decision:j.decision,reason:j.decisionReason}})}}}
+  if(events.length)await requestSb("job_events",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(events)});if(runId)await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",headers:{"Prefer":"return=minimal"},body:JSON.stringify({finished_at:new Date().toISOString(),discovered:scored.length,inserted,errors:found.errors,status:"COMPLETE"})});
+  return NextResponse.json({ok:true,sync:{durationMs:Date.now()-started,discovered:scored.length,inserted,errors:found.errors,policy:{confidence:policy.confidence,priority:policy.priority},learningWeights,featureWeights,interactionWeights},sources:["pracuj.pl","indeed","olx","linkedin","nofluffjobs","justjoin.it","rocketjobs","pracapolis","adzuna","jooble"],criteria:"Gliwice + 30 km"});
+ }catch(e){if(runId)try{await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",body:JSON.stringify({finished_at:new Date().toISOString(),errors:[String(e)],status:"FAILED"})})}catch{}return NextResponse.json({ok:false,error:String(e),durationMs:Date.now()-started},{status:503})}
 }
