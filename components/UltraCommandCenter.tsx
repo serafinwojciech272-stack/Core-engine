@@ -178,7 +178,7 @@ export default function UltraCommandCenter() {
             <article><small>BRAMA WYKONANIA</small><b>{agentAnalysis.explainability.execution}</b></article>
           </div>
           <div className="ultra-agent-gaps"><div><small>BRAKUJĄCE DOWODY</small>{(agentAnalysis.explainability.evidenceGaps || []).map((x: string, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{x}</p>)}</div><div><small>NASTĘPNY PAKIET DOWODÓW</small>{(agentAnalysis.explainability.nextEvidence || []).map((x: string, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{x}</p>)}</div></div>
-        </div>
+        </div>}
         <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{({OBSERVE:"OBSERWUJ",CONTEXT:"KONTEKST",EVIDENCE:"DOWODY",DIAGNOSE:"DIAGNOZA",DECIDE:"DECYZJA",APPROVAL:"AKCEPTACJA",MISSION:"MISJA",EXECUTE:"WYKONANIE",MEASURE:"POMIAR",LEARN:"UCZENIE"} as Record<string,string>)[x.stage] || x.stage}</span>)}</div>
         <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
       </div>}
