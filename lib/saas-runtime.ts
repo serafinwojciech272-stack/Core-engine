@@ -90,3 +90,16 @@ export async function consumeSaaSUsage(tenantId:string,units:number){
 export async function saasStatus(){
   const c=cfg();return{identityProvider:"supabase-auth",configured:Boolean(c),workspaceMembership:"durable",billing:"internal-plan-v1",usageLimits:"database-enforced"};
 }
+
+
+export async function getSaaSUsage(tenantId:string){
+  const c=cfg();if(!c)return{used:0,limit:null,plan:"local",status:"local",periodStart:new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()};
+  const periodStart=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString();
+  const billingUrl=new URL(c.url+"/rest/v1/ce_billing_accounts");billingUrl.searchParams.set("tenant_id","eq."+tenantId);billingUrl.searchParams.set("select","plan,status,monthly_unit_limit,current_period_start,current_period_end");billingUrl.searchParams.set("limit","1");
+  const usageUrl=new URL(c.url+"/rest/v1/ce_usage_periods");usageUrl.searchParams.set("tenant_id","eq."+tenantId);usageUrl.searchParams.set("period_start","eq."+periodStart);usageUrl.searchParams.set("select","units_used");usageUrl.searchParams.set("limit","1");
+  const [br,ur]=await Promise.all([req(billingUrl.toString(),{headers:serviceHeaders(c.serviceKey)}),req(usageUrl.toString(),{headers:serviceHeaders(c.serviceKey)})]);
+  if(!br.ok||!ur.ok)throw new Error("SAAS_USAGE_READ_FAILED");
+  const billing=(await br.json() as Array<{plan:string;status:string;monthly_unit_limit:number;current_period_start:string;current_period_end:string}>)[0];
+  const usage=(await ur.json() as Array<{units_used:number}>)[0];
+  return{used:usage?.units_used??0,limit:billing?.monthly_unit_limit??0,plan:billing?.plan??"free",status:billing?.status??"active",periodStart:billing?.current_period_start??periodStart,periodEnd:billing?.current_period_end??null};
+}
