@@ -135,12 +135,6 @@ export async function promoteStrategyCandidate(input: {
 }) {
   const name = input.strategy.slice(0,240);
   const pattern = input.problem.slice(0,500);
-  const existingResponse = await db("ce_intelligence_strategies", {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
-  const url = new URL(existingResponse.url);
-  void url;
   const lookup = new URL(`${cfg().url}/rest/v1/ce_intelligence_strategies`);
   lookup.searchParams.set("tenant_id", `eq.${input.tenantId}`);
   lookup.searchParams.set("name", `eq.${name}`);
@@ -194,6 +188,16 @@ export async function buildIntelligenceReflection(input: {
       content: lesson, domain: input.domain, confidence: reflection.quality === "VERIFIED" ? .8 : .5,
       source: "CORE_ENGINE_REFLECTION", sourceRef: String((experience as Record<string,unknown>)?.id ?? ""),
     });
+  }
+  for (const strategy of reflection.strategies) {
+    if (reflection.quality !== "UNVERIFIED") {
+      await promoteStrategyCandidate({
+        tenantId: input.tenantId, problem: input.problem, strategy, domain: input.domain,
+        experienceId: String((experience as Record<string,unknown>)?.id ?? ""),
+        success: reflection.success, deltaPct: reflection.deltaPct,
+        confidence: reflection.quality === "VERIFIED" ? .8 : .45,
+      });
+    }
   }
   return { ...reflection, experience };
 }
