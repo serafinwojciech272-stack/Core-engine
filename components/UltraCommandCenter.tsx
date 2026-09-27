@@ -170,6 +170,15 @@ export default function UltraCommandCenter() {
           <article><span>03 / NASTĘPNE DZIAŁANIA</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
         </div>
         <div className="ultra-agent-layers"><span>KONTEKST</span><span>DOWODY</span><span>DIAGNOZA</span><span>DECYZJA</span><span>ZARZĄDZANIE</span></div>
+        {agentAnalysis.explainability && <div className="ultra-agent-explainability">
+          <div><span className="ultra-label">JAWNOŚĆ DECYZJI</span><h4>Rdzeń pokazuje nie tylko odpowiedź, ale także granice wiedzy.</h4></div>
+          <div className="ultra-agent-explain-grid">
+            <article><small>NIEPEWNOŚĆ</small><b>{agentAnalysis.explainability.uncertainty}</b><p>Pewność modelu: {Math.round(Number(agentAnalysis.explainability.confidence || 0) * 100)}%</p></article>
+            <article><small>POLITYKA DECYZJI</small><b>ODWRACALNE DZIAŁANIE</b><p>{agentAnalysis.explainability.policy}</p></article>
+            <article><small>BRAMA WYKONANIA</small><b>{agentAnalysis.explainability.execution}</b></article>
+          </div>
+          <div className="ultra-agent-gaps"><div><small>BRAKUJĄCE DOWODY</small>{(agentAnalysis.explainability.evidenceGaps || []).map((x: string, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{x}</p>)}</div><div><small>NASTĘPNY PAKIET DOWODÓW</small>{(agentAnalysis.explainability.nextEvidence || []).map((x: string, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{x}</p>)}</div></div>
+        </div>
         <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{({OBSERVE:"OBSERWUJ",CONTEXT:"KONTEKST",EVIDENCE:"DOWODY",DIAGNOSE:"DIAGNOZA",DECIDE:"DECYZJA",APPROVAL:"AKCEPTACJA",MISSION:"MISJA",EXECUTE:"WYKONANIE",MEASURE:"POMIAR",LEARN:"UCZENIE"} as Record<string,string>)[x.stage] || x.stage}</span>)}</div>
         <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
       </div>}
