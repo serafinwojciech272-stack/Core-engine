@@ -129,6 +129,43 @@ export async function recordIntelligenceExperience(input: {
   return rows[0] ?? null;
 }
 
+export async function promoteStrategyCandidate(input: {
+  tenantId: string; problem: string; strategy: string; domain?: string; experienceId?: string;
+  success?: boolean | null; deltaPct?: number | null; confidence?: number;
+}) {
+  const name = input.strategy.slice(0,240);
+  const pattern = input.problem.slice(0,500);
+  const lookup = new URL(`${cfg().url}/rest/v1/ce_intelligence_strategies`);
+  lookup.searchParams.set("tenant_id", `eq.${input.tenantId}`);
+  lookup.searchParams.set("name", `eq.${name}`);
+  lookup.searchParams.set("order", "version.desc");
+  lookup.searchParams.set("limit", "1");
+  const foundResponse = await fetch(lookup, { headers: headers(cfg().key), cache: "no-store" });
+  if (!foundResponse.ok) throw new Error(`STRATEGY_LOOKUP_${foundResponse.status}`);
+  const found = await foundResponse.json() as Array<Record<string, unknown>>;
+  const prior = found[0];
+  const evidence = Number(prior?.evidence_count ?? 0) + 1;
+  const successCount = Number(prior?.success_count ?? 0) + (input.success === true ? 1 : 0);
+  const failureCount = Number(prior?.failure_count ?? 0) + (input.success === false ? 1 : 0);
+  const successRate = evidence ? successCount / evidence : null;
+  const priorAvg = typeof prior?.avg_delta_pct === "number" ? Number(prior.avg_delta_pct) : null;
+  const avgDeltaPct = input.deltaPct == null ? priorAvg : priorAvg == null ? input.deltaPct : ((priorAvg * (evidence - 1)) + input.deltaPct) / evidence;
+  const confidence = Math.max(0, Math.min(1, input.confidence ?? (successRate == null ? .5 : .35 + successRate * .55)));
+  const body = {
+    tenant_id: input.tenantId, name, domain: input.domain ?? null, problem_pattern: pattern,
+    description: input.strategy.slice(0,4000), steps: [], applicability_conditions: [], failure_conditions: [],
+    source_experience_ids: input.experienceId ? [input.experienceId] : [], evidence_count: evidence,
+    success_count: successCount, failure_count: failureCount, success_rate: successRate,
+    avg_delta_pct: avgDeltaPct, confidence, status: successRate != null && successRate >= .7 && evidence >= 2 ? "ACTIVE" : "EXPERIMENTAL",
+    version: Number(prior?.version ?? 0) + 1, supersedes_id: prior?.id ?? null,
+  };
+  const response = await db("ce_intelligence_strategies", {
+    method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(body),
+  });
+  const rows = await response.json() as unknown[];
+  return rows[0] ?? null;
+}
+
 export async function buildIntelligenceReflection(input: {
   tenantId: string; missionId?: string; problem: string; hypothesis?: string; decision?: string; action?: string;
   expected?: { before?: number; target?: number; direction?: "higher"|"lower" };
@@ -151,6 +188,16 @@ export async function buildIntelligenceReflection(input: {
       content: lesson, domain: input.domain, confidence: reflection.quality === "VERIFIED" ? .8 : .5,
       source: "CORE_ENGINE_REFLECTION", sourceRef: String((experience as Record<string,unknown>)?.id ?? ""),
     });
+  }
+  for (const strategy of reflection.strategies) {
+    if (reflection.quality !== "UNVERIFIED") {
+      await promoteStrategyCandidate({
+        tenantId: input.tenantId, problem: input.problem, strategy, domain: input.domain,
+        experienceId: String((experience as Record<string,unknown>)?.id ?? ""),
+        success: reflection.success, deltaPct: reflection.deltaPct,
+        confidence: reflection.quality === "VERIFIED" ? .8 : .45,
+      });
+    }
   }
   return { ...reflection, experience };
 }
