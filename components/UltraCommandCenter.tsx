@@ -154,7 +154,7 @@ export default function UltraCommandCenter() {
         />
         <div className="ultra-agent-input-footer">
           <span>{agentQuestion.length}/2400 · Ctrl/Cmd + Enter</span>
-          <button onClick={analyzeVisitorProblem} wyłączone={agentRunning}>
+          <button onClick={analyzeVisitorProblem} disabled={agentRunning}>
             {agentRunning ? <><Sparkles className="ultra-spin" size={15}/> ANALIZA...</> : <><Zap size={15}/> ANALIZUJ MÓJ PROBLEM</>}
           </button>
         </div>
@@ -181,7 +181,7 @@ export default function UltraCommandCenter() {
       <div className="ultra-input-grid">
         <div className="ultra-domain-tabs">{(Object.keys(domains) as Array<keyof typeof domains>).map(d => <button key={d} onClick={() => setDomain(d)} className={d === domain ? "active" : ""}><Activity size={14}/>{{Growth:"Rozwój",Sales:"Sprzedaż",Operations:"Operacje"}[d]}</button>)}</div>
         <div className="ultra-signals">{domains[domain].map(s => <div key={s.name}><small>{s.source}</small><b>{s.name}</b><strong>{s.value}</strong></div>)}</div>
-        <button className="ultra-run" onClick={run} wyłączone={running}>{running ? <><Sparkles className="ultra-spin" size={16}/> ANALIZA...</> : <><Zap size={16}/> AKTYWUJ RDZEŃ</>}</button>
+        <button className="ultra-run" onClick={run} disabled={running}>{running ? <><Sparkles className="ultra-spin" size={16}/> ANALIZA...</> : <><Zap size={16}/> AKTYWUJ RDZEŃ</>}</button>
       </div>
 
       <div className="ultra-statebar">
@@ -198,7 +198,7 @@ export default function UltraCommandCenter() {
         </div>
         <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECYZJA CENTER</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "N/A"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
         <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source || "brak źródła"}</small></div>)}</div>
-        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} wyłączone={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> UCZENIE GOTOWE</span>}</div></div>}
+        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> UCZENIE GOTOWE</span>}</div></div>}
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">BŁĄD RDZENIA · {error}</div>}
