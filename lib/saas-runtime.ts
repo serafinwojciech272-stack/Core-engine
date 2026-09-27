@@ -89,7 +89,7 @@ export async function consumeSaaSUsage(tenantId:string,units:number){
   return value;
 }
 
-export async function saasStatus(){
+export function saasStatus(){
   const c=cfg();return{identityProvider:"supabase-auth",configured:Boolean(c),workspaceMembership:"durable",billing:"internal-plan-v1",usageLimits:"database-enforced"};
 }
 
