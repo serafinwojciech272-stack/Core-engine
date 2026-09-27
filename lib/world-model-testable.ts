@@ -1,2 +1,4 @@
 export function worldClaimFreshness(claim:{status:string;valid_until?:string|null;confidence?:number|null},now=Date.now()){if(claim.status==="CONTRADICTORY")return"CONTRADICTORY";if(claim.status==="UNVERIFIED")return"UNVERIFIED";if(claim.valid_until&&new Date(claim.valid_until).getTime()<now)return"STALE";if((claim.confidence??0.5)<0.5)return"KNOWN_WITH_LOW_CONFIDENCE";return"KNOWN";}
 export function reflectOnWorldClaim(input:{a:unknown;b:unknown}){return JSON.stringify(input.a)!==JSON.stringify(input.b);}
+export function unknownKeyFromQuestion(question:string){return question.toLowerCase().replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"").slice(0,120);}
+export function worldContextLimit(limit?:number){return Math.max(1,Math.min(limit??10,100));}

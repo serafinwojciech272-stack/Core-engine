@@ -25,13 +25,17 @@ function resolveFile(base) {
 }
 
 function resolveBare(specifier) {
+  // Walk up from the repository root looking for the package. Terminate at the
+  // filesystem root. Comparing `dirname(current)` against the slashed `current`
+  // never fires, which previously made this loop forever on a missing package.
   let current = ROOT;
   for (;;) {
     const candidate = resolveFile(join(current, "node_modules", specifier));
     if (candidate) return candidate;
-    const parent = dirname(current.replace(/[\\/]$/, ""));
-    if (parent === current || current === dirname(current)) return null;
-    current = parent + "/";
+    const base = current.replace(/[\\/]+$/, "") || "/";
+    const parent = dirname(base);
+    if (parent === base) return null;
+    current = parent.endsWith("/") ? parent : parent + "/";
   }
 }
 

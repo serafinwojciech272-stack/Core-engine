@@ -1,3 +1,5 @@
+import { unknownKeyFromQuestion, worldContextLimit } from "@/lib/world-model-testable";
+
 export type WorldKnowledgeStatus = "KNOWN" | "KNOWN_WITH_LOW_CONFIDENCE" | "UNKNOWN" | "STALE" | "CONTRADICTORY" | "UNVERIFIED";
 export type WorldClaim = { id:string; tenant_id:string; subject_key:string; predicate:string; object_value:unknown; value_type:string; domain?:string|null; confidence?:number|null; source?:string|null; source_ref?:string|null; observed_at?:string|null; valid_until?:string|null; status:string; created_at:string; };
 export type WorldUnknown = { id:string; domain:string; key:string; question:string; importance:"LOW"|"MEDIUM"|"HIGH"|"CRITICAL"; status:"OPEN"|"RESOLVED"|"STALE"|"BLOCKED"; evidence_needed:unknown[]; };
@@ -59,4 +61,40 @@ export async function buildWorldState(input:{tenantId:string;domain?:string;pers
  const state:WorldState={tenantId:input.tenantId,domain,generatedAt:new Date().toISOString(),modelVersion:"m10.2",completeness,confidence,facts,entities,unknowns,contradictions,staleClaims,claims};
  if(input.persistSnapshot)await db("ce_world_state_snapshots",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({tenant_id:input.tenantId,domain,state,completeness,confidence,claim_count:claims.length,unknown_count:unknowns.length,contradiction_count:contradictions.length,model_version:"m10.2"})});
  return state;
+}
+export type WorldContext={claims:WorldClaim[];unknowns:WorldUnknown[];contradictions:WorldContradiction[]};
+function scoped(path:string,params:Record<string,string>){const c=cfg();const u=new URL(`${c.url}/rest/v1/${path}`);for(const[k,v]of Object.entries(params))u.searchParams.set(k,v);return u;}
+async function read<T>(url:URL,errorCode:string):Promise<T>{const r=await fetch(url,{headers:h(cfg().key),cache:"no-store"});if(!r.ok)throw new Error(errorCode);return r.json() as Promise<T>;}
+export async function upsertWorldEntity(input:{tenantId:string;entityType:string;canonicalName:string;attributes?:Record<string,unknown>;confidence?:number;source?:string;sourceRef?:string}){
+ const r=await db(`ce_world_entities?on_conflict=tenant_id,entity_type,canonical_name`,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({tenant_id:input.tenantId,entity_type:input.entityType,canonical_name:input.canonicalName,attributes:input.attributes??{},confidence:input.confidence??null,source:input.source??null,source_ref:input.sourceRef??null,observed_at:new Date().toISOString(),updated_at:new Date().toISOString()})});
+ const rows=await r.json() as Array<Record<string,unknown>>;return rows[0];
+}
+export async function addWorldClaim(input:{tenantId:string;subjectKey:string;predicate:string;objectValue:unknown;domain?:string;confidence?:number;source?:string;sourceRef?:string;observedAt?:string;validUntil?:string;subjectEntityId?:string;valueType?:string}){
+ const result=await upsertWorldClaim({tenantId:input.tenantId,subjectKey:input.subjectKey,predicate:input.predicate,objectValue:input.objectValue,domain:input.domain,confidence:input.confidence,source:input.source,sourceRef:input.sourceRef,observedAt:input.observedAt,validUntil:input.validUntil,valueType:input.valueType,metadata:input.subjectEntityId?{subjectEntityId:input.subjectEntityId}:undefined});
+ return result;
+}
+export async function openWorldUnknown(input:{tenantId:string;domain:string;question:string;key?:string;importance?:WorldUnknown["importance"];evidenceNeeded?:unknown[];discoveredFrom?:Record<string,unknown>;confidence?:number}){
+ const key=input.key??unknownKeyFromQuestion(input.question);
+ const r=await db("ce_world_unknowns?on_conflict=tenant_id,domain,key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({tenant_id:input.tenantId,domain:input.domain,question:input.question,key,importance:input.importance??"MEDIUM",status:"OPEN",evidence_needed:input.evidenceNeeded??[],discovered_from:input.discoveredFrom??{collector:"CORE_ENGINE"},confidence:input.confidence??null,updated_at:new Date().toISOString()})});
+ const rows=await r.json() as WorldUnknown[];return rows[0];
+}
+export async function resolveWorldUnknown(input:{tenantId:string;unknownId:string;claimId:string}){
+ const r=await db(`ce_world_unknowns?id=eq.${input.unknownId}&tenant_id=eq.${input.tenantId}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:"RESOLVED",resolved_by_claim_id:input.claimId,resolved_at:new Date().toISOString(),updated_at:new Date().toISOString()})});
+ const rows=await r.json() as WorldUnknown[];if(!rows[0])throw new Error("WORLD_UNKNOWN_NOT_FOUND");return rows[0];
+}
+export async function getWorldContext(input:{tenantId:string;domain?:string;limit?:number}):Promise<WorldContext>{
+ const limit=worldContextLimit(input.limit);
+ const claimParams:Record<string,string>={tenant_id:`eq.${input.tenantId}`,status:"in.(ACTIVE,UNVERIFIED,CONTRADICTORY)",select:"*",order:"observed_at.desc,created_at.desc",limit:String(limit)};
+ const unknownParams:Record<string,string>={tenant_id:`eq.${input.tenantId}`,status:"eq.OPEN",select:"*",order:"created_at.desc",limit:String(limit)};
+ const contradictionParams:Record<string,string>={tenant_id:`eq.${input.tenantId}`,status:"in.(OPEN,ACCEPTED_AS_UNCERTAIN)",select:"*",order:"detected_at.desc",limit:String(limit)};
+ if(input.domain){claimParams.domain=`eq.${input.domain}`;unknownParams.domain=`eq.${input.domain}`;}
+ const [claims,unknowns,contradictions]=await Promise.all([
+  read<WorldClaim[]>(scoped("ce_world_claims",claimParams),"WORLD_MODEL_CLAIMS_READ_FAILED"),
+  read<WorldUnknown[]>(scoped("ce_world_unknowns",unknownParams),"WORLD_MODEL_UNKNOWNS_READ_FAILED"),
+  read<WorldContradiction[]>(scoped("ce_world_contradictions",contradictionParams),"WORLD_MODEL_CONTRADICTIONS_READ_FAILED")]);
+ return{claims,unknowns,contradictions};
+}
+export async function buildWorldSnapshot(input:{tenantId:string;domain:string;goals?:unknown[];constraints?:unknown[];priorities?:unknown[];activeHypotheses?:unknown[]}){
+ const state=await buildWorldState({tenantId:input.tenantId,domain:input.domain,persistSnapshot:true});
+ return{...state,context:{goals:input.goals??[],constraints:input.constraints??[],priorities:input.priorities??[],activeHypotheses:input.activeHypotheses??[]}};
 }
