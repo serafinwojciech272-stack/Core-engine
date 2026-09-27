@@ -50,7 +50,22 @@ export default function JobsPage() {
     }
   }
 
-  useEffect(() => { void loadJobs(); }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/jobs", { cache: "no-store" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Job feed unavailable");
+        if (active) setJobs(data.jobs || []);
+      })
+      .catch(error => {
+        if (active) setStatus(error instanceof Error ? error.message : "Job feed unavailable");
+      })
+      .finally(() => {
+        if (active) setLoadingJobs(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   async function runCoreEngine() {
     setRunning(true);
