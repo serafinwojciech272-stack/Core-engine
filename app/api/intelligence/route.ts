@@ -3,7 +3,7 @@ import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storeIntelligenceMemory, recallIntelligence, buildIntelligenceReflection } from "@/lib/intelligence-core";
-import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot } from "@/lib/world-model";
+import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot, worldClaimFreshness } from "@/lib/world-model";
 import { assessCausalDecision } from "@/lib/causal-decision-intelligence";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
@@ -111,12 +111,12 @@ export async function POST(request: Request) {
         recommendation: body.recommendation,
         contradictions: world.contradictions,
         unknowns: world.unknowns,
-        staleClaims: world.staleClaims
+        staleClaims: world.claims.filter(claim => worldClaimFreshness(claim) === "STALE")
       });
       return NextResponse.json({ ok: true, assessment, worldSignals: {
         contradictions: world.contradictions.length,
         openUnknowns: world.unknowns.filter(x => x.status === "OPEN").length,
-        staleClaims: world.staleClaims.length
+        staleClaims: world.claims.filter(claim => worldClaimFreshness(claim) === "STALE").length
       }});
     }
 
