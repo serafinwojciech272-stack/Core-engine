@@ -7,16 +7,21 @@ import {claimPersistedAction,listPersistedEvents,listPersistedMissions,recordPer
 import {executeCapabilityAction,getCapabilityAction} from "@/lib/capability-action-registry";
 import {isPersistedCapabilityApproved,recordCapabilityLedgerEvent} from "@/lib/capability-ledger";
 import {guardMutation} from "@/lib/http";
+import {authenticate} from "@/lib/auth";
+import {resolveTenant} from "@/lib/commercial-runtime";
+import {bindMissionTenant, missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
 const MAX=16000;
 const nextByAction:Record<string,MissionState>={approve:"APPROVED",reject:"REJECTED",execute:"EXECUTING",measure:"MEASURING",complete:"COMPLETED",learn:"LEARNED",fail:"FAILED",retry:"EXECUTING",abort:"REJECTED"};
 
 export async function GET(request:Request){
+  const actor=authenticate(request,true);
+  const tenant=resolveTenant(request);
   const limit=Math.max(1,Math.min(100,Number(new URL(request.url).searchParams.get("limit")||50)));
   if(storageMode()==="supabase"){
-    try{const[m,e]=await Promise.all([listPersistedMissions(limit),listPersistedEvents(limit)]);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,events:e})}
+    try{const ids=new Set(await tenantMissionIds(tenant.tenantId));const all=await listPersistedMissions(Math.max(limit,100));const m=all.filter(x=>ids.has(x.id)).slice(0,limit);const e=(await listPersistedEvents(Math.max(limit,100))).filter(x=>ids.has(x.missionId)).slice(0,limit);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,tenantId:tenant.tenantId,events:e})}
     catch{return NextResponse.json({ok:false,error:"PERSISTENCE_READ_FAILED"},{status:503})}
   }
-  return NextResponse.json({ok:true,missions:Array.from(missions.values()).slice(-limit).reverse(),count:missions.size,persistence:"in-memory-runtime",durable:false,warning:"Non-durable demo mode.",events:events.slice(-100).reverse()});
+  const ids=new Set(await tenantMissionIds(tenant.tenantId));const m=Array.from(missions.values()).filter(x=>ids.has(x.id)).slice(-limit).reverse();const e=events.filter(x=>ids.has(x.missionId)).slice(-100).reverse();return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",events:e});
 }
 
 export async function POST(request:Request){
@@ -35,6 +40,7 @@ export async function POST(request:Request){
 
     if(storageMode()==="supabase"){
       const current=(await listPersistedMissions(100)).find(m=>m.id===id);if(!current)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
+      if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
       const policy=evaluateMissionAction(action,current.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
       const claimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
       const claim=await claimPersistedAction(id,action,claimKey);if(!claim.claimed)return NextResponse.json({ok:true,duplicate:true,mission:current,action,capabilityActionId:capabilityActionId||undefined,persistence:"supabase",durable:true});
@@ -62,10 +68,12 @@ export async function POST(request:Request){
       if(action==="execute"||action==="retry")await recordPersistedMissionOutcome(id,"EXECUTION_RECORDED",outcome);
       if(action==="measure")await recordPersistedMissionOutcome(id,"MEASUREMENT_RECORDED",{...outcome,assessment});
       const updated={...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()};
-      return NextResponse.json({ok:true,mission:updated,action,assessment,learning,persistence:"supabase",durable:true,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
+      await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
+      return NextResponse.json({ok:true,mission:updated,action,assessment,learning,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
     }
 
     const m=missions.get(id);if(!m)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
+    if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
     const memoryClaimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
     const policy=evaluateMissionAction(action,m.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
@@ -89,6 +97,7 @@ export async function POST(request:Request){
 
     const updated=transitionMission(m,next);updated.executionCount=action==="execute"||action==="retry"?m.executionCount+1:m.executionCount;missions.set(id,updated);
     const event=recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"STATE_CHANGED",fromState:m.state,toState:updated.state,actorType:policy.actor,metadata:{...outcome,...(assessment?{assessment}:{}),...(capabilityActionId?{capabilityActionId}:{})}});
-    return NextResponse.json({ok:true,mission:updated,action,assessment,event,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,warning:"Non-durable demo mode."});
+    await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
+    return NextResponse.json({ok:true,mission:updated,action,assessment,event,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode."});
   }catch(error){console.error("[core-engine] mission operation failed",error);return NextResponse.json({ok:false,error:"MISSION_OPERATION_FAILED"},{status:503})}
 }
