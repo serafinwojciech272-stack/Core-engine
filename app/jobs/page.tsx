@@ -26,6 +26,7 @@ export default function JobsPage() {
   const [autoApply, setAutoApply] = useState(true);
   const [status, setStatus] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [latestSync, setLatestSync] = useState<{ finished_at?: string; discovered?: number; inserted?: number; status?: string } | null>(null);
 
   const criteria = useMemo(() => [
     "Gliwice / Zabrze + 30 km",
@@ -56,7 +57,7 @@ export default function JobsPage() {
       .then(async response => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Job feed unavailable");
-        if (active) setJobs(data.jobs || []);
+        if (active) { setJobs(data.jobs || []); setLatestSync(data.latestSync || null); }
       })
       .catch(error => {
         if (active) setStatus(error instanceof Error ? error.message : "Job feed unavailable");
