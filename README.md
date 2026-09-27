@@ -99,3 +99,22 @@ EXECUTION -> RECEIPT -> EVIDENCE -> OUTCOME -> MEASUREMENT -> LEARNING EVENT
 - The outcome assessment and learning event reuse the existing `outcome-quality` and `learning-engine` infrastructure; a missing actual value is `UNVERIFIED` rather than a fabricated win.
 
 Over HTTP, `POST /api/mission` with `action: execute` and a `capabilityActionId` returns `evidence` and `outcome` alongside the receipt. A failed execution returns the receipt and never evidence.
+
+## M9.2 end-to-end lifecycle
+
+The complete loop is covered by the integration test `M9.2 signal to next decision end-to-end lifecycle is covered` in `test/lifecycle-api-integration.test.ts`:
+
+```
+SIGNAL -> DIAGNOSIS -> PRIORITY -> RECOMMENDATION -> DECISION -> MISSION
+-> APPROVAL -> CAPABILITY APPROVAL -> ADAPTER -> EXECUTION -> RECEIPT
+-> EVIDENCE -> OUTCOME -> LEARNING -> NEXT DECISION
+```
+
+The test asserts, over real HTTP against a running server:
+
+- `POST /api/engine` produces a diagnosis, a recommendation, a decision and an `AWAITING_APPROVAL` mission.
+- Capability approval is recorded before execution and advances the mission to `APPROVED` through the existing state machine.
+- Execution resolves an adapter, produces an `EXECUTED` receipt and returns evidence and an outcome whose `sourceExecutionId` and `executionId` link back to that receipt.
+- Measurement, completion and learning follow the same mission to `LEARNED`.
+- A second `POST /api/engine` produces a distinct mission, closing the loop to the next decision.
+- The finished mission is observable through `GET /api/mission`.

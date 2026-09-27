@@ -277,6 +277,102 @@ test("M9.1 successful capability execution records evidence and an outcome over 
   assert.equal(executed.json.outcome?.assessment?.quality, "VERIFIED");
 });
 
+test("M9.2 signal to next decision end-to-end lifecycle is covered", async () => {
+  const signals = [
+    { name: "qualified_leads", value: "90", source: "crm" },
+    { name: "conversion_rate", value: "2.6%", source: "analytics" }
+  ];
+
+  // SIGNAL -> DIAGNOSIS -> PRIORITY -> RECOMMENDATION -> DECISION -> MISSION
+  const engine = await api("/api/engine", {
+    domain: "business",
+    signals,
+    evidence: [
+      { claim: "Qualified leads are 90", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Conversion rate is 2.6%", source: "analytics", supports: true, reliability: 0.95 }
+    ]
+  });
+  assert.equal(engine.response.status, 200);
+  assert.equal(engine.json.ok, true);
+  assert.equal(engine.json.state, "AWAITING_APPROVAL");
+  assert.ok(engine.json.decision?.diagnosis, "diagnosis present");
+  assert.ok(engine.json.decision?.recommendation, "recommendation present");
+  assert.ok(engine.json.decision?.id, "decision present");
+  assert.equal(engine.json.mission?.id !== undefined, true, "mission created");
+  const missionId = String(engine.json.mission.id);
+
+  // MISSION -> APPROVAL -> CAPABILITY APPROVAL
+  const capApproved = await api("/api/mission", {
+    id: missionId, action: "approve", capabilityActionId: "page.generate",
+    idempotencyKey: `m92-cap-approve-${missionId}`
+  });
+  assert.equal(capApproved.response.status, 200, JSON.stringify(capApproved.json));
+  assert.equal(capApproved.json.capabilityApproval?.status, "APPROVED");
+  assert.equal(capApproved.json.mission.state, "APPROVED");
+
+  // CAPABILITY APPROVAL -> ADAPTER RESOLUTION -> EXECUTION -> RECEIPT
+  const executed = await api("/api/mission", {
+    id: missionId, action: "execute", capabilityActionId: "page.generate",
+    idempotencyKey: `m92-cap-exec-${missionId}`,
+    outcome: { metric: "conversion_rate", before: 2.6, after: 2.9, direction: "higher" }
+  });
+  assert.equal(executed.response.status, 200, JSON.stringify(executed.json));
+  const receipt = executed.json.capabilityReceipt;
+  assert.equal(receipt.status, "EXECUTED");
+  assert.ok(receipt.adapterId, "adapter resolved");
+  assert.equal(receipt.sideEffectStatus, "NONE");
+
+  // RECEIPT -> EVIDENCE -> OUTCOME -> MEASUREMENT -> LEARNING
+  assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, receipt.executionId);
+  assert.equal(executed.json.outcome?.executionId, receipt.executionId);
+  assert.equal(executed.json.outcome?.assessment?.quality, "VERIFIED");
+
+  const measured = await api("/api/mission", {
+    id: missionId, action: "measure",
+    idempotencyKey: `m92-measure-${missionId}`,
+    outcome: { before: 2.6, after: 2.9, direction: "higher" }
+  });
+  assert.equal(measured.response.status, 200, JSON.stringify(measured.json));
+  assert.equal(measured.json.assessment?.quality, "VERIFIED");
+
+  const completed = await api("/api/mission", {
+    id: missionId, action: "complete",
+    idempotencyKey: `m92-complete-${missionId}`,
+    outcome: { before: 2.6, after: 2.9, direction: "higher" }
+  });
+  assert.equal(completed.response.status, 200, JSON.stringify(completed.json));
+
+  const learned = await api("/api/mission", {
+    id: missionId, action: "learn",
+    idempotencyKey: `m92-learn-${missionId}`,
+    outcome: { before: 2.6, after: 2.9, direction: "higher" }
+  });
+  assert.equal(learned.response.status, 200, JSON.stringify(learned.json));
+  assert.equal(learned.json.mission?.state, "LEARNED");
+
+  // LEARNING -> NEXT DECISION: the loop produces a new, distinct mission.
+  const nextCycle = await api("/api/engine", {
+    domain: "business",
+    signals,
+    evidence: [
+      { claim: "Qualified leads are 90", source: "crm", supports: true, reliability: 0.9 },
+      { claim: "Conversion rate is 2.9%", source: "analytics", supports: true, reliability: 0.95 }
+    ]
+  });
+  assert.equal(nextCycle.response.status, 200);
+  assert.ok(nextCycle.json.mission?.id);
+  assert.notEqual(String(nextCycle.json.mission.id), missionId);
+  assert.equal(nextCycle.json.state, "AWAITING_APPROVAL");
+
+  // Mission lifecycle integrity: the finished mission is observable and its
+  // recommended action carries the existing approval gate.
+  const listed = await fetch(base + "/api/mission?limit=100");
+  assert.equal(listed.status, 200);
+  const payload = await listed.json() as Record<string, any>;
+  const finished = (payload.missions || []).find((m: Record<string, any>) => m.id === missionId);
+  assert.equal(finished?.state, "LEARNED");
+});
+
 test("M9 live agent E2E executes a real public web capability", { skip: !process.env.CORE_ENGINE_LIVE_E2E_URL }, async () => {
   const target = process.env.CORE_ENGINE_LIVE_E2E_URL!;
   const engine = await api("/api/engine", {
