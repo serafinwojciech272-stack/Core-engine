@@ -1,0 +1,92 @@
+import { resolveTenant, type TenantContext } from "@/lib/commercial-runtime";
+
+type SupabaseConfig={url:string; serviceKey:string; publishableKey:string};
+export type SaaSIdentity={userId:string; email:string|null; tenantId:string; tenantKey:string; tenantName:string; workspaceId:string; workspaceSlug:string; role:"owner"|"admin"|"member"|"viewer"};
+
+function cfg():SupabaseConfig|null{
+  const url=process.env.SUPABASE_URL;
+  const serviceKey=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const publishableKey=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.SUPABASE_ANON_KEY||"";
+  return url&&serviceKey&&publishableKey?{url,serviceKey,publishableKey}:null;
+}
+async function req(url:string,init:RequestInit={}){
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);
+  try{return await fetch(url,{...init,cache:"no-store",signal:controller.signal})}finally{clearTimeout(timer)}
+}
+function serviceHeaders(key:string){return{apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json"}}
+function userHeaders(key:string,token:string){return{apikey:key,Authorization:"Bearer "+token,"Content-Type":"application/json"}}
+
+async function authenticatedUser(request:Request){
+  const c=cfg();const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"";
+  if(!c||!token)return null;
+  const response=await req(c.url+"/auth/v1/user",{headers:userHeaders(c.publishableKey,token)});
+  if(!response.ok)return null;
+  const user=await response.json() as {id?:string;email?:string};
+  return user.id?{id:user.id,email:user.email??null}:null;
+}
+
+async function queryMembership(c:SupabaseConfig,userId:string){
+  const url=new URL(c.url+"/rest/v1/ce_tenant_members");
+  url.searchParams.set("user_id","eq."+userId);url.searchParams.set("select","tenant_id,role,ce_tenants(id,external_key,name,active)");
+  url.searchParams.set("limit","1");
+  const response=await req(url.toString(),{headers:serviceHeaders(c.serviceKey)});
+  if(!response.ok)throw new Error("SAAS_MEMBERSHIP_READ_"+response.status);
+  const rows=await response.json() as Array<{tenant_id:string;role:SaaSIdentity["role"];ce_tenants:{id:string;external_key:string;name:string;active:boolean}|null}>;
+  return rows[0]||null;
+}
+
+async function provision(c:SupabaseConfig,userId:string,email:string|null){
+  const existing=await queryMembership(c,userId);if(existing?.ce_tenants?.active){
+    const ws=await workspaceForUser(c,existing.tenant_id,userId);
+    if(ws)return {tenant:existing.ce_tenants,role:existing.role,workspace:ws};
+  }
+  const tenantId=crypto.randomUUID();const tenantKey="user:"+userId;const name=email?email.split("@")[0]+" Workspace":"My Organization";
+  const tenantResponse=await req(c.url+"/rest/v1/ce_tenants?on_conflict=external_key",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({id:tenantId,external_key:tenantKey,name,active:true})});
+  if(!tenantResponse.ok)throw new Error("SAAS_TENANT_CREATE_"+tenantResponse.status);
+  const tenantRows=await tenantResponse.json() as Array<{id:string;external_key:string;name:string;active:boolean}>;
+  const tenant=tenantRows[0]||{id:tenantId,external_key:tenantKey,name,active:true};
+  await req(c.url+"/rest/v1/ce_tenant_members?on_conflict=tenant_id,user_id",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({tenant_id:tenant.id,user_id:userId,role:"owner"})}).then(async r=>{if(!r.ok)throw new Error("SAAS_MEMBER_CREATE_"+r.status)});
+  const workspaceId=crypto.randomUUID();
+  const ws=await req(c.url+"/rest/v1/ce_workspaces?on_conflict=tenant_id,slug",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify({id:workspaceId,tenant_id:tenant.id,slug:"main",name:"Main Workspace",active:true})});
+  if(!ws.ok)throw new Error("SAAS_WORKSPACE_CREATE_"+ws.status);
+  const workspaces=await ws.json() as Array<{id:string;slug:string;name:string;active:boolean}>;
+  const workspace=workspaces[0]||{id:workspaceId,slug:"main",name:"Main Workspace",active:true};
+  await req(c.url+"/rest/v1/ce_workspace_members?on_conflict=workspace_id,user_id",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({workspace_id:workspace.id,user_id:userId,role:"admin"})}).then(async r=>{if(!r.ok)throw new Error("SAAS_WORKSPACE_MEMBER_CREATE_"+r.status)});
+  await req(c.url+"/rest/v1/ce_billing_accounts?on_conflict=tenant_id",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({tenant_id:tenant.id,plan:"free",status:"active",monthly_unit_limit:100,provider:"internal"})}).then(async r=>{if(!r.ok)throw new Error("SAAS_BILLING_CREATE_"+r.status)});
+  return {tenant,role:"owner" as const,workspace};
+}
+
+async function workspaceForUser(c:SupabaseConfig,tenantId:string,userId:string){
+  const url=new URL(c.url+"/rest/v1/ce_workspace_members");
+  url.searchParams.set("user_id","eq."+userId);url.searchParams.set("select","role,ce_workspaces(id,slug,name,active,tenant_id)");
+  url.searchParams.set("limit","1");
+  const response=await req(url.toString(),{headers:serviceHeaders(c.serviceKey)});
+  if(!response.ok)throw new Error("SAAS_WORKSPACE_READ_"+response.status);
+  const rows=await response.json() as Array<{role:"admin"|"member"|"viewer";ce_workspaces:{id:string;slug:string;name:string;active:boolean;tenant_id:string}|null}>;
+  const row=rows.find(x=>x.ce_workspaces?.tenant_id===tenantId&&x.ce_workspaces.active);
+  return row?{...row.ce_workspaces,role:row.role}:null;
+}
+
+export async function resolveSaaSContext(request:Request):Promise<{identity:SaaSIdentity|null;legacyTenant:TenantContext|null}>{
+  const user=await authenticatedUser(request);
+  const c=cfg();
+  if(user&&c){
+    const membership=await queryMembership(c,user.id);
+    const provisioned=membership?.ce_tenants?.active?{tenant:membership.ce_tenants,role:membership.role,workspace:await workspaceForUser(c,membership.tenant_id,user.id)}:await provision(c,user.id,user.email);
+    if(!provisioned.workspace)throw new Error("SAAS_WORKSPACE_NOT_FOUND");
+    return {identity:{userId:user.id,email:user.email,tenantId:provisioned.tenant.id,tenantKey:provisioned.tenant.external_key,tenantName:provisioned.tenant.name,workspaceId:provisioned.workspace.id,workspaceSlug:provisioned.workspace.slug,role:provisioned.role},legacyTenant:null};
+  }
+  return {identity:null,legacyTenant:resolveTenant(request)};
+}
+
+export async function consumeSaaSUsage(tenantId:string,units:number){
+  const c=cfg();if(!c)return{allowed:true,used:0,limit:null,status:"local"};
+  const response=await req(c.url+"/rest/v1/rpc/ce_consume_usage",{method:"POST",headers:{...serviceHeaders(c.serviceKey),Prefer:"return=representation"},body:JSON.stringify({p_tenant_id:tenantId,p_units:units,p_period_start:new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()})});
+  if(!response.ok)throw new Error("SAAS_USAGE_QUOTA_"+response.status);
+  const value=await response.json() as {allowed:boolean;used:number;limit:number;status:string};
+  return value;
+}
+
+export async function saasStatus(){
+  const c=cfg();return{identityProvider:"supabase-auth",configured:Boolean(c),workspaceMembership:"durable",billing:"internal-plan-v1",usageLimits:"database-enforced"};
+}
