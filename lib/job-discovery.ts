@@ -43,7 +43,7 @@ export async function discoverJobs(){
  return {jobs:[...dedupe.values()],errors};
 }
 
-export async function scoreJobs(jobs:JobOpportunity[]){
+export async function scoreJobs(jobs:JobOpportunity[],learningWeights:Record<string,number>={}){
  const policy=await buildDecision([
   {name:"target_roles",value:queries.join(";"),source:"job_agent_policy"},
   {name:"location_radius",value:"Gliwice + 30 km",source:"job_agent_policy"},
