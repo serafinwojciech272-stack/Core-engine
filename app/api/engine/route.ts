@@ -144,6 +144,7 @@ export async function POST(request: Request) {
       { stage: "DECIDE", status: "COMPLETE", evidence: [decision.recommendation, ...(decision.signalConflict?.reasons || [])], output: decision.recommendation },
       { stage: "DECISION_MATRIX", status: "COMPLETE", evidence: decision.decisionMatrix?.reasons, output: decision.decisionMatrix?.action || "UNAVAILABLE" },
       { stage: "PREDICTIVE_DECISION", status: "COMPLETE", evidence: decision.predictiveDecision?.leadingIndicators, output: decision.predictiveDecision?.outcome || "UNAVAILABLE" },
+      { stage: "ADAPTIVE_POLICY", status: "COMPLETE", evidence: decision.adaptivePolicy?.rationale, output: decision.adaptivePolicy?.mode || "UNAVAILABLE" },
       { stage: "GROWTH_CAPABILITIES", status: "PLANNED", evidence: growthMission.selectedPacks.map((p) => p.id), output: `${growthMission.selectedPacks.length} capability packs; ${growthMission.actions.length} actions` },
       { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
       { stage: "AWAITING_APPROVAL", status: "PENDING", output: mission.state }
