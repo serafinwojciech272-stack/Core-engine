@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { discoverJobs, scoreJobs } from "@/lib/job-discovery";
 export const runtime="nodejs";export const dynamic="force-dynamic";
-function authorized(request:Request){const cron=request.headers.get("authorization"),secret=process.env.CRON_SECRET;if(secret&&cron==="Bearer "+secret)return true;return process.env.NODE_ENV!=="production"}
+function authorized(request:Request){
+ const cron=request.headers.get("authorization"),secret=process.env.CRON_SECRET;
+ if(secret&&cron==="Bearer "+secret)return true;
+ if(process.env.NODE_ENV!=="production")return true;
+ const origin=request.headers.get("origin");
+ const host=request.headers.get("host");
+ return !!origin&&!!host&&new URL(origin).host===host;
+}
 async function sb(){const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");return{url,key}}
 async function requestSb(path:string,init:RequestInit={}){const c=await sb(),r=await fetch(c.url+"/rest/v1/"+path,{...init,headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json",...(init.headers||{})},cache:"no-store"});if(!r.ok)throw new Error("SUPABASE_"+r.status);return r}
 export async function GET(request:Request){return POST(request)}
