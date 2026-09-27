@@ -36,7 +36,11 @@ type RecoveryPattern = {
   version: number;
 };
 
-export function shouldActivateConsolidatedStrategy(pattern: Pick<RecoveryPattern, "status" | "evidence_count" | "success_rate">) {\n  return pattern.status === "ACTIVE" && pattern.evidence_count >= 2 && (pattern.success_rate ?? 0) >= 0.7;\n}\n\nfunction strategyName(pattern: RecoveryPattern) {
+export function shouldActivateConsolidatedStrategy(pattern: Pick<RecoveryPattern, "status" | "evidence_count" | "success_rate">) {
+  return pattern.status === "ACTIVE" && pattern.evidence_count >= 2 && (pattern.success_rate ?? 0) >= 0.7;
+}
+
+function strategyName(pattern: RecoveryPattern) {
   return `Recovery strategy: ${pattern.pattern_key}`.slice(0, 240);
 }
 
