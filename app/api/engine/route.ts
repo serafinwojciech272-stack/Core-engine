@@ -20,6 +20,7 @@ import { getAgentManifest } from "@/lib/agent-contract";
 import { authenticate } from "@/lib/auth";
 import { resolveTenant } from "@/lib/commercial-runtime";
 import { ensureTenant, bindMissionTenant, recordUsage } from "@/lib/commercial-storage";
+import { resolveSaaSContext, consumeSaaSUsage } from "@/lib/saas-runtime";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -36,8 +37,9 @@ function signal(x: unknown): x is EngineSignal {
 export async function POST(request: Request) {
   const guard = guardMutation(request, "engine");
   if (guard) return guard;
-  const actor = authenticate(request, true);
-  const tenant = resolveTenant(request);
+  const runtime = await resolveSaaSContext(request);
+  const actor = runtime.identity ? { id: runtime.identity.userId, kind: "human" as const } : authenticate(request, true);
+  const tenant = runtime.identity ? { tenantId: runtime.identity.tenantId, tenantKey: runtime.identity.tenantKey } : runtime.legacyTenant!;
   const rl = rateLimit("engine:" + ((request.headers.get("x-forwarded-for") || "unknown").split(",")[0]));
   if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
 
@@ -100,6 +102,9 @@ export async function POST(request: Request) {
         ]
       }, { status: 409 });
     }
+
+    const quota = await consumeSaaSUsage(tenant.tenantId, 1);
+    if (!quota.allowed) return NextResponse.json({ ok: false, error: "USAGE_LIMIT_EXCEEDED", quota }, { status: 402 });
 
     const mission: Mission = {
       id: crypto.randomUUID(),
@@ -164,6 +169,8 @@ export async function POST(request: Request) {
       mission,
       growthMission,
       trace,
+      quota,
+      identity: runtime.identity ? { userId: runtime.identity.userId, tenantId: runtime.identity.tenantId, workspaceId: runtime.identity.workspaceId, role: runtime.identity.role } : null,
       audit: {
         algorithm: integrity === "SIGNED" ? "HMAC-SHA256 chained audit v2" : "SHA-256 chained audit v1",
         integrity,
