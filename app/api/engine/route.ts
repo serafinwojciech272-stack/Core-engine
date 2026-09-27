@@ -110,7 +110,6 @@ export async function POST(request: Request) {
     await ensureTenant(tenant.tenantId, tenant.tenantKey);
     if (persistence === "supabase") {
       await persistDecisionMission(decision, mission, ENGINE_VERSION);
-      await bindMissionTenant(mission.id, tenant.tenantId);
     } else {
       missions.set(mission.id, mission);
       recordMissionEvent({
@@ -121,6 +120,7 @@ export async function POST(request: Request) {
         actorType: "system"
       });
     }
+    await bindMissionTenant(mission.id, tenant.tenantId);
 
     const growthMission = buildGrowthMissionPlan({
       missionId: mission.id,
