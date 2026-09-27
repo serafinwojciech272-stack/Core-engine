@@ -18,8 +18,8 @@ export async function GET(request: Request) {
     const query = url.searchParams.get("q") ?? "";
     const domain = url.searchParams.get("domain") ?? undefined;
     if (!query) return NextResponse.json({ ok: true, memories: [], knowledge: [], unknowns: [] });
-    const intelligence = await recallKnowledge({ tenantId, query, domain, limit: Number(url.searchParams.get("limit") ?? 10) });
-    return NextResponse.json({ ok: true, ...intelligence });
+    const [memories, world] = await Promise.all([recallIntelligence({ tenantId, query, domain, limit: Number(url.searchParams.get("limit") ?? 10) }), getWorldContext({ tenantId, domain, limit: Number(url.searchParams.get("limit") ?? 10) })]);
+    return NextResponse.json({ ok: true, memories, knowledge: world.claims, unknowns: world.unknowns, contradictions: world.contradictions });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "INTELLIGENCE_RECALL_FAILED" }, { status: 400 });
   }
