@@ -3,7 +3,7 @@ import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storeIntelligenceMemory, recallIntelligence, buildIntelligenceReflection } from "@/lib/intelligence-core";
-import { upsertKnowledgeClaim, relateKnowledgeClaims, openUnknown, resolveUnknown, recallKnowledge, buildWorldModel } from "@/lib/intelligence-knowledge";
+import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot } from "@/lib/world-model";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -71,44 +71,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, reflection: result });
     }
 
-    if (operation === "claim") {
-      if (typeof body.claim !== "string") return NextResponse.json({ ok: false, error: "CLAIM_REQUIRED" }, { status: 400 });
-      const claim = await upsertKnowledgeClaim({
-        tenantId, claim: body.claim, claimKey: typeof body.claimKey === "string" ? body.claimKey : undefined,
-        domain: typeof body.domain === "string" ? body.domain : undefined, status: typeof body.status === "string" ? body.status as never : undefined,
-        confidence: typeof body.confidence === "number" ? body.confidence : undefined,
-        source: typeof body.source === "string" ? body.source : undefined, sourceRef: typeof body.sourceRef === "string" ? body.sourceRef : undefined,
-        observedAt: typeof body.observedAt === "string" ? body.observedAt : undefined, verifiedAt: typeof body.verifiedAt === "string" ? body.verifiedAt : undefined,
-        expiresAt: typeof body.expiresAt === "string" ? body.expiresAt : undefined,
-      });
-      return NextResponse.json({ ok: true, claim });
+    if (operation === "entity") {
+      if (typeof body.entityType !== "string" || typeof body.canonicalName !== "string") return NextResponse.json({ ok: false, error: "ENTITY_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, entity: await upsertWorldEntity({ tenantId, entityType: body.entityType, canonicalName: body.canonicalName, attributes: body.attributes && typeof body.attributes === "object" && !Array.isArray(body.attributes) ? body.attributes as Record<string,unknown> : undefined, confidence: typeof body.confidence === "number" ? body.confidence : undefined, source: typeof body.source === "string" ? body.source : undefined, sourceRef: typeof body.sourceRef === "string" ? body.sourceRef : undefined }) });
     }
 
-    if (operation === "contradict") {
-      if (typeof body.fromClaimId !== "string" || typeof body.toClaimId !== "string") return NextResponse.json({ ok: false, error: "CLAIM_IDS_REQUIRED" }, { status: 400 });
-      const relation = await relateKnowledgeClaims({ tenantId, fromClaimId: body.fromClaimId, toClaimId: body.toClaimId, relationType: "CONTRADICTS", confidence: typeof body.confidence === "number" ? body.confidence : undefined });
-      return NextResponse.json({ ok: true, relation });
+    if (operation === "claim") {
+      if (typeof body.subjectKey !== "string" || typeof body.predicate !== "string") return NextResponse.json({ ok: false, error: "CLAIM_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, ...await addWorldClaim({ tenantId, subjectKey: body.subjectKey, predicate: body.predicate, objectValue: body.objectValue, domain: typeof body.domain === "string" ? body.domain : undefined, confidence: typeof body.confidence === "number" ? body.confidence : undefined, source: typeof body.source === "string" ? body.source : undefined, sourceRef: typeof body.sourceRef === "string" ? body.sourceRef : undefined, observedAt: typeof body.observedAt === "string" ? body.observedAt : undefined, validUntil: typeof body.validUntil === "string" ? body.validUntil : undefined, subjectEntityId: typeof body.subjectEntityId === "string" ? body.subjectEntityId : undefined }) });
     }
 
     if (operation === "unknown") {
-      if (typeof body.question !== "string") return NextResponse.json({ ok: false, error: "QUESTION_REQUIRED" }, { status: 400 });
-      const unknown = await openUnknown({ tenantId, question: body.question, domain: typeof body.domain === "string" ? body.domain : undefined, priority: typeof body.priority === "number" ? body.priority : undefined, evidenceRequired: Array.isArray(body.evidenceRequired) ? body.evidenceRequired : undefined });
-      return NextResponse.json({ ok: true, unknown });
+      if (typeof body.domain !== "string" || typeof body.question !== "string") return NextResponse.json({ ok: false, error: "UNKNOWN_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, unknown: await openWorldUnknown({ tenantId, domain: body.domain, question: body.question, key: typeof body.key === "string" ? body.key : undefined, importance: typeof body.importance === "string" ? body.importance as "LOW"|"MEDIUM"|"HIGH"|"CRITICAL" : undefined, evidenceNeeded: Array.isArray(body.evidenceNeeded) ? body.evidenceNeeded : undefined, discoveredFrom: body.discoveredFrom && typeof body.discoveredFrom === "object" && !Array.isArray(body.discoveredFrom) ? body.discoveredFrom as Record<string,unknown> : undefined, confidence: typeof body.confidence === "number" ? body.confidence : undefined }) });
     }
 
     if (operation === "resolve_unknown") {
-      if (typeof body.unknownId !== "string" || !body.resolution || typeof body.resolution !== "object" || Array.isArray(body.resolution)) return NextResponse.json({ ok: false, error: "UNKNOWN_RESOLUTION_REQUIRED" }, { status: 400 });
-      const unknown = await resolveUnknown({ tenantId, unknownId: body.unknownId, resolution: body.resolution as Record<string, unknown>, confidence: typeof body.confidence === "number" ? body.confidence : undefined });
-      return NextResponse.json({ ok: true, unknown });
+      if (typeof body.unknownId !== "string" || typeof body.claimId !== "string") return NextResponse.json({ ok: false, error: "UNKNOWN_RESOLUTION_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, unknown: await resolveWorldUnknown({ tenantId, unknownId: body.unknownId, claimId: body.claimId }) });
     }
 
-    if (operation === "world_model") {
-      const world = await buildWorldModel({ tenantId, domain: typeof body.domain === "string" ? body.domain : undefined,
-        goals: Array.isArray(body.goals) ? body.goals : undefined, constraints: Array.isArray(body.constraints) ? body.constraints : undefined,
-        entities: Array.isArray(body.entities) ? body.entities : undefined, kpis: Array.isArray(body.kpis) ? body.kpis : undefined,
-        priorities: Array.isArray(body.priorities) ? body.priorities : undefined, activeHypotheses: Array.isArray(body.activeHypotheses) ? body.activeHypotheses : undefined,
-        assumptions: Array.isArray(body.assumptions) ? body.assumptions : undefined });
-      return NextResponse.json({ ok: true, worldModel: world });
+    if (operation === "world_context") {
+      return NextResponse.json({ ok: true, world: await getWorldContext({ tenantId, domain: typeof body.domain === "string" ? body.domain : undefined, limit: typeof body.limit === "number" ? body.limit : undefined }) });
+    }
+
+    if (operation === "world_snapshot") {
+      if (typeof body.domain !== "string") return NextResponse.json({ ok: false, error: "DOMAIN_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, snapshot: await buildWorldSnapshot({ tenantId, domain: body.domain, goals: Array.isArray(body.goals) ? body.goals : undefined, constraints: Array.isArray(body.constraints) ? body.constraints : undefined, priorities: Array.isArray(body.priorities) ? body.priorities : undefined, activeHypotheses: Array.isArray(body.activeHypotheses) ? body.activeHypotheses : undefined }) });
     }
 
     return NextResponse.json({ ok: false, error: "UNKNOWN_INTELLIGENCE_OPERATION" }, { status: 400 });
