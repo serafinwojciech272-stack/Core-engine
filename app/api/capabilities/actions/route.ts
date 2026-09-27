@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext, consumeSaaSUsage } from "@/lib/saas-runtime";
-import { getCapabilityAction, executeCapabilityAction, listCapabilityActions } from "@/lib/capability-action-registry";
+import { getCapabilityAction, executeCapabilityAction, listCapabilityActions, classifyCapabilityReceipt } from "@/lib/capability-action-registry";
+import { describeCapabilityAdapters } from "@/lib/capability-adapters";
 import { isPersistedCapabilityApproved } from "@/lib/capability-ledger";
 import {
   capabilityRequestHash,
@@ -13,6 +14,8 @@ import {
 export async function GET() {
   return NextResponse.json({
     ok: true,
+    adapterContract: "capability-adapter-v1",
+    adapters: describeCapabilityAdapters(),
     actions: listCapabilityActions().map(({ packId, id, name, description, risk, requiresApproval, inputs, outputs }) => ({
       packId, id, name, description, risk, requiresApproval, inputs, outputs,
     })),
@@ -99,11 +102,11 @@ export async function POST(request: Request) {
       });
     }
 
-    if (receipt.status === "APPROVAL_REQUIRED") return NextResponse.json({ ok: false, receipt }, { status: 403 });
-    if (receipt.status === "ADAPTER_NOT_FOUND") return NextResponse.json({ ok: false, receipt }, { status: 501 });
-    if (receipt.status === "FAILED") return NextResponse.json({ ok: false, receipt }, { status: 502 });
-
-    return NextResponse.json({ ok: true, receipt, tenantId, quota, executionId });
+    const outcome = classifyCapabilityReceipt(receipt);
+    return NextResponse.json(
+      { ok: outcome.ok, error: outcome.ok ? undefined : outcome.error, receipt, retryBlocked: outcome.retryBlocked || undefined, tenantId, quota, executionId },
+      { status: outcome.httpStatus },
+    );
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "INVALID_REQUEST" }, { status: 400 });
   }

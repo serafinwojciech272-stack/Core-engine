@@ -1,12 +1,12 @@
 import { createHmac } from "node:crypto";
-import type { CapabilityAction } from "@/lib/capability-contracts";
+import type { CapabilityAction, CapabilityFailureCategory } from "@/lib/capability-contracts";
 
-export type CapabilityAdapterContext = { missionId?: string; idempotencyKey?: string; input?: Record<string, unknown> };
-export type CapabilityAdapterReceipt = { status: "EXECUTED" | "REJECTED" | "FAILED"; startedAt: string; completedAt: string; sideEffect: boolean; message: string; output?: Record<string, unknown> };
-export type CapabilityAdapter = { id: string; supports: (action: CapabilityAction) => boolean; execute: (action: CapabilityAction, context: CapabilityAdapterContext) => Promise<CapabilityAdapterReceipt> };
+export type CapabilityAdapterContext = { missionId?: string; idempotencyKey?: string; attempt: number; input?: Record<string, unknown> };
+export type CapabilityAdapterReceipt = { status: "EXECUTED" | "REJECTED" | "FAILED"; startedAt: string; completedAt: string; sideEffect: boolean; message: string; output?: Record<string, unknown>; errorCategory?: CapabilityFailureCategory; retryable?: boolean };
+export type CapabilityAdapter = { id: string; observationalOnly?: boolean; supports: (action: CapabilityAction) => boolean; execute: (action: CapabilityAction, context: CapabilityAdapterContext) => Promise<CapabilityAdapterReceipt> };
 
 const simulationAdapter: CapabilityAdapter = {
-  id: "core.simulation.v1", supports: () => true,
+  id: "core.simulation.v1", observationalOnly: true, supports: () => true,
   async execute(action) {
     const startedAt = new Date().toISOString();
     return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: `Adapter accepted ${action.id}. External side effects remain disabled until a product integration adapter is explicitly registered.`, output: { adapterId: "core.simulation.v1", actionId: action.id } };
@@ -37,7 +37,7 @@ function webhookAllowed(url: URL) {
 }
 
 const publicWebAuditAdapter: CapabilityAdapter = {
-  id: "core.web-audit.v1", supports: (action) => action.id === "seo.audit",
+  id: "core.web-audit.v1", observationalOnly: true, supports: (action) => action.id === "seo.audit",
   async execute(action, context) {
     const startedAt = new Date().toISOString();
     const url = safePublicHttpUrl(context.input?.url);
@@ -78,6 +78,19 @@ const webhookAdapter: CapabilityAdapter = {
 };
 
 const adapters: CapabilityAdapter[] = [publicWebAuditAdapter, webhookAdapter, simulationAdapter];
+export function isObservationalAdapter(adapter: CapabilityAdapter) { return adapter.observationalOnly === true || adapter.id === "core.simulation.v1"; }
 export function registerCapabilityAdapter(adapter: CapabilityAdapter) { if (!adapter.id.trim()) throw new Error("CAPABILITY_ADAPTER_ID_REQUIRED"); if (adapters.some((item) => item.id === adapter.id)) throw new Error("CAPABILITY_ADAPTER_ALREADY_REGISTERED"); adapters.push(adapter); }
-export function resolveCapabilityAdapter(action: CapabilityAction) { return adapters.find((adapter) => adapter.supports(action)) ?? null; }
+// Registry maintenance primitive. Removing the last adapter that supports an
+// action is how an operator disables a capability (it then reports
+// ADAPTER_NOT_FOUND) without touching the mission lifecycle.
+export function unregisterCapabilityAdapter(id: string) { const index = adapters.findIndex((adapter) => adapter.id === id); if (index === -1) return false; adapters.splice(index, 1); return true; }
+// The simulation adapter is an explicit last-resort fallback. Specialised
+// adapters are consulted first so resolution stays deterministic regardless of
+// registration order.
+export function resolveCapabilityAdapter(action: CapabilityAction) {
+  const specialised = adapters.find((adapter) => adapter.id !== "core.simulation.v1" && adapter.supports(action));
+  if (specialised) return specialised;
+  return adapters.find((adapter) => adapter.id === "core.simulation.v1" && adapter.supports(action)) ?? null;
+}
 export function listCapabilityAdapters() { return adapters.map(({ id }) => id); }
+export function describeCapabilityAdapters() { return adapters.map((adapter) => ({ id: adapter.id, observationalOnly: isObservationalAdapter(adapter) })); }

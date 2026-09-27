@@ -193,6 +193,56 @@ test("real HTTP API blocks completion when KPI outcome is unverifiable", async (
 });
 
 
+test("real HTTP API requires capability approval before adapter execution", async () => {
+  const engine = await api("/api/engine", {
+    domain: "business",
+    signals: [
+      { name: "qualified_leads", value: "60", source: "crm" },
+      { name: "conversion_rate", value: "2.4%", source: "analytics" }
+    ]
+  });
+  assert.equal(engine.response.status, 200);
+  assert.equal(engine.json.state, "AWAITING_APPROVAL");
+  const missionId = String(engine.json.mission.id);
+
+  // Mission approval is not capability approval.
+  const approved = await api("/api/mission", { id: missionId, action: "approve", idempotencyKey: `cap-mission-approve-${missionId}` });
+  assert.equal(approved.response.status, 200);
+  assert.equal(approved.json.mission.state, "APPROVED");
+
+  // page.generate requires approval; without it the adapter must never run.
+  const blocked = await api("/api/mission", {
+    id: missionId,
+    action: "execute",
+    capabilityActionId: "page.generate",
+    idempotencyKey: `cap-exec-blocked-${missionId}`
+  });
+  assert.equal(blocked.response.status, 403);
+  assert.equal(blocked.json.error, "CAPABILITY_APPROVAL_REQUIRED");
+});
+
+test("real HTTP API is idempotent across a repeated capability approval", async () => {
+  const engine = await api("/api/engine", {
+    domain: "business",
+    signals: [
+      { name: "qualified_leads", value: "60", source: "crm" },
+      { name: "conversion_rate", value: "2.4%", source: "analytics" }
+    ]
+  });
+  const missionId = String(engine.json.mission.id);
+
+  // The mission is still AWAITING_APPROVAL, which is the state in which the
+  // existing policy allows an approve action, so capability approval is legal.
+  const body = { id: missionId, action: "approve", capabilityActionId: "page.generate", idempotencyKey: `cap-dup-${missionId}` };
+  const first = await api("/api/mission", body);
+  assert.equal(first.response.status, 200, JSON.stringify(first.json));
+  assert.equal(first.json.capabilityApproval?.status, "APPROVED");
+
+  const second = await api("/api/mission", body);
+  assert.equal(second.response.status, 200);
+  assert.equal(second.json.duplicate, true);
+});
+
 test("M9 live agent E2E executes a real public web capability", { skip: !process.env.CORE_ENGINE_LIVE_E2E_URL }, async () => {
   const target = process.env.CORE_ENGINE_LIVE_E2E_URL!;
   const engine = await api("/api/engine", {

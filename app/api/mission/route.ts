@@ -4,7 +4,7 @@ import {evaluateMissionAction} from "@/lib/policy";
 import {assessOutcome} from "@/lib/outcome-quality";
 import {buildLearningLesson} from "@/lib/learning-engine";
 import {claimPersistedAction,listPersistedEvents,listPersistedMissions,recordPersistedLearning,recordPersistedMissionOutcome,storageMode,transitionPersistedMission} from "@/lib/storage";
-import {executeCapabilityAction,getCapabilityAction} from "@/lib/capability-action-registry";
+import {classifyCapabilityReceipt,executeCapabilityAction,getCapabilityAction} from "@/lib/capability-action-registry";
 import {isPersistedCapabilityApproved,recordCapabilityLedgerEvent} from "@/lib/capability-ledger";
 import {guardMutation} from "@/lib/http";
 import {authenticate} from "@/lib/auth";
@@ -60,6 +60,14 @@ export async function POST(request:Request){
         }
         if(action==="execute"||action==="retry"){
           const receipt=await executeCapabilityAction({actionId:capabilityActionId,approved:true,missionId:id,idempotencyKey:claimKey,input:b.input});
+          const capabilityOutcome=classifyCapabilityReceipt(receipt);
+          if(!capabilityOutcome.ok){
+            await recordCapabilityLedgerEvent(id,capabilityOutcome.retryBlocked?"CAPABILITY_RETRY_BLOCKED":"CAPABILITY_EXECUTION_FAILED",{capabilityActionId,receipt});
+            if(!capabilityOutcome.attempted)return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt,retryBlocked:capabilityOutcome.retryBlocked,action,capabilityActionId,mission:current,persistence:"supabase",durable:true},{status:capabilityOutcome.httpStatus});
+            await transitionPersistedMission(id,"EXECUTING",policy.actor);
+            const failed=await transitionPersistedMission(id,"FAILED","system");
+            return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt,retryBlocked:capabilityOutcome.retryBlocked,action,capabilityActionId,mission:{...current,state:failed.to_state,executionCount:failed.execution_count,updatedAt:new Date().toISOString()},persistence:"supabase",durable:true},{status:capabilityOutcome.httpStatus});
+          }
           await recordCapabilityLedgerEvent(id,"CAPABILITY_EXECUTED",{capabilityActionId,receipt});
           await recordCapabilityLedgerEvent(id,"CAPABILITY_OUTCOME_RECORDED",{capabilityActionId,status:receipt.status,sideEffect:receipt.sideEffect});
         }
@@ -81,7 +89,7 @@ export async function POST(request:Request){
     const policy=evaluateMissionAction(action,m.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
 
     const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
-    let capabilityReceipt=null;let capabilityApproval=null;
+    let capabilityReceipt=null;let capabilityApproval=null;let capabilityOutcome=null;
     if(capabilityActionId){
       const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
       if(action==="approve"){
@@ -93,6 +101,13 @@ export async function POST(request:Request){
       if(action==="execute"||action==="retry"){
         if(!claimCapabilityExecution(id,capabilityActionId,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId,persistence:"in-memory-runtime",durable:false});
         capabilityReceipt=await executeCapabilityAction({actionId:capabilityActionId,approved:true,missionId:id,idempotencyKey:memoryClaimKey,input:b.input});
+        capabilityOutcome=classifyCapabilityReceipt(capabilityReceipt);
+        if(!capabilityOutcome.ok){
+          recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:capabilityOutcome.retryBlocked?"CAPABILITY_RETRY_BLOCKED":"CAPABILITY_EXECUTION_FAILED",actorType:"system",metadata:{capabilityActionId,receipt:capabilityReceipt}});
+          if(!capabilityOutcome.attempted)return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt:capabilityReceipt,retryBlocked:capabilityOutcome.retryBlocked,mission:m,action,capabilityActionId,persistence:"in-memory-runtime",durable:false},{status:capabilityOutcome.httpStatus});
+          let failed=transitionMission(m,"EXECUTING");failed=transitionMission(failed,"FAILED");failed.executionCount=m.executionCount+1;missions.set(id,failed);
+          return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt:capabilityReceipt,retryBlocked:capabilityOutcome.retryBlocked,mission:failed,action,capabilityActionId,persistence:"in-memory-runtime",durable:false},{status:capabilityOutcome.httpStatus});
+        }
         recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_EXECUTED",actorType:policy.actor,metadata:{capabilityActionId,receipt:capabilityReceipt}});
         recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_OUTCOME_RECORDED",actorType:"system",metadata:{capabilityActionId,status:capabilityReceipt.status,sideEffect:capabilityReceipt.sideEffect}});
       }
