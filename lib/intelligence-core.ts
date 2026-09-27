@@ -68,10 +68,12 @@ export async function recallIntelligence(input: { tenantId: string; query: strin
   if (!response.ok) throw new Error(`INTELLIGENCE_RECALL_${response.status}`);
   const rows = await response.json() as Array<Record<string, unknown>>;
   const query = input.query.trim();
-  return rows.map(row => ({
+  type MemoryRow = Record<string, unknown> & { relevance: number };
+  const ranked: MemoryRow[] = rows.map(row => ({
     ...row,
     relevance: overlap(query, `${String(row.title)} ${String(row.content)} ${String(row.domain ?? "")}`),
-  })).filter(row => !input.domain || row.domain === input.domain)
+  }));
+  return ranked.filter(row => !input.domain || row.domain === input.domain)
     .filter(row => row.relevance > 0 || !query)
     .sort((a,b) => Number(b.relevance) - Number(a.relevance) || Number(b.confidence ?? .5) - Number(a.confidence ?? .5))
     .slice(0, Math.max(1, Math.min(input.limit ?? 10, 50)));
