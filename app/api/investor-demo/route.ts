@@ -76,6 +76,18 @@ export async function POST(request: Request) {
     }));
     const context = buildContextEvidence({ signals, evidence, domain });
     const decision = await buildDecision(signals, domain, []);
+    const confidence = Number(decision.confidence || 0);
+    const evidenceGaps = [
+      "Dane źródłowe z systemów pierwszej strony (CRM, analityka, ERP) nie są podłączone w publicznym demo.",
+      "Brak historycznej serii czasowej uniemożliwia ocenę trendu i sezonowości.",
+      "Hipoteza wymaga eksperymentu lub obserwacji wyniku przed wykonaniem działania."
+    ];
+    const nextEvidence = domain === "sales"
+      ? ["czas odpowiedzi per etap lejka", "konwersja lead → szansa → wygrana", "segmentacja źródeł leadów"]
+      : domain === "operations"
+        ? ["backlog per proces", "czas cyklu i kolejki", "obciążenie zasobów per etap"]
+        : ["lejek wejście → checkout → zakup", "konwersja per źródło ruchu", "odrzucenia i błędy na checkout"];
+    const uncertainty = confidence >= 0.8 ? "UMIARKOWANA" : confidence >= 0.55 ? "ISTOTNA" : "WYSOKA";
 
     return NextResponse.json({
       ok: true,
@@ -93,6 +105,14 @@ export async function POST(request: Request) {
         confidence: decision.confidence,
         priority: decision.priority,
         actions: actionPlan(decision.recommendation, domain)
+      },
+      explainability: {
+        confidence,
+        uncertainty,
+        evidenceGaps,
+        nextEvidence,
+        policy: "DOWODY → HIPOTEZA → ODWRACALNY EKSPERYMENT → POMIAR → UCZENIE",
+        execution: "ZABLOKOWANE W DEMO — WYMAGA AKCEPTACJI CZŁOWIEKA"
       },
       trace: [
         { stage: "OBSERVE", status: "COMPLETE", output: problem },
