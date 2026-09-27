@@ -19,7 +19,10 @@ export async function POST(request:Request){
  try{
   const run=await requestSb("job_sync_runs",{method:"POST",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:"RUNNING"})});
   runId=((await run.json()) as Array<{id:string}>)[0]?.id;
-  const found=await discoverJobs(); const {policy,scored}=await scoreJobs(found.jobs);
+  const found=await discoverJobs();
+  let learningWeights:Record<string,number>={};
+  try { const learning=await requestSb("job_learning_profiles?select=weights&profile_key=eq.default-job-agent&limit=1"); const rows=await learning.json() as Array<{weights:Record<string,number>|null}>; learningWeights=rows[0]?.weights||{}; } catch {}
+  const {policy,scored}=await scoreJobs(found.jobs,learningWeights);
   let inserted=0;
   const events:Array<Record<string,unknown>>=[];
   const existingResponse=await requestSb("job_opportunities?select=id,source,url,match_score,decision,status&limit=1000");
@@ -43,7 +46,7 @@ export async function POST(request:Request){
   }
   if(events.length) await requestSb("job_events",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(events)});
   if(runId)await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",headers:{"Prefer":"return=minimal"},body:JSON.stringify({finished_at:new Date().toISOString(),discovered:scored.length,inserted,errors:found.errors,status:"COMPLETE"})});
-  return NextResponse.json({ok:true,sync:{durationMs:Date.now()-started,discovered:scored.length,inserted,errors:found.errors,policy:{confidence:policy.confidence,priority:policy.priority}},sources:["pracuj.pl","indeed","olx","linkedin","nofluffjobs","justjoin.it","rocketjobs","pracapolis","adzuna","jooble"],criteria:"Gliwice + 30 km"});
+  return NextResponse.json({ok:true,sync:{durationMs:Date.now()-started,discovered:scored.length,inserted,errors:found.errors,policy:{confidence:policy.confidence,priority:policy.priority},learningWeights},sources:["pracuj.pl","indeed","olx","linkedin","nofluffjobs","justjoin.it","rocketjobs","pracapolis","adzuna","jooble"],criteria:"Gliwice + 30 km"});
  }catch(e){
   if(runId)try{await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",body:JSON.stringify({finished_at:new Date().toISOString(),errors:[String(e)],status:"FAILED"})})}catch{}
   return NextResponse.json({ok:false,error:String(e),durationMs:Date.now()-started},{status:503});
