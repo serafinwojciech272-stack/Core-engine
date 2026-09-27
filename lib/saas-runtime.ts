@@ -76,7 +76,7 @@ export async function resolveSaaSContext(request:Request):Promise<{identity:SaaS
     const workspace=provisioned.workspace;
     const tenantRecord=provisioned.tenant;
     if(!workspace||!tenantRecord)throw new Error("SAAS_ORGANIZATION_NOT_FOUND");
-    return {identity:{userId:user.id,email:user.email??null,tenantId:tenantRecord.id,tenantKey:tenantRecord.external_key,tenantName:tenantRecord.name,workspaceId:workspace.id,workspaceSlug:workspace.slug,role:provisioned.role},legacyTenant:null};
+    return {identity:{userId:user.id,email:user.email??null,tenantId:String(tenantRecord.id),tenantKey:String(tenantRecord.external_key),tenantName:String(tenantRecord.name),workspaceId:String(workspace.id),workspaceSlug:String(workspace.slug),role:provisioned.role},legacyTenant:null};
   }
   return {identity:null,legacyTenant:resolveTenant(request)};
 }
