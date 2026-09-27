@@ -33,8 +33,6 @@ export async function POST(request:Request){
     const b=raw?JSON.parse(raw):{};
     const id=String(b.id||""),action=String(b.action||""),key=String(b.idempotencyKey||""),capabilityActionId=String(b.capabilityActionId||"");
     if(!id||!action)return NextResponse.json({ok:false,error:"MISSION_ID_AND_ACTION_REQUIRED"},{status:400});
-    const quota=await consumeSaaSUsage(tenant.tenantId,1);
-    if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
     if(!key||key.length>200)return NextResponse.json({ok:false,error:"IDEMPOTENCY_KEY_REQUIRED"},{status:400});
     const next=nextByAction[action];if(!next)return NextResponse.json({ok:false,error:"UNKNOWN_ACTION"},{status:400});
     const outcome=b.outcome&&typeof b.outcome==="object"&&!Array.isArray(b.outcome)?b.outcome as Record<string,unknown>:{};
@@ -47,6 +45,7 @@ export async function POST(request:Request){
       const policy=evaluateMissionAction(action,current.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
       const claimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
       const claim=await claimPersistedAction(id,action,claimKey);if(!claim.claimed)return NextResponse.json({ok:true,duplicate:true,mission:current,action,capabilityActionId:capabilityActionId||undefined,persistence:"supabase",durable:true});
+      const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
 
       if(capabilityActionId){
         const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
@@ -81,6 +80,7 @@ export async function POST(request:Request){
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
     const policy=evaluateMissionAction(action,m.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
 
+    const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
     let capabilityReceipt=null;let capabilityApproval=null;
     if(capabilityActionId){
       const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
