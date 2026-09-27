@@ -56,7 +56,9 @@ export async function storeIntelligenceMemory(input: {
   return rows[0] ?? null;
 }
 
-type MemoryRow = { id: string; memory_type: string; title: string; content: string; domain: string | null; confidence: number | null; source: string | null; source_ref: string | null; observed_at: string | null; created_at: string; tags: unknown; metadata: unknown };\n\nexport async function recallIntelligence(input: { tenantId: string; query: string; domain?: string; limit?: number }) {
+type MemoryRow = { id: string; memory_type: string; title: string; content: string; domain: string | null; confidence: number | null; source: string | null; source_ref: string | null; observed_at: string | null; created_at: string; tags: unknown; metadata: unknown };
+
+export async function recallIntelligence(input: { tenantId: string; query: string; domain?: string; limit?: number }) {
   const c = cfg();
   const url = new URL(`${c.url}/rest/v1/ce_intelligence_memories`);
   url.searchParams.set("tenant_id", `eq.${input.tenantId}`);
