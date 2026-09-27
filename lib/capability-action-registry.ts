@@ -9,7 +9,8 @@ import type {
 import { isRetryableFailureCategory } from "@/lib/capability-contracts";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
-import { isObservationalAdapter, resolveCapabilityAdapter } from "@/lib/capability-adapters";
+import { isObservationalAdapter } from "@/lib/capability-adapters";
+import { resolveAdapterBoundary, withinRetryBudget } from "@/lib/capability-adapter-boundary";
 
 export type { CapabilityExecutionStatus } from "@/lib/capability-contracts";
 
@@ -44,8 +45,6 @@ type StoredExecution = { receipt: CapabilityExecutionReceipt; actionId: string }
 const root = globalThis as typeof globalThis & { __coreCapabilityExecutions?: Map<string, StoredExecution> };
 root.__coreCapabilityExecutions ??= new Map();
 const executions = root.__coreCapabilityExecutions;
-
-const DEFAULT_TIMEOUT_MS = 15000;
 
 // Adapter errors can embed credentials (URLs, headers). Redact the common shapes
 // before the message reaches a receipt or an API response.
@@ -214,19 +213,40 @@ export async function executeCapabilityAction(input: {
     });
   }
 
-  const adapter = resolveCapabilityAdapter(action);
-  if (!adapter) {
+  const resolution = resolveAdapterBoundary(action);
+  if (!resolution.ok) {
+    if (resolution.reason === "ADAPTER_NOT_FOUND") {
+      return buildReceipt({
+        actionId: action.id, packId: action.packId, executionId, missionId: input.missionId, startedAt,
+        status: "ADAPTER_NOT_FOUND", category: "ADAPTER_NOT_FOUND", attempt: 1, sideEffectStatus: "NONE",
+        retryable: false, observationalOnly: false,
+        message: "No registered execution adapter supports this capability action."
+      });
+    }
+    // The adapter exists but its credential boundary is not configured. This is a
+    // deterministic, non-retryable refusal made before any external call.
     return buildReceipt({
       actionId: action.id, packId: action.packId, executionId, missionId: input.missionId, startedAt,
-      status: "ADAPTER_NOT_FOUND", category: "ADAPTER_NOT_FOUND", attempt: 1, sideEffectStatus: "NONE",
-      retryable: false, observationalOnly: false,
-      message: "No registered execution adapter supports this capability action."
+      status: "FAILED", category: "EXECUTION_BLOCKED", attempt: 1, adapterId: resolution.boundary?.adapterId,
+      sideEffectStatus: "NONE", retryable: false, observationalOnly: Boolean(resolution.boundary?.observationalOnly),
+      message: "Adapter credential boundary is not configured; execution was refused before any external call."
     });
   }
+  const { adapter, policy: adapterPolicy } = resolution;
 
   const observationalOnly = isObservationalAdapter(adapter);
   const attempt = Math.max(1, input.attempt ?? (stored ? stored.receipt.attempt + 1 : 1));
-  const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // A stored retryable failure may only be retried while the adapter's bounded
+  // retry budget allows it; otherwise the attempt is blocked deterministically.
+  if (stored && stored.receipt.status === "RETRYABLE" && !withinRetryBudget(adapterPolicy, attempt)) {
+    return buildReceipt({
+      actionId: action.id, packId: action.packId, executionId, missionId: input.missionId, startedAt,
+      status: "BLOCKED", category: "EXECUTION_BLOCKED", attempt: stored.receipt.attempt,
+      adapterId: adapter.id, sideEffectStatus: "NONE", retryable: false, observationalOnly,
+      message: "Retry refused: the adapter's bounded retry budget is exhausted."
+    });
+  }
+  const timeoutMs = input.timeoutMs ?? adapterPolicy.timeoutMs;
   const key = input.idempotencyKey ? storageKey(input.missionId, input.idempotencyKey) : null;
 
   const store = (value: CapabilityExecutionReceipt) => {

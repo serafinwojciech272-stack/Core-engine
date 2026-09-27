@@ -51,3 +51,36 @@ Failure classification is centralised:
 Idempotency is evaluated before approval, so a replayed request cannot be turned into a fresh execution by re-supplying approval. Replaying a successful execution returns the original receipt with `duplicate: true` and `sideEffect: false`. Observational-only adapters are rejected if they report a side effect (fail closed). Adapter error messages are redacted for bearer tokens, provider keys, query-string secrets, and JWTs before they reach a receipt or an API response.
 
 The capability execution endpoint (`/api/capabilities/actions`) returns `{ ok, error, receipt, retryBlocked }` using the status above. Approval remains mandatory where a capability requires it, and execution never bypasses the Mission approval gate.
+
+## M9 adapter boundary
+
+The adapter boundary is a contract and policy layer over the existing adapter registry. It does not execute adapters and does not introduce a second state machine. Before any external call it answers three deterministic questions:
+
+1. Is a supporting adapter registered?
+2. Are the credentials the adapter declares actually configured?
+3. Which timeout, retry and permission policy applies?
+
+Every adapter has a boundary descriptor exposed by `GET /api/capabilities/actions`:
+
+```json
+{
+  "adapterId": "core.webhook.v1",
+  "observationalOnly": false,
+  "health": "READY",
+  "policy": { "permission": "MUTATE", "timeoutMs": 15000, "maxAttempts": 1, "retryable": false },
+  "credentials": [{ "key": "webhook-allowlist", "required": true, "configured": true }]
+}
+```
+
+Credential requirements name the environment variable that holds a secret. Only whether it is configured is ever reported; the value is never read into a record, logged, or serialised through the API.
+
+Deterministic controls:
+
+- Adapter registry and resolution: specialised adapters win over the simulation fallback; removing the last supporting adapter reports `ADAPTER_NOT_FOUND`.
+- Credential boundary: an adapter with an unmet required credential reports `ADAPTER_UNCONFIGURED` and is refused with `FAILED`/`EXECUTION_BLOCKED` before any network call.
+- Permission policy: read-only adapters are `OBSERVE`; the webhook adapter is `MUTATE`.
+- Timeout policy: the boundary supplies the execution timeout.
+- Retry policy: bounded by `maxAttempts`; mutating adapters are not auto-retryable. An exhausted budget reports `BLOCKED`.
+- Idempotency, receipts, failure classification and auditability are provided by M8.4, unchanged.
+
+No secrets are stored in source and no credentials are exposed through API responses.

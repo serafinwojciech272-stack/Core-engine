@@ -3,7 +3,8 @@ import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext, consumeSaaSUsage } from "@/lib/saas-runtime";
 import { getCapabilityAction, executeCapabilityAction, listCapabilityActions, classifyCapabilityReceipt } from "@/lib/capability-action-registry";
-import { describeCapabilityAdapters } from "@/lib/capability-adapters";
+import { capabilityAdapterList } from "@/lib/capability-adapters";
+import { describeAdapterBoundary } from "@/lib/capability-adapter-boundary";
 import { isPersistedCapabilityApproved } from "@/lib/capability-ledger";
 import {
   capabilityRequestHash,
@@ -15,7 +16,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     adapterContract: "capability-adapter-v1",
-    adapters: describeCapabilityAdapters(),
+    adapters: capabilityAdapterList().map(describeAdapterBoundary),
     actions: listCapabilityActions().map(({ packId, id, name, description, risk, requiresApproval, inputs, outputs }) => ({
       packId, id, name, description, risk, requiresApproval, inputs, outputs,
     })),

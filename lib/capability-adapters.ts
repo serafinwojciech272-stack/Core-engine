@@ -93,4 +93,5 @@ export function resolveCapabilityAdapter(action: CapabilityAction) {
   return adapters.find((adapter) => adapter.id === "core.simulation.v1" && adapter.supports(action)) ?? null;
 }
 export function listCapabilityAdapters() { return adapters.map(({ id }) => id); }
+export function capabilityAdapterList() { return [...adapters]; }
 export function describeCapabilityAdapters() { return adapters.map((adapter) => ({ id: adapter.id, observationalOnly: isObservationalAdapter(adapter) })); }
