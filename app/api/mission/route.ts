@@ -9,12 +9,11 @@ import {isPersistedCapabilityApproved,recordCapabilityLedgerEvent} from "@/lib/c
 import {guardMutation} from "@/lib/http";
 import {authenticate} from "@/lib/auth";
 import {resolveTenant} from "@/lib/commercial-runtime";
-import {bindMissionTenant, missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
+import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
 const MAX=16000;
 const nextByAction:Record<string,MissionState>={approve:"APPROVED",reject:"REJECTED",execute:"EXECUTING",measure:"MEASURING",complete:"COMPLETED",learn:"LEARNED",fail:"FAILED",retry:"EXECUTING",abort:"REJECTED"};
 
 export async function GET(request:Request){
-  const actor=authenticate(request,true);
   const tenant=resolveTenant(request);
   const limit=Math.max(1,Math.min(100,Number(new URL(request.url).searchParams.get("limit")||50)));
   if(storageMode()==="supabase"){
