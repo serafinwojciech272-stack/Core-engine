@@ -17,6 +17,9 @@ import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
 import { buildGrowthMissionPlan } from "@/lib/growth-mission";
 import { getAgentManifest } from "@/lib/agent-contract";
+import { authenticate } from "@/lib/auth";
+import { resolveTenant } from "@/lib/commercial-runtime";
+import { ensureTenant, bindMissionTenant, recordUsage } from "@/lib/commercial-storage";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -33,6 +36,8 @@ function signal(x: unknown): x is EngineSignal {
 export async function POST(request: Request) {
   const guard = guardMutation(request, "engine");
   if (guard) return guard;
+  const actor = authenticate(request, true);
+  const tenant = resolveTenant(request);
   const rl = rateLimit("engine:" + ((request.headers.get("x-forwarded-for") || "unknown").split(",")[0]));
   if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
 
@@ -102,6 +107,7 @@ export async function POST(request: Request) {
     };
 
     const persistence = storageMode();
+    await ensureTenant(tenant.tenantId, tenant.tenantKey);
     if (persistence === "supabase") {
       await persistDecisionMission(decision, mission, ENGINE_VERSION);
     } else {
@@ -114,6 +120,7 @@ export async function POST(request: Request) {
         actorType: "system"
       });
     }
+    await bindMissionTenant(mission.id, tenant.tenantId);
 
     const growthMission = buildGrowthMissionPlan({
       missionId: mission.id,
@@ -138,6 +145,8 @@ export async function POST(request: Request) {
 
     const chain = await buildAuditChain({ signals, decision, mission, trace: trace.map((x) => x.stage) });
     const integrity = process.env.AUDIT_SIGNING_KEY ? "SIGNED" : "UNSIGNED";
+
+    await recordUsage(tenant.tenantId, actor.id, "ENGINE_DECISION", mission.id, 1, { persistence });
 
     return NextResponse.json({
       ok: true,
