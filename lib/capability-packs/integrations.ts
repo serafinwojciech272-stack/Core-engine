@@ -2,7 +2,7 @@ import type { CapabilityPack } from "@/lib/capability-contracts";
 import { registerCapabilityPack } from "@/lib/capability-registry";
 
 const integrationsPack: CapabilityPack = {
-  id: "integrations", name: "External Integrations", version: "1.0.0", category: "INTEGRATIONS",
+  id: "integrations", name: "External Integrations", version: "1.0.0", category: "INTEGRATION",
   inspiredBy: ["Webhook APIs"],
   description: "Controlled external HTTP execution behind approval, allowlisting, timeout and idempotency boundaries.",
   capabilities: ["webhook dispatch", "external API execution", "integration receipts"],
