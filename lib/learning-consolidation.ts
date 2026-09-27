@@ -36,7 +36,7 @@ type RecoveryPattern = {
   version: number;
 };
 
-function strategyName(pattern: RecoveryPattern) {
+export function shouldActivateConsolidatedStrategy(pattern: Pick<RecoveryPattern, "status" | "evidence_count" | "success_rate">) {\n  return pattern.status === "ACTIVE" && pattern.evidence_count >= 2 && (pattern.success_rate ?? 0) >= 0.7;\n}\n\nfunction strategyName(pattern: RecoveryPattern) {
   return `Recovery strategy: ${pattern.pattern_key}`.slice(0, 240);
 }
 
