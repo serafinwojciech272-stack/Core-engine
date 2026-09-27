@@ -143,6 +143,7 @@ export async function POST(request: Request) {
       { stage: "PRIORITIZE", status: "COMPLETE", evidence: ["priority=" + decision.priority, "confidence=" + decision.confidence.toFixed(3)], output: decision.priority },
       { stage: "DECIDE", status: "COMPLETE", evidence: [decision.recommendation, ...(decision.signalConflict?.reasons || [])], output: decision.recommendation },
       { stage: "DECISION_MATRIX", status: "COMPLETE", evidence: decision.decisionMatrix?.reasons, output: decision.decisionMatrix?.action || "UNAVAILABLE" },
+      { stage: "PREDICTIVE_DECISION", status: "COMPLETE", evidence: decision.predictiveDecision?.leadingIndicators, output: decision.predictiveDecision?.outcome || "UNAVAILABLE" },
       { stage: "GROWTH_CAPABILITIES", status: "PLANNED", evidence: growthMission.selectedPacks.map((p) => p.id), output: `${growthMission.selectedPacks.length} capability packs; ${growthMission.actions.length} actions` },
       { stage: "MISSION", status: "CREATED", evidence: ["mission=" + mission.id, "kpi=" + mission.kpi], output: mission.objective },
       { stage: "AWAITING_APPROVAL", status: "PENDING", output: mission.state }
@@ -193,7 +194,7 @@ export async function GET() {
     version: ENGINE_VERSION,
     status: "READY",
     agent: getAgentManifest(),
-    capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "capability-action-fabric", "mt5-read-only"],
+    capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix","predictive-decision", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "capability-action-fabric", "mt5-read-only"],
     capabilityPacks: listCapabilityPacks().map((pack) => ({ id: pack.id, name: pack.name, category: pack.category, version: pack.version, capabilities: pack.capabilities, actions: pack.actions.map((action) => ({ id: action.id, name: action.name, risk: action.risk, requiresApproval: action.requiresApproval })) })),
     readiness: getProductionReadiness(),
     mt5: getMT5ReadOnlyStatus(),
