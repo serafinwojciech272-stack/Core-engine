@@ -4,7 +4,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storeIntelligenceMemory, recallIntelligence, buildIntelligenceReflection } from "@/lib/intelligence-core";
 import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown, getWorldContext, buildWorldSnapshot } from "@/lib/world-model";
-import { classifyFailure, recordFailureLearning } from "@/lib/failure-recovery-learning";\nimport { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recovery-pattern-generalization";
+import { classifyFailure, recordFailureLearning } from "@/lib/failure-recovery-learning";
+import { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recovery-pattern-generalization";
 import { consolidateLearning } from "@/lib/learning-consolidation";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
@@ -99,7 +100,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, failureLearning: result });
     }
 
-    if (operation === "recovery_pattern") {\n      if (typeof body.recoveryAction !== "string") return NextResponse.json({ ok: false, error: "RECOVERY_ACTION_REQUIRED" }, { status: 400 });\n      const pattern = await generalizeRecoveryPattern({ tenantId, problem: typeof body.problem === "string" ? body.problem : "", failureType: typeof body.failureType === "string" ? body.failureType as Parameters<typeof generalizeRecoveryPattern>[0]["failureType"] : undefined, failedAction: typeof body.failedAction === "string" ? body.failedAction : undefined, failureReason: typeof body.failureReason === "string" ? body.failureReason : undefined, recoveryAction: body.recoveryAction, recoveryResult: typeof body.recoveryResult === "string" ? body.recoveryResult : undefined, recoverySuccess: typeof body.recoverySuccess === "boolean" ? body.recoverySuccess : null, recoveryDeltaPct: typeof body.recoveryDeltaPct === "number" ? body.recoveryDeltaPct : null, preconditions: Array.isArray(body.preconditions) ? body.preconditions.filter((x): x is string => typeof x === "string") : undefined, failureId: typeof body.failureId === "string" ? body.failureId : undefined });\n      return NextResponse.json({ ok: true, recoveryPattern: pattern });\n    }\n\n    if (operation === "recovery_patterns") {\n      const patterns = await recallRecoveryPatterns({ tenantId, failureType: typeof body.failureType === "string" ? body.failureType as Parameters<typeof recallRecoveryPatterns>[0]["failureType"] : undefined, query: typeof body.query === "string" ? body.query : undefined, limit: typeof body.limit === "number" ? body.limit : undefined });\n      return NextResponse.json({ ok: true, recoveryPatterns: patterns });\n    }\n\n    if (operation === "learning_consolidate") {
+    if (operation === "recovery_pattern") {
+      if (typeof body.recoveryAction !== "string") return NextResponse.json({ ok: false, error: "RECOVERY_ACTION_REQUIRED" }, { status: 400 });
+      const pattern = await generalizeRecoveryPattern({ tenantId, problem: typeof body.problem === "string" ? body.problem : "", failureType: typeof body.failureType === "string" ? body.failureType as Parameters<typeof generalizeRecoveryPattern>[0]["failureType"] : undefined, failedAction: typeof body.failedAction === "string" ? body.failedAction : undefined, failureReason: typeof body.failureReason === "string" ? body.failureReason : undefined, recoveryAction: body.recoveryAction, recoveryResult: typeof body.recoveryResult === "string" ? body.recoveryResult : undefined, recoverySuccess: typeof body.recoverySuccess === "boolean" ? body.recoverySuccess : null, recoveryDeltaPct: typeof body.recoveryDeltaPct === "number" ? body.recoveryDeltaPct : null, preconditions: Array.isArray(body.preconditions) ? body.preconditions.filter((x): x is string => typeof x === "string") : undefined, failureId: typeof body.failureId === "string" ? body.failureId : undefined });
+      return NextResponse.json({ ok: true, recoveryPattern: pattern });
+    }
+
+    if (operation === "recovery_patterns") {
+      const patterns = await recallRecoveryPatterns({ tenantId, failureType: typeof body.failureType === "string" ? body.failureType as Parameters<typeof recallRecoveryPatterns>[0]["failureType"] : undefined, query: typeof body.query === "string" ? body.query : undefined, limit: typeof body.limit === "number" ? body.limit : undefined });
+      return NextResponse.json({ ok: true, recoveryPatterns: patterns });
+    }
+
+    if (operation === "learning_consolidate") {
       const result = await consolidateLearning({
         tenantId,
         domain: typeof body.domain === "string" ? body.domain : undefined,
