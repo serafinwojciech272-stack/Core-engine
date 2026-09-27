@@ -5,9 +5,9 @@ import { Activity, ArrowRight, BrainCircuit, CheckCircle2, Circle, Database, Gau
 
 type Json = Record<string, any>;
 const domains = {
-  Growth: [{ name: "conversion_rate", value: "2.8%", source: "analytics" }, { name: "traffic", value: "+18%", source: "analytics" }, { name: "checkout_dropoff", value: "41%", source: "funnel" }],
-  Sales: [{ name: "qualified_leads", value: "-14%", source: "CRM" }, { name: "response_time", value: "11h", source: "CRM" }, { name: "win_rate", value: "18%", source: "sales" }],
-  Operations: [{ name: "order_backlog", value: "+27%", source: "operations" }, { name: "cycle_time", value: "3.4d", source: "ERP" }, { name: "capacity", value: "82%", source: "workforce" }],
+  Growth: [{ name: "Współczynnik konwersji", value: "2.8%", source: "analityka" }, { name: "Ruch", value: "+18%", source: "analityka" }, { name: "Porzucenie zakupu", value: "41%", source: "lejek" }],
+  Sales: [{ name: "Kwalifikowane leady", value: "-14%", source: "CRM" }, { name: "Czas odpowiedzi", value: "11 h", source: "CRM" }, { name: "Współczynnik wygranych", value: "18%", source: "sprzedaż" }],
+  Operations: [{ name: "Zaległości zamówień", value: "+27%", source: "operacje" }, { name: "Czas cyklu", value: "3,4 dnia", source: "ERP" }, { name: "Wykorzystanie przepustowości", value: "82%", source: "zasoby zespołu" }],
 } as const;
 const stageIds = ["OBSERVE", "CONTEXT", "EVIDENCE", "DIAGNOSE", "DECIDE", "MISSION", "APPROVAL", "EXECUTE", "MEASURE", "LEARN"];
 const stages = ["OBSERWUJ", "KONTEKST", "DOWODY", "DIAGNOZA", "DECYZJA", "MISJA", "AKCEPTACJA", "WYKONANIE", "POMIAR", "UCZENIE"];
@@ -26,10 +26,10 @@ export default function UltraCommandCenter() {
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentError, setAgentError] = useState("");
   const agentPrompts = [
-    "Our sales team gets plenty of leads, but response time is too slow and win rate is falling. What should we investigate?",
-    "Traffic is growing, but checkout conversion is weak. Find the likely bottleneck and propose the first experiment.",
-    "Our operations backlog keeps growing while the team is near capacity. What should we diagnose before hiring?",
-    "Customer churn is increasing. How should we structure the investigation and decide what to change first?"
+    "Mamy dużo leadów, ale czas odpowiedzi jest zbyt długi, a współczynnik wygranych transakcji spada. Co powinniśmy zbadać?",
+    "Ruch rośnie, ale konwersja zakupów jest słaba. Znajdź prawdopodobne wąskie gardło i zaproponuj pierwszy eksperyment.",
+    "Zaległości operacyjne rosną, a zespół jest blisko pełnej przepustowości. Co powinniśmy zdiagnozować przed zwiększeniem zatrudnienia?",
+    "Odpływ klientów rośnie. Jak uporządkować analizę i zdecydować, co zmienić jako pierwsze?"
   ];
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function UltraCommandCenter() {
     <div className="ultra-hero">
       <div className="ultra-kicker"><span>DOŚWIADCZENIE INWESTORSKIE 03</span><em>RUNTIME AGENTA · {agent?.runtime?.status || "ŁĄCZENIE"}</em></div>
       <h1>Inteligencja<br/><span>w działaniu.</span></h1>
-      <p>Jeden control plane zamienia rozproszone sygnały biznesowe w dowody, decyzje, zarządzane misje i mierzalne uczenie. Ten sam kontrakt agenta zasila każdą powierzchnię produktu.</p>
+      <p>Jeden centralny system sterowania zamienia rozproszone sygnały biznesowe w dowody, decyzje, zarządzane misje i mierzalne uczenie. Ten sam kontrakt agenta zasila każdą powierzchnię produktu.</p>
       <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> URUCHOM RDZEŃ</a><a className="ultra-secondary" href="#ultra-map">POKAŻ MAPĘ SYSTEMU <ArrowRight size={14}/></a></div>
       <div className="ultra-proof"><span><ShieldCheck size={14}/> najpierw dowody</span><span><LockKeyhole size={14}/> granica akceptacji</span><span><GitBranch size={14}/> audytowalny stan</span></div>
     </div>
@@ -161,16 +161,16 @@ export default function UltraCommandCenter() {
       </div>
       {agentAnalysis && <div className="ultra-agent-output">
         <div className="ultra-agent-output-top">
-          <div><span className="ultra-label">ANALIZA AGENTA · {String(agentAnalysis.domain || "business").toUpperCase()}</span><h3>{agentAnalysis.solution?.diagnosis || "Wygenerowana diagnoza"}</h3></div>
+          <div><span className="ultra-label">ANALIZA AGENTA · {String(agentAnalysis.domain || "biznes").toUpperCase()}</span><h3>{agentAnalysis.solution?.diagnosis || "Wygenerowana diagnoza"}</h3></div>
           <div className="ultra-agent-confidence"><small>PEWNOŚĆ</small><b>{Math.round(Number(agentAnalysis.solution?.confidence || 0) * 100)}%</b></div>
         </div>
         <div className="ultra-agent-grid">
           <article><span>01 / REKOMENDACJA</span><strong>{agentAnalysis.solution?.recommendation}</strong></article>
-          <article><span>02 / PRIORYTET</span><strong>{agentAnalysis.solution?.priority}</strong><small>Jakość dowodów: {agentAnalysis.evidenceQuality?.score ?? "N/A"}</small></article>
+          <article><span>02 / PRIORYTET</span><strong>{agentAnalysis.solution?.priority}</strong><small>Jakość dowodów: {agentAnalysis.evidenceQuality?.score ?? "brak danych"}</small></article>
           <article><span>03 / NASTĘPNE DZIAŁANIA</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
         </div>
         <div className="ultra-agent-layers"><span>KONTEKST</span><span>DOWODY</span><span>DIAGNOZA</span><span>DECYZJA</span><span>ZARZĄDZANIE</span></div>
-        <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{x.stage}</span>)}</div>
+        <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{({OBSERVE:"OBSERWUJ",CONTEXT:"KONTEKST",EVIDENCE:"DOWODY",DIAGNOSE:"DIAGNOZA",DECIDE:"DECYZJA",APPROVAL:"AKCEPTACJA",MISSION:"MISJA",EXECUTE:"WYKONANIE",MEASURE:"POMIAR",LEARN:"UCZENIE"} as Record<string,string>)[x.stage] || x.stage}</span>)}</div>
         <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
       </div>}
       {agentError && <div className="ultra-error">DEMO AGENTA · {agentError}</div>}
@@ -190,16 +190,16 @@ export default function UltraCommandCenter() {
 
       {result && <div className="ultra-results">
         <div className="ultra-result-head"><div><span className="ultra-label">02 / WYNIK ANALIZY</span><h2>{result.engine || "RDZEŃ SILNIK"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "PRZEANALIZOWANO"}</div></div>
-        <div className="ultra-agent-strip"><span>KONTRAKT AGENTA</span><b>{agent?.agent?.name || "Agent Core Engine"}</b><small>{agent?.agent?.contract || "agent-runtime"} · {agent?.agent?.autonomy || "WYMAGA AKCEPTACJI CZŁOWIEKA"} · {agent?.runtime?.persistence || "trwałość runtime"} · {agent?.runtime?.capabilityPacks ?? 0} capability packs · zewnętrzne skutki {agent?.runtime?.liveExternalSideEffects ? "włączone" : "wyłączone"}</small></div><div className="ultra-metrics">
-          <div><small>PEWNOŚĆ</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "N/A"}</strong><span>macierz decyzji</span></div>
-          <div><small>JAKOŚĆ DOWODÓW</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "N/A"}</strong><span>wynik proweniencji</span></div>
+        <div className="ultra-agent-strip"><span>KONTRAKT AGENTA</span><b>{agent?.agent?.name || "Agent Core Engine"}</b><small>{agent?.agent?.contract || "kontrakt-runtime"} · {agent?.agent?.autonomy || "WYMAGA AKCEPTACJI CZŁOWIEKA"} · {agent?.runtime?.persistence || "trwałość runtime"} · {agent?.runtime?.capabilityPacks ?? 0} pakiety kompetencji · zewnętrzne skutki {agent?.runtime?.liveExternalSideEffects ? "aktywne" : "wyłączone"}</small></div><div className="ultra-metrics">
+          <div><small>PEWNOŚĆ</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "brak danych"}</strong><span>macierz decyzji</span></div>
+          <div><small>JAKOŚĆ DOWODÓW</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "brak danych"}</strong><span>wynik proweniencji</span></div>
           <div><small>BRAMA RYZYKA</small><strong>{result.decision?.riskGate || "PRZEJŚCIE"}</strong><span>ocena polityki</span></div>
           <div><small>ŁAŃCUCH AUDYTU</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "oczekuje"}</span></div>
         </div>
-        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECYZJA CENTER</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "N/A"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
+        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">CENTRUM DECYZJI</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "brak danych"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Rdzeń"}</b></div></div>
         <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source || "brak źródła"}</small></div>)}</div>
         {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> UCZENIE GOTOWE</span>}</div></div>}
-        {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
+        {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "brak danych"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">BŁĄD RDZENIA · {error}</div>}
     </div>
@@ -211,7 +211,7 @@ export default function UltraCommandCenter() {
           <span className="ultra-label">KOMERCYJNY RUNTIME · {commercial?.contract || "commercial-agent-v1"}</span>
           <h3>Wielodostępna infrastruktura agenta</h3>
           <p>Tożsamość, izolacja tenantów/workspace'ów, pomiar użycia i limity planów są jawnie zdefiniowanymi kontraktami produktu. Trwała persystencja produkcyjna pozostaje oparta o Supabase.</p>
-          <div className="ultra-commercial-status"><b>{commercial?.product?.identity || "SUPABASE_AUTH"}</b><b>{commercial?.product?.tenancy || "TENANT_WORKSPACE"}</b><b>{commercial?.product?.metering || "DATABASE_ENFORCED"}</b><b>{commercial?.product?.billing || "INTERNAL_PLAN_V1"}</b></div>
+          <div className="ultra-commercial-status"><b>{commercial?.product?.identity === "SUPABASE_AUTH" ? "UWIERZYTELNIANIE SUPABASE" : (commercial?.product?.identity || "brak danych")}</b><b>{commercial?.product?.tenancy === "TENANT_WORKSPACE" ? "PRZESTRZEŃ TENANTA" : (commercial?.product?.tenancy || "brak danych")}</b><b>{commercial?.product?.metering === "DATABASE_ENFORCED" ? "POMIAR Z BAZY DANYCH" : (commercial?.product?.metering || "brak danych")}</b><b>{commercial?.product?.billing === "INTERNAL_PLAN_V1" ? "PLAN WEWNĘTRZNY V1" : (commercial?.product?.billing || "brak danych")}</b></div>
         </div>
         <div className="ultra-commercial-card">
           <span className="ultra-label">MODEL PLANÓW</span>
@@ -243,6 +243,6 @@ export default function UltraCommandCenter() {
       </div>
     </div>
 
-    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / PLAN ROZWOJU PLATFORMY</span><h2>Od działającego rdzenia<br/><i>do skalowalnej platformy.</i></h2></div><div className="ultra-roadmap-grid">{[["01","RDZEŃ","Kontrakt agenta, dowody, decyzje i cykl życia misji"],["02","PRODUCTS","Bet Builder, Growth Advisor i Extra Szpieg jako powierzchnie dowodowe"],["03","DATA","Konektory, proweniencja i trwały kontekst biznesowy"],["04","AUTONOMY","Zarządzane wykonywanie kompetencji za politykami akceptacji"],["05","LEARNING","Informacja zwrotna o wynikach i ponownie użyteczna inteligencja"],["06","PLATFORM","Wielodostępność, uwierzytelnianie, pomiar użycia i kontrola enterprise"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> RDZEŃ SILNIK AI</div><span>JEDEN RDZEŃ INTELIGENCJI · WIELE BIZNESÓW</span><a href="#top">WRÓĆ NA GÓRĘ ↑</a></footer>
+    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / PLAN ROZWOJU PLATFORMY</span><h2>Od działającego rdzenia<br/><i>do skalowalnej platformy.</i></h2></div><div className="ultra-roadmap-grid">{[["01","RDZEŃ","Kontrakt agenta, dowody, decyzje i cykl życia misji"],["02","PRODUKTY","Bet Builder, Growth Advisor i Extra Szpieg jako powierzchnie dowodowe"],["03","DANE","Konektory, proweniencja i trwały kontekst biznesowy"],["04","AUTONOMIA","Zarządzane wykonywanie kompetencji za politykami akceptacji"],["05","UCZENIE","Informacja zwrotna o wynikach i ponownie użyteczna inteligencja"],["06","PLATFORMA","Wielodostępność, uwierzytelnianie, pomiar użycia i kontrola enterprise"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> RDZEŃ SILNIK AI</div><span>JEDEN RDZEŃ INTELIGENCJI · WIELE BIZNESÓW</span><a href="#top">WRÓĆ NA GÓRĘ ↑</a></footer>
   </section>;
 }
