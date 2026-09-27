@@ -1,6 +1,7 @@
 import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
 
 type Config = { url: string; key: string };
+const memoryMissionTenants = new Map<string, string>();
 
 function cfg(): Config | null {
   const url = process.env.SUPABASE_URL;
@@ -33,7 +34,7 @@ export async function ensureTenant(tenantId: string, tenantKey: string) {
 
 export async function bindMissionTenant(missionId: string, tenantId: string) {
   const c = cfg();
-  if (!c) return false;
+  if (!c) { memoryMissionTenants.set(missionId, tenantId); return true; }
   const response = await request(c.url + "/rest/v1/ce_mission_tenants?on_conflict=mission_id", {
     method: "POST",
     headers: { ...headers(c.key), Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -45,7 +46,7 @@ export async function bindMissionTenant(missionId: string, tenantId: string) {
 
 export async function missionBelongsToTenant(missionId: string, tenantId: string) {
   const c = cfg();
-  if (!c) return false;
+  if (!c) return memoryMissionTenants.get(missionId) === tenantId;
   const url = new URL(c.url + "/rest/v1/ce_mission_tenants");
   url.searchParams.set("mission_id", "eq." + missionId);
   url.searchParams.set("tenant_id", "eq." + tenantId);
@@ -59,7 +60,7 @@ export async function missionBelongsToTenant(missionId: string, tenantId: string
 
 export async function tenantMissionIds(tenantId: string) {
   const c = cfg();
-  if (!c) return [] as string[];
+  if (!c) return [...memoryMissionTenants.entries()].filter(([, value]) => value === tenantId).map(([key]) => key);
   const url = new URL(c.url + "/rest/v1/ce_mission_tenants");
   url.searchParams.set("tenant_id", "eq." + tenantId);
   url.searchParams.set("select", "mission_id");
