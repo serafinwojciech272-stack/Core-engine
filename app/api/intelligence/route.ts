@@ -7,6 +7,7 @@ import { upsertWorldEntity, addWorldClaim, openWorldUnknown, resolveWorldUnknown
 import { classifyFailure, recordFailureLearning } from "@/lib/failure-recovery-learning";
 import { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recovery-pattern-generalization";
 import { consolidateLearning } from "@/lib/learning-consolidation";
+import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -118,6 +119,17 @@ export async function POST(request: Request) {
         limit: typeof body.limit === "number" ? body.limit : undefined,
       });
       return NextResponse.json({ ok: true, consolidation: result });
+    }
+
+    if (operation === "learning_quality") {
+      const result = evaluateLearningQuality({
+        baselineSuccessRate: typeof body.baselineSuccessRate === "number" ? body.baselineSuccessRate : null,
+        candidateSuccessRate: typeof body.candidateSuccessRate === "number" ? body.candidateSuccessRate : null,
+        baselineAvgDeltaPct: typeof body.baselineAvgDeltaPct === "number" ? body.baselineAvgDeltaPct : null,
+        candidateAvgDeltaPct: typeof body.candidateAvgDeltaPct === "number" ? body.candidateAvgDeltaPct : null,
+        evidenceCount: typeof body.evidenceCount === "number" ? body.evidenceCount : 0,
+      });
+      return NextResponse.json({ ok: true, evaluation: result });
     }
 
     if (operation === "entity") {
