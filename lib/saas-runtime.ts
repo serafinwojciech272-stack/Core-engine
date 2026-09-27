@@ -73,8 +73,9 @@ export async function resolveSaaSContext(request:Request):Promise<{identity:SaaS
   if(user&&c){
     const membership=await queryMembership(c,user.id);
     const provisioned=membership?.ce_tenants?.active?{tenant:membership.ce_tenants,role:membership.role,workspace:await workspaceForUser(c,membership.tenant_id,user.id)}:await provision(c,user.id,user.email);
-    if(!provisioned.workspace)throw new Error("SAAS_WORKSPACE_NOT_FOUND");
-    return {identity:{userId:user.id,email:user.email,tenantId:provisioned.tenant.id,tenantKey:provisioned.tenant.external_key,tenantName:provisioned.tenant.name,workspaceId:provisioned.workspace.id,workspaceSlug:provisioned.workspace.slug,role:provisioned.role},legacyTenant:null};
+    const workspace=provisioned.workspace;
+    if(!workspace)throw new Error("SAAS_WORKSPACE_NOT_FOUND");
+    return {identity:{userId:user.id,email:user.email??null,tenantId:provisioned.tenant.id,tenantKey:provisioned.tenant.external_key,tenantName:provisioned.tenant.name,workspaceId:workspace.id,workspaceSlug:workspace.slug,role:provisioned.role},legacyTenant:null};
   }
   return {identity:null,legacyTenant:resolveTenant(request)};
 }
