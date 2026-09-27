@@ -56,8 +56,6 @@ export async function storeIntelligenceMemory(input: {
   return rows[0] ?? null;
 }
 
-type MemoryRow = { id: string; memory_type: string; title: string; content: string; domain: string | null; confidence: number | null; source: string | null; source_ref: string | null; observed_at: string | null; created_at: string; tags: unknown; metadata: unknown };
-
 export async function recallIntelligence(input: { tenantId: string; query: string; domain?: string; limit?: number }) {
   const c = cfg();
   const url = new URL(`${c.url}/rest/v1/ce_intelligence_memories`);
@@ -68,12 +66,14 @@ export async function recallIntelligence(input: { tenantId: string; query: strin
   url.searchParams.set("limit", "200");
   const response = await fetch(url, { headers: headers(c.key), cache: "no-store" });
   if (!response.ok) throw new Error(`INTELLIGENCE_RECALL_${response.status}`);
-  const rows = await response.json() as MemoryRow[];
+  const rows = await response.json() as Array<Record<string, unknown>>;
   const query = input.query.trim();
-  return rows.map(row => ({
+  type MemoryRow = Record<string, unknown> & { relevance: number };
+  const ranked: MemoryRow[] = rows.map(row => ({
     ...row,
     relevance: overlap(query, `${String(row.title)} ${String(row.content)} ${String(row.domain ?? "")}`),
-  })).filter(row => !input.domain || row.domain === input.domain)
+  }));
+  return ranked.filter(row => !input.domain || row.domain === input.domain)
     .filter(row => row.relevance > 0 || !query)
     .sort((a,b) => Number(b.relevance) - Number(a.relevance) || Number(b.confidence ?? .5) - Number(a.confidence ?? .5))
     .slice(0, Math.max(1, Math.min(input.limit ?? 10, 50)));
