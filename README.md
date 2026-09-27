@@ -84,3 +84,18 @@ Deterministic controls:
 - Idempotency, receipts, failure classification and auditability are provided by M8.4, unchanged.
 
 No secrets are stored in source and no credentials are exposed through API responses.
+
+## M9.1 execution evidence and outcome
+
+A successful capability execution is linked to the existing evidence and outcome infrastructure. This does not create a second measurement or learning engine: it produces evidence and an outcome record that the existing layers consume.
+
+```
+EXECUTION -> RECEIPT -> EVIDENCE -> OUTCOME -> MEASUREMENT -> LEARNING EVENT
+```
+
+- Evidence is produced only for `EXECUTED` executions; a failed, blocked or missing-adapter execution produces no positive evidence, so it can never be mistaken for a measured win.
+- Evidence identifies its source execution through `metadata.sourceExecutionId` (plus capability action, adapter, receipt status and side effect status) and carries a deterministic id and provenance hash.
+- The outcome identifies mission, capability/action, execution, expected result, actual result, delta and timestamp.
+- The outcome assessment and learning event reuse the existing `outcome-quality` and `learning-engine` infrastructure; a missing actual value is `UNVERIFIED` rather than a fabricated win.
+
+Over HTTP, `POST /api/mission` with `action: execute` and a `capabilityActionId` returns `evidence` and `outcome` alongside the receipt. A failed execution returns the receipt and never evidence.

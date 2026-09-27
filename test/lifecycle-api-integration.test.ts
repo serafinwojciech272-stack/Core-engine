@@ -243,6 +243,40 @@ test("real HTTP API is idempotent across a repeated capability approval", async 
   assert.equal(second.json.duplicate, true);
 });
 
+test("M9.1 successful capability execution records evidence and an outcome over HTTP", async () => {
+  const engine = await api("/api/engine", {
+    domain: "business",
+    signals: [
+      { name: "qualified_leads", value: "55", source: "crm" },
+      { name: "conversion_rate", value: "2.2%", source: "analytics" }
+    ]
+  });
+  assert.equal(engine.response.status, 200);
+  const missionId = String(engine.json.mission.id);
+
+  // Capability approval is recorded while the mission is still AWAITING_APPROVAL.
+  // The approve action also advances the mission to APPROVED via the existing
+  // state machine, so no separate mission approve is needed.
+  const capApproved = await api("/api/mission", { id: missionId, action: "approve", capabilityActionId: "page.generate", idempotencyKey: `ev-cap-approve-${missionId}` });
+  assert.equal(capApproved.response.status, 200, JSON.stringify(capApproved.json));
+  assert.equal(capApproved.json.mission.state, "APPROVED");
+
+  const executed = await api("/api/mission", {
+    id: missionId,
+    action: "execute",
+    capabilityActionId: "page.generate",
+    idempotencyKey: `ev-cap-exec-${missionId}`,
+    outcome: { metric: "conversion_rate", before: 2.2, after: 2.5, direction: "higher" }
+  });
+  assert.equal(executed.response.status, 200, JSON.stringify(executed.json));
+  assert.equal(executed.json.capabilityReceipt?.status, "EXECUTED");
+  assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, executed.json.capabilityReceipt.executionId);
+  assert.equal(executed.json.evidence?.metadata?.capabilityActionId, "page.generate");
+  assert.equal(executed.json.outcome?.executionId, executed.json.capabilityReceipt.executionId);
+  assert.equal(executed.json.outcome?.capabilityActionId, "page.generate");
+  assert.equal(executed.json.outcome?.assessment?.quality, "VERIFIED");
+});
+
 test("M9 live agent E2E executes a real public web capability", { skip: !process.env.CORE_ENGINE_LIVE_E2E_URL }, async () => {
   const target = process.env.CORE_ENGINE_LIVE_E2E_URL!;
   const engine = await api("/api/engine", {
