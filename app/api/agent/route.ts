@@ -7,6 +7,7 @@ import { listCapabilityPacks } from "@/lib/capability-registry";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
 import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
+import { saasStatus } from "@/lib/saas-runtime";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -26,7 +27,8 @@ export async function GET() {
       liveExternalSideEffects: false,
       approvalRequiredForHighRiskActions: true,
       commercialRuntime: commercialRuntimeStatus(),
-      commercialReadiness: commercialRuntimeReadiness()
+      commercialReadiness: commercialRuntimeReadiness(),
+      saas: saasStatus()
     },
     integration: {
       plan: "POST /api/engine",
