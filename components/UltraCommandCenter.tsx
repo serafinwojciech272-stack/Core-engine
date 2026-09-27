@@ -5,9 +5,9 @@ import { Activity, ArrowRight, BrainCircuit, CheckCircle2, Circle, Database, Gau
 
 type Json = Record<string, any>;
 const domains = {
-  Growth: [{ name: "conversion_rate", value: "2.8%", źródło: "analytics" }, { name: "traffic", value: "+18%", źródło: "analytics" }, { name: "checkout_dropoff", value: "41%", źródło: "funnel" }],
-  Sales: [{ name: "qualified_leads", value: "-14%", źródło: "CRM" }, { name: "response_time", value: "11h", źródło: "CRM" }, { name: "win_rate", value: "18%", źródło: "sales" }],
-  Operations: [{ name: "order_backlog", value: "+27%", źródło: "operations" }, { name: "cycle_time", value: "3.4d", źródło: "ERP" }, { name: "capacity", value: "82%", źródło: "workforce" }],
+  Growth: [{ name: "conversion_rate", value: "2.8%", source: "analytics" }, { name: "traffic", value: "+18%", source: "analytics" }, { name: "checkout_dropoff", value: "41%", source: "funnel" }],
+  Sales: [{ name: "qualified_leads", value: "-14%", source: "CRM" }, { name: "response_time", value: "11h", source: "CRM" }, { name: "win_rate", value: "18%", source: "sales" }],
+  Operations: [{ name: "order_backlog", value: "+27%", source: "operations" }, { name: "cycle_time", value: "3.4d", source: "ERP" }, { name: "capacity", value: "82%", source: "workforce" }],
 } as const;
 const stageIds = ["OBSERVE", "CONTEXT", "EVIDENCE", "DIAGNOSE", "DECIDE", "MISSION", "APPROVAL", "EXECUTE", "MEASURE", "LEARN"];
 const stages = ["OBSERWUJ", "KONTEKST", "DOWODY", "DIAGNOZA", "DECYZJA", "MISJA", "AKCEPTACJA", "WYKONANIE", "POMIAR", "UCZENIE"];
@@ -180,7 +180,7 @@ export default function UltraCommandCenter() {
       <div className="ultra-command-head"><div><span className="ultra-label">01 / WEJŚCIE SYGNAŁÓW · SYMULOWANE DANE</span><h2>Daj rdzeniowi sytuację biznesową.</h2></div><div className="ultra-runtime"><i/>{agent?.runtime?.status || runtime?.status || "ŁĄCZENIE"} <b>{runtime?.version || "RDZEŃ"}</b></div></div>
       <div className="ultra-input-grid">
         <div className="ultra-domain-tabs">{(Object.keys(domains) as Array<keyof typeof domains>).map(d => <button key={d} onClick={() => setDomain(d)} className={d === domain ? "active" : ""}><Activity size={14}/>{{Growth:"Rozwój",Sales:"Sprzedaż",Operations:"Operacje"}[d]}</button>)}</div>
-        <div className="ultra-signals">{domains[domain].map(s => <div key={s.name}><small>{s.źródło}</small><b>{s.name}</b><strong>{s.value}</strong></div>)}</div>
+        <div className="ultra-signals">{domains[domain].map(s => <div key={s.name}><small>{s.source}</small><b>{s.name}</b><strong>{s.value}</strong></div>)}</div>
         <button className="ultra-run" onClick={run} wyłączone={running}>{running ? <><Sparkles className="ultra-spin" size={16}/> ANALIZA...</> : <><Zap size={16}/> AKTYWUJ RDZEŃ</>}</button>
       </div>
 
@@ -197,7 +197,7 @@ export default function UltraCommandCenter() {
           <div><small>ŁAŃCUCH AUDYTU</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "oczekuje"}</span></div>
         </div>
         <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECYZJA CENTER</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "N/A"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
-        <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.źródło || "źródło"}</small></div>)}</div>
+        <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source || "brak źródła"}</small></div>)}</div>
         {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} wyłączone={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> UCZENIE GOTOWE</span>}</div></div>}
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
