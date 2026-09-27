@@ -20,6 +20,10 @@ export default function UltraCommandCenter() {
   const [error, setError] = useState("");
   const [missionBusy, setMissionBusy] = useState(false);
   const [commercial, setCommercial] = useState<Json | null>(null);
+  const [agentQuestion, setAgentQuestion] = useState("");
+  const [agentAnalysis, setAgentAnalysis] = useState<Json | null>(null);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentError, setAgentError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -49,6 +53,27 @@ export default function UltraCommandCenter() {
       setResult(data);
     } catch (e) { setError(e instanceof Error ? e.message : "ENGINE_REQUEST_FAILED"); }
     finally { setRunning(false); }
+  }
+
+  async function analyzeVisitorProblem() {
+    const problem = agentQuestion.trim();
+    if (problem.length < 12) {
+      setAgentError("Opisz problem trochę dokładniej — minimum 12 znaków.");
+      return;
+    }
+    setAgentRunning(true); setAgentError(""); setAgentAnalysis(null);
+    try {
+      const r = await fetch("/api/investor-demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ problem })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "INVESTOR_ANALYSIS_FAILED");
+      setAgentAnalysis(data);
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : "INVESTOR_ANALYSIS_FAILED");
+    } finally { setAgentRunning(false); }
   }
 
   async function mission(action: string) {
@@ -84,6 +109,47 @@ export default function UltraCommandCenter() {
       <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> RUN THE CORE</a><a className="ultra-secondary" href="#ultra-map">VIEW SYSTEM MAP <ArrowRight size={14}/></a></div>
       <div className="ultra-proof"><span><ShieldCheck size={14}/> evidence first</span><span><LockKeyhole size={14}/> approval boundary</span><span><GitBranch size={14}/> auditable state</span></div>
     </div>
+
+    <section className="ultra-agent-lab" id="agent-lab">
+      <div className="ultra-agent-lab-head">
+        <div>
+          <span className="ultra-label">00 / SHOW THE AGENT</span>
+          <h2>Bring us a problem.<br/><i>Watch the core think.</i></h2>
+          <p>Describe a real business problem in plain language. The public demo converts it into context, evidence, diagnosis and a governed solution proposal. No private systems are accessed and no external action is executed.</p>
+        </div>
+        <div className="ultra-agent-badge"><BrainCircuit size={17}/> FREEFORM AGENT DEMO <span>SIMULATION</span></div>
+      </div>
+      <div className="ultra-agent-input">
+        <textarea
+          value={agentQuestion}
+          onChange={e => setAgentQuestion(e.target.value)}
+          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") analyzeVisitorProblem(); }}
+          placeholder="Example: Our website gets 20,000 visits a month, but very few visitors complete checkout. What should we investigate first?"
+          maxLength={2400}
+          aria-label="Describe a business problem for the Core Engine"
+        />
+        <div className="ultra-agent-input-footer">
+          <span>{agentQuestion.length}/2400 · Ctrl/Cmd + Enter</span>
+          <button onClick={analyzeVisitorProblem} disabled={agentRunning}>
+            {agentRunning ? <><Sparkles className="ultra-spin" size={15}/> ANALYZING...</> : <><Zap size={15}/> ANALYZE MY PROBLEM</>}
+          </button>
+        </div>
+      </div>
+      {agentAnalysis && <div className="ultra-agent-output">
+        <div className="ultra-agent-output-top">
+          <div><span className="ultra-label">AGENT ANALYSIS · {String(agentAnalysis.domain || "business").toUpperCase()}</span><h3>{agentAnalysis.solution?.diagnosis || "Diagnosis generated"}</h3></div>
+          <div className="ultra-agent-confidence"><small>CONFIDENCE</small><b>{Math.round(Number(agentAnalysis.solution?.confidence || 0) * 100)}%</b></div>
+        </div>
+        <div className="ultra-agent-grid">
+          <article><span>01 / RECOMMENDATION</span><strong>{agentAnalysis.solution?.recommendation}</strong></article>
+          <article><span>02 / PRIORITY</span><strong>{agentAnalysis.solution?.priority}</strong><small>Evidence quality: {agentAnalysis.evidenceQuality?.score ?? "N/A"}</small></article>
+          <article><span>03 / NEXT ACTIONS</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
+        </div>
+        <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{x.stage}</span>)}</div>
+        <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
+      </div>}
+      {agentError && <div className="ultra-error">AGENT DEMO · {agentError}</div>}
+    </section>
 
     <div className="ultra-command" id="ultra-demo">
       <div className="ultra-command-head"><div><span className="ultra-label">01 / SIGNAL INTAKE · SIMULATED DEMO INPUT</span><h2>Give the core a business situation.</h2></div><div className="ultra-runtime"><i/>{agent?.runtime?.status || runtime?.status || "CONNECTING"} <b>{runtime?.version || "CORE"}</b></div></div>
