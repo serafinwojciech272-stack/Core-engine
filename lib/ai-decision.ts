@@ -4,11 +4,11 @@ function ruleDecision(signals:EngineSignal[],domain?:string,learning:LearningCon
 function validate(v:unknown,s:EngineSignal[]){if(!v||typeof v!=="object")return null;const x=v as Record<string,unknown>,c=Number(x.confidence),p=String(x.priority);if(typeof x.diagnosis!=="string"||typeof x.recommendation!=="string"||!Number.isFinite(c)||c<0||c>1||!["HIGH","MEDIUM","LOW"].includes(p))return null;return{diagnosis:x.diagnosis.slice(0,1000),recommendation:x.recommendation.slice(0,1000),confidence:c,priority:p as Decision["priority"],evidence:ev(s),reasoningSource:"LLM" as const}}
 export async function buildDecision(signals:EngineSignal[],domain?:string,learning:LearningContext[]=[]):Promise<Decision>{
   const fallback=ruleDecision(signals,domain,learning);
-  const finalize=(d:Decision):Decision=>({...d,decisionMatrix:buildDecisionMatrix(d),predictiveDecision:buildPredictiveDecision({signals,confidence:d.confidence,recommendation:d.recommendation,domain,learningCount:learning.length}),adaptivePolicy:buildAdaptiveDecisionPolicy({prediction:buildPredictiveDecision({signals,confidence:d.confidence,recommendation:d.recommendation,domain,learningCount:learning.length}),history:[],learningCount:learning.length})});
+  const finalize=async(d:Decision):Promise<Decision>=>{const predictive=buildPredictiveDecision({signals,confidence:d.confidence,recommendation:d.recommendation,domain,learningCount:learning.length});let history=[];try{history=await listPersistedPredictions(50)}catch{}return{...d,decisionMatrix:buildDecisionMatrix(d),predictiveDecision:predictive,adaptivePolicy:buildAdaptiveDecisionPolicy({prediction:predictive,history,learningCount:learning.length})};};
   const trading=domain==="trading"||signals.some(s=>["instrument","market_regime","momentum_pct","volatility_pct"].includes(s.name));
-  if(trading)return finalize({id:crypto.randomUUID(),...fallback});
+  if(trading)return await finalize({id:crypto.randomUUID(),...fallback});
   const endpoint=process.env.AI_DECISION_ENDPOINT,key=process.env.AI_DECISION_API_KEY,model=process.env.AI_DECISION_MODEL;
-  if(!endpoint||!key||!model)return finalize({id:crypto.randomUUID(),...fallback});
+  if(!endpoint||!key||!model)return await finalize({id:crypto.randomUUID(),...fallback});
   try{
     const r=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+key},body:JSON.stringify({model,temperature:0,response_format:{type:"json_object"},messages:[{role:"system",content:"Return strict JSON diagnosis,recommendation,confidence,priority,evidence using only supplied signals."},{role:"user",content:JSON.stringify({signals,learning:learning.slice(0,10)})}]}),cache:"no-store",signal:AbortSignal.timeout(8000)});
     if(!r.ok)throw new Error("AI_"+r.status);
