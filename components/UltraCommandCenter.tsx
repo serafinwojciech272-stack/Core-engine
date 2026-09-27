@@ -19,12 +19,14 @@ export default function UltraCommandCenter() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [missionBusy, setMissionBusy] = useState(false);
+  const [commercial, setCommercial] = useState<Json | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/engine", { headers: { Accept: "application/json" } }).then(r => r.json()),
-      fetch("/api/agent", { headers: { Accept: "application/json" } }).then(r => r.json())
-    ]).then(([engine, agentData]) => { setRuntime(engine); setAgent(agentData); }).catch(() => { setRuntime(null); setAgent(null); });
+      fetch("/api/agent", { headers: { Accept: "application/json" } }).then(r => r.json()),
+      fetch("/api/commercial", { headers: { Accept: "application/json" } }).then(r => r.json())
+    ]).then(([engine, agentData, commercialData]) => { setRuntime(engine); setAgent(agentData); setCommercial(commercialData); }).catch(() => { setRuntime(null); setAgent(null); setCommercial(null); });
   }, []);
 
   const trace = result?.trace ?? [];
@@ -109,6 +111,23 @@ export default function UltraCommandCenter() {
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">AUDIT CHAIN</span><h3>{result.audit.algorithm || "Cryptographic provenance"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">CORE ERROR · {error}</div>}
+    </div>
+
+    <div className="ultra-commercial" id="commercial">
+      <div className="ultra-section-title"><span>03.5 / COMMERCIAL AGENT CONTRACT</span><h2>From working intelligence<br/><i>to a sellable runtime.</i></h2></div>
+      <div className="ultra-commercial-grid">
+        <div className="ultra-commercial-card">
+          <span className="ultra-label">COMMERCIAL RUNTIME · {commercial?.contract || "commercial-agent-v1"}</span>
+          <h3>Multi-tenant agent infrastructure</h3>
+          <p>Identity, tenant/workspace isolation, metering and plan boundaries are explicit product contracts. Production persistence remains Supabase-backed.</p>
+          <div className="ultra-commercial-status"><b>{commercial?.product?.identity || "SUPABASE_AUTH"}</b><b>{commercial?.product?.tenancy || "TENANT_WORKSPACE"}</b><b>{commercial?.product?.metering || "DATABASE_ENFORCED"}</b><b>{commercial?.product?.billing || "INTERNAL_PLAN_V1"}</b></div>
+        </div>
+        <div className="ultra-commercial-card">
+          <span className="ultra-label">PLAN MODEL</span>
+          <div className="ultra-plans">{(commercial?.plans || []).map((plan: Json) => <div key={plan.id}><b>{String(plan.id).toUpperCase()}</b><strong>{plan.monthlyUnits === null ? "CUSTOM" : String(plan.monthlyUnits) + " units"}</strong></div>)}</div>
+          <small>High-risk actions require approval · external side effects remain disabled in the investor runtime.</small>
+        </div>
+      </div>
     </div>
 
     <div className="ultra-map" id="ultra-map">
