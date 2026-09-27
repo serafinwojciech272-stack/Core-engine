@@ -22,9 +22,7 @@ type RegisteredAction = CapabilityAction & { packId: string };
 
 function allActions(): RegisteredAction[] {
   ensureCapabilityPacks();
-  return listCapabilityPacks().flatMap((pack) =>
-    pack.actions.map((action) => ({ ...action, packId: pack.id }))
-  );
+  return listCapabilityPacks().flatMap((pack) => pack.actions.map((action) => ({ ...action, packId: pack.id })));
 }
 
 export function getCapabilityAction(actionId: string): RegisteredAction | null {
@@ -44,75 +42,14 @@ export async function executeCapabilityAction(input: {
 }): Promise<CapabilityExecutionReceipt> {
   const action = getCapabilityAction(input.actionId);
   const startedAt = new Date().toISOString();
-  if (!action) {
-    return {
-      actionId: input.actionId,
-      packId: "unknown",
-      status: "NOT_FOUND",
-      executionMode: "ADAPTER",
-      startedAt,
-      completedAt: new Date().toISOString(),
-      sideEffect: false,
-      message: "Capability action is not registered."
-    };
-  }
-
-  if (action.requiresApproval && !input.approved) {
-    return {
-      actionId: action.id,
-      packId: action.packId,
-      status: "APPROVAL_REQUIRED",
-      executionMode: "ADAPTER",
-      startedAt,
-      completedAt: new Date().toISOString(),
-      sideEffect: false,
-      message: "Explicit capability approval is required before the adapter can execute."
-    };
-  }
-
+  if (!action) return { actionId: input.actionId, packId: "unknown", status: "NOT_FOUND", executionMode: "ADAPTER", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Capability action is not registered." };
+  if (action.requiresApproval && !input.approved) return { actionId: action.id, packId: action.packId, status: "APPROVAL_REQUIRED", executionMode: "ADAPTER", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Explicit capability approval is required before the adapter can execute." };
   const adapter = resolveCapabilityAdapter(action);
-  if (!adapter) {
-    return {
-      actionId: action.id,
-      packId: action.packId,
-      status: "ADAPTER_NOT_FOUND",
-      executionMode: "ADAPTER",
-      startedAt,
-      completedAt: new Date().toISOString(),
-      sideEffect: false,
-      message: "No registered execution adapter supports this capability action."
-    };
-  }
-
+  if (!adapter) return { actionId: action.id, packId: action.packId, status: "ADAPTER_NOT_FOUND", executionMode: "ADAPTER", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "No registered execution adapter supports this capability action." };
   try {
-    const result = await adapter.execute(action, {
-      missionId: input.missionId,
-      idempotencyKey: input.idempotencyKey,
-      input: input.input
-    });
-    return {
-      actionId: action.id,
-      packId: action.packId,
-      status: result.status === "EXECUTED" ? "EXECUTED" : "FAILED",
-      executionMode: "ADAPTER",
-      adapterId: adapter.id,
-      startedAt: result.startedAt,
-      completedAt: result.completedAt,
-      sideEffect: result.sideEffect,
-      message: result.message,
-      output: result.output
-    };
+    const result = await adapter.execute(action, { missionId: input.missionId, idempotencyKey: input.idempotencyKey, input: input.input });
+    return { actionId: action.id, packId: action.packId, status: result.status === "EXECUTED" ? "EXECUTED" : "FAILED", executionMode: "ADAPTER", adapterId: adapter.id, startedAt: result.startedAt, completedAt: result.completedAt, sideEffect: result.sideEffect, message: result.message, output: result.output };
   } catch (error) {
-    return {
-      actionId: action.id,
-      packId: action.packId,
-      status: "FAILED",
-      executionMode: "ADAPTER",
-      adapterId: adapter.id,
-      startedAt,
-      completedAt: new Date().toISOString(),
-      sideEffect: false,
-      message: error instanceof Error ? error.message : "Capability adapter execution failed."
-    };
+    return { actionId: action.id, packId: action.packId, status: "FAILED", executionMode: "ADAPTER", adapterId: adapter.id, startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: error instanceof Error ? error.message : "Capability adapter execution failed." };
   }
 }
