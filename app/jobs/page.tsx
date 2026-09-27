@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, BrainCircuit, Check, CircleDot, Loader2, Search, ShieldCheck, Zap } from "lucide-react";
 
@@ -76,7 +77,7 @@ export default function JobsPage() {
     <main className="jobs-page">
       <nav>
         <div className="brand"><span className="mark"><BrainCircuit size={19}/></span><span>CORE ENGINE / JOB AGENT</span></div>
-        <a className="navbtn" href="/">Core Engine <ArrowRight size={15}/></a>
+        <Link className="navbtn" href="/">Core Engine <ArrowRight size={15}/></Link>
       </nav>
 
       <section className="jobs-hero">
