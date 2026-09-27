@@ -5,6 +5,8 @@ import { storageMode } from "@/lib/storage";
 import { listCapabilityAdapters } from "@/lib/capability-adapters";
 import { listCapabilityPacks } from "@/lib/capability-registry";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
+import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
+import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -22,7 +24,9 @@ export async function GET() {
       capabilityPacks: listCapabilityPacks().length,
       execution: getProductionReadiness().execution,
       liveExternalSideEffects: false,
-      approvalRequiredForHighRiskActions: true
+      approvalRequiredForHighRiskActions: true,
+      commercialRuntime: commercialRuntimeStatus(),
+      commercialReadiness: commercialRuntimeReadiness()
     },
     integration: {
       plan: "POST /api/engine",
