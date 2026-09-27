@@ -21,11 +21,27 @@ export async function POST(request:Request){
   runId=((await run.json()) as Array<{id:string}>)[0]?.id;
   const found=await discoverJobs(); const {policy,scored}=await scoreJobs(found.jobs);
   let inserted=0;
+  const events:Array<Record<string,unknown>>=[];
+  const existingResponse=await requestSb("job_opportunities?select=id,source,url,match_score,decision,status&limit=1000");
+  const existingRows=await existingResponse.json() as Array<{id:string;source:string;url:string;match_score:number|null;decision:string|null;status:string|null}>;
+  const existingByKey=new Map(existingRows.map(row=>[row.source+"|"+row.url,row]));
+
   for(const j of scored){
    const payload={source:j.source,url:j.url,title:j.title,company:j.company,location:j.location,salary:j.salary,description:j.description,published_at:j.publishedAt,content_hash:null,match_score:j.matchScore,decision:j.decision,decision_reason:j.decisionReason,application_mode:j.applicationMode,status:"NEW",raw:j.raw};
-   const r=await requestSb("job_opportunities?on_conflict=source,url",{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
-   if(r.ok)inserted++;
+   const previous=existingByKey.get(j.source+"|"+j.url);
+   const r=await requestSb("job_opportunities?on_conflict=source,url",{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)});
+   if(r.ok){
+    inserted++;
+    const returned=await r.json() as Array<{id:string}>;
+    const jobId=returned[0]?.id||previous?.id;
+    if(jobId){
+     if(!previous) events.push({job_id:jobId,event_type:"DISCOVERED",actor:"core_engine",from_status:null,to_status:"NEW",metadata:{source:j.source,match_score:j.matchScore,decision:j.decision}});
+     if(previous && previous.match_score!==j.matchScore) events.push({job_id:jobId,event_type:"SCORED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_score:previous.match_score,new_score:j.matchScore,decision:j.decision}});
+     if(previous && previous.decision!==j.decision) events.push({job_id:jobId,event_type:"DECIDED",actor:"core_engine",from_status:previous.status,to_status:previous.status,metadata:{previous_decision:previous.decision,new_decision:j.decision,reason:j.decisionReason}});
+    }
+   }
   }
+  if(events.length) await requestSb("job_events",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(events)});
   if(runId)await requestSb("job_sync_runs?id=eq."+encodeURIComponent(runId),{method:"PATCH",headers:{"Prefer":"return=minimal"},body:JSON.stringify({finished_at:new Date().toISOString(),discovered:scored.length,inserted,errors:found.errors,status:"COMPLETE"})});
   return NextResponse.json({ok:true,sync:{durationMs:Date.now()-started,discovered:scored.length,inserted,errors:found.errors,policy:{confidence:policy.confidence,priority:policy.priority}},sources:["pracuj.pl","indeed","olx","linkedin","nofluffjobs","justjoin.it","rocketjobs","pracapolis","adzuna","jooble"],criteria:"Gliwice + 30 km"});
  }catch(e){
