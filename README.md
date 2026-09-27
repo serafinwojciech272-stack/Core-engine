@@ -2,6 +2,8 @@
 
 ### Universal AI Decision & Execution Engine for Business Growth
 
+Core Engine is an agentic business operating system. It exposes an explicit agent contract, a single mission state machine, durable approval controls, capability execution contracts, outcome measurement, learning, and an auditable decision chain.
+
 Core Engine is the intelligence layer behind a new class of business software.
 
 It turns business signals into decisions, decisions into approved missions, and missions into measurable outcomes.
@@ -564,11 +566,45 @@ Everything else supports those three questions.
 
 ---
 
+## Agent Runtime
+
+The repository now exposes the Core Engine as an explicit business agent contract.
+
+```text
+OBSERVE → UNDERSTAND → PRIORITIZE → DECIDE → APPROVE → EXECUTE → MEASURE → LEARN
+```
+
+The agent uses the existing mission state machine. It does not introduce a second lifecycle.
+
+The production safety boundary is explicit:
+
+```text
+AI reasoning
+    ↓
+Decision + evidence
+    ↓
+Mission
+    ↓
+Approval Gate
+    ↓
+Capability action
+    ↓
+Execution receipt
+    ↓
+Outcome
+    ↓
+Learning
+```
+
+High-risk capability actions require approval. Execution is idempotent. Supabase provides the durable production path. The current adapter layer is simulation-only, so external side effects remain disabled until a real integration adapter is registered and tested.
+
+Agent runtime metadata is available from `GET /api/agent`. The main decision endpoint remains `POST /api/engine`; mission control remains `POST /api/mission`.
+
 ## Status
 
-Early-stage foundation.
+Core Engine has the core agent architecture in place: decisioning, evidence, mission lifecycle, approval gate, capability action fabric, durable ledger, idempotency, audit chain, outcome measurement, and learning persistence.
 
-The repository currently contains the initial project definition. The next engineering priority is to turn the architecture above into explicit contracts, state machines, tests, and reusable engine modules.
+The remaining product gate is real integration execution. A production customer flow needs at least one real external capability adapter, tenant isolation, usage metering, production authentication, and an end-to-end outcome demonstration with real data.
 
 ---
 

@@ -16,6 +16,7 @@ import type { EvidenceInput } from "@/lib/evidence-engine";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { listCapabilityPacks } from "@/lib/capability-registry";
 import { buildGrowthMissionPlan } from "@/lib/growth-mission";
+import { getAgentManifest } from "@/lib/agent-contract";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -175,6 +176,7 @@ export async function GET() {
     engine: "core-engine",
     version: ENGINE_VERSION,
     status: "READY",
+    agent: getAgentManifest(),
     capabilities: ["observe", "context", "evidence", "evidence-graph", "diagnose", "prioritize", "decide", "decision-matrix", "risk-gate", "multi-timeframe", "feature-engine", "mission", "approval", "execute", "measure", "learn", "audit", "capability-action-fabric", "mt5-read-only"],
     capabilityPacks: listCapabilityPacks().map((pack) => ({ id: pack.id, name: pack.name, category: pack.category, version: pack.version, capabilities: pack.capabilities, actions: pack.actions.map((action) => ({ id: action.id, name: action.name, risk: action.risk, requiresApproval: action.requiresApproval })) })),
     readiness: getProductionReadiness(),
