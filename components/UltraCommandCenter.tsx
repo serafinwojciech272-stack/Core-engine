@@ -9,7 +9,7 @@ const domains = {
   Sales: [{ name: "qualified_leads", value: "-14%", source: "CRM" }, { name: "response_time", value: "11h", source: "CRM" }, { name: "win_rate", value: "18%", source: "sales" }],
   Operations: [{ name: "order_backlog", value: "+27%", source: "operations" }, { name: "cycle_time", value: "3.4d", source: "ERP" }, { name: "capacity", value: "82%", source: "workforce" }],
 } as const;
-const stages = ["OBSERVE", "CONTEXT", "EVIDENCE", "DIAGNOSE", "DECIDE", "MISSION", "APPROVAL", "EXECUTE", "MEASURE", "LEARN"];
+const stages = ["OBSERVE", "KONTEKST", "DOWODY", "DIAGNOSE", "DECIDE", "MISSION", "APPROVAL", "EXECUTE", "MEASURE", "LEARN"];
 
 export default function UltraCommandCenter() {
   const [domain, setDomain] = useState<keyof typeof domains>("Growth");
@@ -52,12 +52,25 @@ export default function UltraCommandCenter() {
 
   async function run() {
     setRunning(true); setError(""); setResult(null);
+    const publicProblems: Record<keyof typeof domains, string> = {
+      Growth: "Ruch na stronie rośnie, ale konwersja checkout jest słaba. Zdiagnozuj główne wąskie gardło i wskaż pierwszy krok.",
+      Sales: "Mamy dużo leadów, ale czas odpowiedzi jest zbyt długi, a współczynnik wygranych transakcji spada. Co należy zbadać najpierw?",
+      Operations: "Backlog operacyjny rośnie, a zespół pracuje blisko pełnej przepustowości. Co należy zdiagnozować przed zwiększeniem zatrudnienia?"
+    };
     try {
-      const r = await fetch("/api/engine?demo=investor-v1", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ signals: domains[domain], domain: domain.toLowerCase(), demo: true }) });
+      const r = await fetch("/api/investor-demo", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ problem: publicProblems[domain] }) });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "ENGINE_REQUEST_FAILED");
-      setResult(data);
-    } catch (e) { setError(e instanceof Error ? e.message : "ENGINE_REQUEST_FAILED"); }
+      if (!r.ok) throw new Error(data.error || "BŁĄD ANALIZY AGENTA");
+      const confidence = Number(data.solution?.confidence || 0);
+      setResult({
+        ok: true, engine: "Core Engine AI", version: "public-investor-v1", state: "ANALYZED",
+        decision: { recommendation: data.solution?.recommendation, diagnosis: data.solution?.diagnosis, priority: data.solution?.priority, confidence, riskGate: "PASS", reasoningSource: "Core Engine AI", evidence: data.evidence || [] },
+        evidence: data.evidence || [], evidenceQuality: data.evidenceQuality,
+        trace: (data.trace || []).map((x: Json) => ({ ...x, status: "COMPLETE" })),
+        audit: { algorithm: "Public simulation provenance", integrity: "SIMULATED", chainLength: (data.trace || []).length },
+        mission: null, simulation: true
+      });
+    } catch (e) { setError(e instanceof Error ? e.message : "BŁĄD ANALIZY AGENTA"); }
     finally { setRunning(false); }
   }
 
@@ -103,30 +116,30 @@ export default function UltraCommandCenter() {
     <div className="ultra-noise" />
     <div className="ultra-orbit ultra-o1" /><div className="ultra-orbit ultra-o2" /><div className="ultra-orbit ultra-o3" />
     <header className="ultra-topbar">
-      <div className="ultra-brand"><span><BrainCircuit size={18}/></span><b>CORE ENGINE</b><small>AI CONTROL PLANE</small></div>
-      <div className="ultra-live"><i /> LIVE INTELLIGENCE FABRIC</div>
-      <div className="ultra-toplinks"><a href="#portfolio">PORTFOLIO <ArrowRight size={13}/></a><a href="#roadmap">ROADMAP</a></div>
+      <div className="ultra-brand"><span><BrainCircuit size={18}/></span><b>CORE ENGINE</b><small>CENTRUM STEROWANIA AI</small></div>
+      <div className="ultra-live"><i /> AKTYWNA WARSTWA INTELIGENCJI</div>
+      <div className="ultra-toplinks"><a href="#portfolio">PRODUKTY <ArrowRight size={13}/></a><a href="#roadmap">PLAN ROZWOJU</a></div>
     </header>
 
     <div className="ultra-hero">
       <div className="ultra-kicker"><span>INVESTOR EXPERIENCE 03</span><em>AGENT RUNTIME · {agent?.runtime?.status || "CONNECTING"}</em></div>
-      <h1>Intelligence<br/><span>in motion.</span></h1>
+      <h1>Inteligencja<br/><span>w działaniu.</span></h1>
       <p>One control plane turns fragmented business signals into evidence, decisions, governed missions and measurable learning. The same agent contract powers every product surface.</p>
-      <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> RUN THE CORE</a><a className="ultra-secondary" href="#ultra-map">VIEW SYSTEM MAP <ArrowRight size={14}/></a></div>
-      <div className="ultra-proof"><span><ShieldCheck size={14}/> evidence first</span><span><LockKeyhole size={14}/> approval boundary</span><span><GitBranch size={14}/> auditable state</span></div>
+      <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> URUCHOM RDZEŃ</a><a className="ultra-secondary" href="#ultra-map">POKAŻ MAPĘ SYSTEMU <ArrowRight size={14}/></a></div>
+      <div className="ultra-proof"><span><ShieldCheck size={14}/> najpierw dowody</span><span><LockKeyhole size={14}/> granica akceptacji</span><span><GitBranch size={14}/> audytowalny stan</span></div>
     </div>
 
     <section className="ultra-agent-lab" id="agent-lab">
       <div className="ultra-agent-lab-head">
         <div>
-          <span className="ultra-label">00 / SHOW THE AGENT</span>
-          <h2>Bring us a problem.<br/><i>Watch the core think.</i></h2>
+          <span className="ultra-label">00 / POKAŻ AGENTA</span>
+          <h2>Daj nam problem.<br/><i>Zobacz, jak myśli rdzeń.</i></h2>
           <p>Describe a real business problem in plain language. The public demo converts it into context, evidence, diagnosis and a governed solution proposal. No private systems are accessed and no external action is executed.</p>
         </div>
-        <div className="ultra-agent-badge"><BrainCircuit size={17}/> FREEFORM AGENT DEMO <span>SIMULATION</span></div>
+        <div className="ultra-agent-badge"><BrainCircuit size={17}/> SWOBODNE DEMO AGENTA <span>SYMULACJA</span></div>
       </div>
       <div className="ultra-agent-prompts">
-        <span>TRY A REAL BUSINESS QUESTION</span>
+        <span>WYPRÓBUJ PYTANIE BIZNESOWE</span>
         {agentPrompts.map((prompt, i) => <button key={i} onClick={() => { setAgentQuestion(prompt); setAgentError(""); }}>{prompt}</button>)}
       </div>
       <div className="ultra-agent-input">
@@ -141,21 +154,21 @@ export default function UltraCommandCenter() {
         <div className="ultra-agent-input-footer">
           <span>{agentQuestion.length}/2400 · Ctrl/Cmd + Enter</span>
           <button onClick={analyzeVisitorProblem} disabled={agentRunning}>
-            {agentRunning ? <><Sparkles className="ultra-spin" size={15}/> ANALYZING...</> : <><Zap size={15}/> ANALYZE MY PROBLEM</>}
+            {agentRunning ? <><Sparkles className="ultra-spin" size={15}/> ANALIZA...</> : <><Zap size={15}/> ANALIZUJ MÓJ PROBLEM</>}
           </button>
         </div>
       </div>
       {agentAnalysis && <div className="ultra-agent-output">
         <div className="ultra-agent-output-top">
           <div><span className="ultra-label">AGENT ANALYSIS · {String(agentAnalysis.domain || "business").toUpperCase()}</span><h3>{agentAnalysis.solution?.diagnosis || "Diagnosis generated"}</h3></div>
-          <div className="ultra-agent-confidence"><small>CONFIDENCE</small><b>{Math.round(Number(agentAnalysis.solution?.confidence || 0) * 100)}%</b></div>
+          <div className="ultra-agent-confidence"><small>PEWNOŚĆ</small><b>{Math.round(Number(agentAnalysis.solution?.confidence || 0) * 100)}%</b></div>
         </div>
         <div className="ultra-agent-grid">
-          <article><span>01 / RECOMMENDATION</span><strong>{agentAnalysis.solution?.recommendation}</strong></article>
-          <article><span>02 / PRIORITY</span><strong>{agentAnalysis.solution?.priority}</strong><small>Evidence quality: {agentAnalysis.evidenceQuality?.score ?? "N/A"}</small></article>
-          <article><span>03 / NEXT ACTIONS</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
+          <article><span>01 / REKOMENDACJA</span><strong>{agentAnalysis.solution?.recommendation}</strong></article>
+          <article><span>02 / PRIORYTET</span><strong>{agentAnalysis.solution?.priority}</strong><small>Evidence quality: {agentAnalysis.evidenceQuality?.score ?? "N/A"}</small></article>
+          <article><span>03 / NASTĘPNE DZIAŁANIA</span><div>{(agentAnalysis.solution?.actions || []).slice(0, 4).map((a: Json, i: number) => <p key={i}><b>{String(i + 1).padStart(2, "0")}</b>{a.action}</p>)}</div></article>
         </div>
-        <div className="ultra-agent-layers"><span>CONTEXT</span><span>EVIDENCE</span><span>DIAGNOSIS</span><span>DECISION</span><span>GOVERNANCE</span></div>
+        <div className="ultra-agent-layers"><span>KONTEKST</span><span>DOWODY</span><span>DIAGNOZA</span><span>DECYZJA</span><span>ZARZĄDZANIE</span></div>
         <div className="ultra-agent-trace">{(agentAnalysis.trace || []).map((x: Json) => <span key={x.stage}><i/>{x.stage}</span>)}</div>
         <small className="ultra-agent-disclaimer">{agentAnalysis.disclaimer}</small>
       </div>}
@@ -163,11 +176,11 @@ export default function UltraCommandCenter() {
     </section>
 
     <div className="ultra-command" id="ultra-demo">
-      <div className="ultra-command-head"><div><span className="ultra-label">01 / SIGNAL INTAKE · SIMULATED DEMO INPUT</span><h2>Give the core a business situation.</h2></div><div className="ultra-runtime"><i/>{agent?.runtime?.status || runtime?.status || "CONNECTING"} <b>{runtime?.version || "CORE"}</b></div></div>
+      <div className="ultra-command-head"><div><span className="ultra-label">01 / WEJŚCIE SYGNAŁÓW · SYMULOWANE DANE</span><h2>Daj rdzeniowi sytuację biznesową.</h2></div><div className="ultra-runtime"><i/>{agent?.runtime?.status || runtime?.status || "CONNECTING"} <b>{runtime?.version || "CORE"}</b></div></div>
       <div className="ultra-input-grid">
         <div className="ultra-domain-tabs">{(Object.keys(domains) as Array<keyof typeof domains>).map(d => <button key={d} onClick={() => setDomain(d)} className={d === domain ? "active" : ""}><Activity size={14}/>{d}</button>)}</div>
         <div className="ultra-signals">{domains[domain].map(s => <div key={s.name}><small>{s.source}</small><b>{s.name}</b><strong>{s.value}</strong></div>)}</div>
-        <button className="ultra-run" onClick={run} disabled={running}>{running ? <><Sparkles className="ultra-spin" size={16}/> REASONING...</> : <><Zap size={16}/> ACTIVATE CORE</>}</button>
+        <button className="ultra-run" onClick={run} disabled={running}>{running ? <><Sparkles className="ultra-spin" size={16}/> ANALIZA...</> : <><Zap size={16}/> AKTYWUJ RDZEŃ</>}</button>
       </div>
 
       <div className="ultra-statebar">
@@ -175,23 +188,23 @@ export default function UltraCommandCenter() {
       </div>
 
       {result && <div className="ultra-results">
-        <div className="ultra-result-head"><div><span className="ultra-label">02 / ENGINE OUTPUT</span><h2>{result.engine || "CORE ENGINE"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "ANALYZED"}</div></div>
+        <div className="ultra-result-head"><div><span className="ultra-label">02 / WYNIK ANALIZY</span><h2>{result.engine || "CORE ENGINE"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "ANALYZED"}</div></div>
         <div className="ultra-agent-strip"><span>AGENT CONTRACT</span><b>{agent?.agent?.name || "Core Engine Agent"}</b><small>{agent?.agent?.contract || "agent-runtime"} · {agent?.agent?.autonomy || "HUMAN_APPROVED"} · {agent?.runtime?.persistence || "runtime persistence"} · {agent?.runtime?.capabilityPacks ?? 0} capability packs · external side effects {agent?.runtime?.liveExternalSideEffects ? "enabled" : "disabled"}</small></div><div className="ultra-metrics">
-          <div><small>CONFIDENCE</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "N/A"}</strong><span>decision matrix</span></div>
-          <div><small>EVIDENCE QUALITY</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "N/A"}</strong><span>provenance score</span></div>
+          <div><small>PEWNOŚĆ</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "N/A"}</strong><span>decision matrix</span></div>
+          <div><small>DOWODY QUALITY</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "N/A"}</strong><span>provenance score</span></div>
           <div><small>RISK GATE</small><strong>{result.decision?.riskGate || "PASS"}</strong><span>policy evaluation</span></div>
-          <div><small>AUDIT CHAIN</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "pending"}</span></div>
+          <div><small>ŁAŃCUCH AUDYTU</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "pending"}</span></div>
         </div>
-        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECISION CENTER</span><h3>{result.decision?.recommendation || "Decision generated"}</h3><p>{result.decision?.diagnosis || "The core has processed the supplied signals."}</p></div><div className="ultra-decision-side"><small>PRIORITY</small><b>{result.decision?.priority || "N/A"}</b><small>REASONING SOURCE</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
-        <div className="ultra-evidence"><div className="ultra-label">EVIDENCE GRAPH</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "evidence node"}</b><small>{typeof e === "string" ? "verified node" : e.source || "source"}</small></div>)}</div>
-        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">MISSION CONTROL</span><h3>{result.mission.objective}</h3><p>Current state: <b>{state}</b> · governed transition · demo outcome verification enabled</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PROCESSING" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> LEARNING COMPLETE</span>}</div></div>}
-        {result.audit && <div className="ultra-audit"><div><span className="ultra-label">AUDIT CHAIN</span><h3>{result.audit.algorithm || "Cryptographic provenance"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
+        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">DECYZJA CENTER</span><h3>{result.decision?.recommendation || "Decision generated"}</h3><p>{result.decision?.diagnosis || "The core has processed the supplied signals."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "N/A"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Core"}</b></div></div>
+        <div className="ultra-evidence"><div className="ultra-label">DOWODY GRAPH</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "evidence node"}</b><small>{typeof e === "string" ? "verified node" : e.source || "source"}</small></div>)}</div>
+        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Current state: <b>{state}</b> · governed transition · demo outcome verification enabled</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PROCESSING" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> LEARNING COMPLETE</span>}</div></div>}
+        {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Cryptographic provenance"}</h3></div><code>HEAD · {result.audit.head || "N/A"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">CORE ERROR · {error}</div>}
     </div>
 
     <div className="ultra-commercial" id="commercial">
-      <div className="ultra-section-title"><span>03.5 / COMMERCIAL AGENT CONTRACT</span><h2>From working intelligence<br/><i>to a sellable runtime.</i></h2></div>
+      <div className="ultra-section-title"><span>03.5 / KOMERCYJNY KONTRAKT AGENTA</span><h2>From working intelligence<br/><i>to a sellable runtime.</i></h2></div>
       <div className="ultra-commercial-grid">
         <div className="ultra-commercial-card">
           <span className="ultra-label">COMMERCIAL RUNTIME · {commercial?.contract || "commercial-agent-v1"}</span>
@@ -200,7 +213,7 @@ export default function UltraCommandCenter() {
           <div className="ultra-commercial-status"><b>{commercial?.product?.identity || "SUPABASE_AUTH"}</b><b>{commercial?.product?.tenancy || "TENANT_WORKSPACE"}</b><b>{commercial?.product?.metering || "DATABASE_ENFORCED"}</b><b>{commercial?.product?.billing || "INTERNAL_PLAN_V1"}</b></div>
         </div>
         <div className="ultra-commercial-card">
-          <span className="ultra-label">PLAN MODEL</span>
+          <span className="ultra-label">MODEL PLANÓW</span>
           <div className="ultra-plans">{(commercial?.plans || []).map((plan: Json) => <div key={plan.id}><b>{String(plan.id).toUpperCase()}</b><strong>{plan.monthlyUnits === null ? "CUSTOM" : String(plan.monthlyUnits) + " units"}</strong></div>)}</div>
           <small>High-risk actions require approval · external side effects remain disabled in the investor runtime.</small>
         </div>
@@ -208,11 +221,11 @@ export default function UltraCommandCenter() {
     </div>
 
     <div className="ultra-map" id="ultra-map">
-      <div className="ultra-section-title"><span>03 / INTELLIGENCE FABRIC</span><h2>One core.<br/><i>Seven control layers.</i></h2></div>
+      <div className="ultra-section-title"><span>03 / WARSTWA INTELIGENCJI</span><h2>Jeden rdzeń.<br/><i>Siedem warstw sterowania.</i></h2></div>
       <div className="ultra-layer-stack">{[
-        ["01","CONTEXT ENGINE","Normalizes signals, domain and operating context",Database],
-        ["02","EVIDENCE GRAPH","Connects claims, sources and provenance",Radar],
-        ["03","DECISION MATRIX","Scores priority, confidence and recommendation",Gauge],
+        ["01","KONTEKST ENGINE","Normalizes signals, domain and operating context",Database],
+        ["02","DOWODY GRAPH","Connects claims, sources and provenance",Radar],
+        ["03","DECYZJA MATRIX","Scores priority, confidence and recommendation",Gauge],
         ["04","RISK GATE","Applies policy before consequential action",ShieldCheck],
         ["05","MISSION ENGINE","Turns decisions into stateful work",Target],
         ["06","CAPABILITY FABRIC","Maps approved missions to controlled actions",Zap],
@@ -221,14 +234,14 @@ export default function UltraCommandCenter() {
     </div>
 
     <div className="ultra-portfolio" id="portfolio">
-      <div className="ultra-section-title"><span>04 / PRODUCT SURFACES</span><h2>The same intelligence.<br/><i>Three environments.</i></h2></div>
+      <div className="ultra-section-title"><span>04 / POWIERZCHNIE PRODUKTOWE</span><h2>Ta sama inteligencja.<br/><i>Trzy środowiska.</i></h2></div>
       <div className="ultra-products">
-        <article className="u-orange"><Target/><small>01 / DECISION INTELLIGENCE</small><h3>Bet Builder</h3><p>Events → analysis → research → evidence → decision → mission.</p><b>PROOF SURFACE</b></article>
+        <article className="u-orange"><Target/><small>01 / DECYZJA INTELLIGENCE</small><h3>Bet Builder</h3><p>Events → analysis → research → evidence → decision → mission.</p><b>PROOF SURFACE</b></article>
         <article className="u-violet"><Gauge/><small>02 / BUSINESS OPERATING SYSTEM</small><h3>Growth Advisor</h3><p>Website audit → opportunity → Growth Mission → approval → outcome.</p><b>CORE PRODUCT</b></article>
         <article className="u-green"><Radar/><small>03 / OPPORTUNITY INTELLIGENCE</small><h3>Extra Szpieg</h3><p>Scan → provenance → opportunity → BUY / WATCH / PASS → alerts.</p><b>PRODUCT LAB</b></article>
       </div>
     </div>
 
-    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / PLATFORM ROADMAP</span><h2>From working core<br/><i>to scalable platform.</i></h2></div><div className="ultra-roadmap-grid">{[["01","CORE","Agent contract, evidence, decisions and mission lifecycle"],["02","PRODUCTS","Bet Builder, Growth Advisor and Extra Szpieg as proof surfaces"],["03","DATA","Connectors, provenance and durable business context"],["04","AUTONOMY","Governed capability execution behind approval policies"],["05","LEARNING","Outcome feedback and reusable intelligence"],["06","PLATFORM","Tenancy, auth, metering and enterprise control"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> CORE ENGINE AI</div><span>ONE INTELLIGENCE CORE · MANY BUSINESSES</span><a href="#top">BACK TO TOP ↑</a></footer>
+    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / PLATFORM PLAN ROZWOJU</span><h2>From working core<br/><i>to scalable platform.</i></h2></div><div className="ultra-roadmap-grid">{[["01","CORE","Agent contract, evidence, decisions and mission lifecycle"],["02","PRODUCTS","Bet Builder, Growth Advisor and Extra Szpieg as proof surfaces"],["03","DATA","Connectors, provenance and durable business context"],["04","AUTONOMY","Governed capability execution behind approval policies"],["05","LEARNING","Outcome feedback and reusable intelligence"],["06","PLATFORM","Tenancy, auth, metering and enterprise control"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> CORE ENGINE AI</div><span>JEDEN RDZEŃ INTELIGENCJI · WIELE BIZNESÓW</span><a href="#top">WRÓĆ NA GÓRĘ ↑</a></footer>
   </section>;
 }
