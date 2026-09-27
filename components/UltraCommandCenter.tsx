@@ -123,7 +123,7 @@ export default function UltraCommandCenter() {
     </header>
 
     <div className="ultra-hero">
-      <div className="ultra-kicker"><span>DOŚWIADCZENIE INWESTORSKIE 03</span><em>RUNTIME AGENTA · {agent?.runtime?.status || "ŁĄCZENIE"}</em></div>
+      <div className="ultra-kicker"><span>DOŚWIADCZENIE INWESTORSKIE 03</span><em>ŚRODOWISKO AGENTA · {agent?.runtime?.status || "ŁĄCZENIE"}</em></div>
       <h1>Inteligencja<br/><span>w działaniu.</span></h1>
       <p>Jeden centralny system sterowania zamienia rozproszone sygnały biznesowe w dowody, decyzje, zarządzane misje i mierzalne uczenie. Ten sam kontrakt agenta zasila każdą powierzchnię produktu.</p>
       <div className="ultra-hero-actions"><a className="ultra-primary" href="#ultra-demo"><Play size={15}/> URUCHOM RDZEŃ</a><a className="ultra-secondary" href="#ultra-map">POKAŻ MAPĘ SYSTEMU <ArrowRight size={14}/></a></div>
@@ -189,7 +189,7 @@ export default function UltraCommandCenter() {
       </div>
 
       {result && <div className="ultra-results">
-        <div className="ultra-result-head"><div><span className="ultra-label">02 / WYNIK ANALIZY</span><h2>{result.engine || "RDZEŃ SILNIK"}<small> · {result.version || "runtime"}</small></h2></div><div className="ultra-state"><i/>{result.state || "PRZEANALIZOWANO"}</div></div>
+        <div className="ultra-result-head"><div><span className="ultra-label">02 / WYNIK ANALIZY</span><h2>{result.engine || "RDZEŃ SILNIK"}<small> · {result.version || "środowisko"}</small></h2></div><div className="ultra-state"><i/>{result.state || "PRZEANALIZOWANO"}</div></div>
         <div className="ultra-agent-strip"><span>KONTRAKT AGENTA</span><b>{agent?.agent?.name || "Agent Core Engine"}</b><small>{agent?.agent?.contract || "kontrakt-runtime"} · {agent?.agent?.autonomy || "WYMAGA AKCEPTACJI CZŁOWIEKA"} · {agent?.runtime?.persistence || "trwałość runtime"} · {agent?.runtime?.capabilityPacks ?? 0} pakiety kompetencji · zewnętrzne skutki {agent?.runtime?.liveExternalSideEffects ? "aktywne" : "wyłączone"}</small></div><div className="ultra-metrics">
           <div><small>PEWNOŚĆ</small><strong>{Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : "brak danych"}</strong><span>macierz decyzji</span></div>
           <div><small>JAKOŚĆ DOWODÓW</small><strong>{typeof evidenceScore === "number" ? `${evidenceScore}` : "brak danych"}</strong><span>wynik proweniencji</span></div>
@@ -197,7 +197,7 @@ export default function UltraCommandCenter() {
           <div><small>ŁAŃCUCH AUDYTU</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "oczekuje"}</span></div>
         </div>
         <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">CENTRUM DECYZJI</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "brak danych"}</b><small>ŹRÓDŁO ROZUMOWANIA</small><b>{result.decision?.reasoningSource || "Rdzeń"}</b></div></div>
-        <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source || "brak źródła"}</small></div>)}</div>
+        <div className="ultra-evidence"><div className="ultra-label">GRAF DOWODÓW</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source ? ({analytics:"analityka",funnel:"lejek",CRM:"CRM",sales:"sprzedaż",operations:"operacje",workforce:"zasoby zespołu",ERP:"ERP"} as Record<string,string>)[e.source] || e.source : "brak źródła"}</small></div>)}</div>
         {result.mission && <div className="ultra-mission"><div><span className="ultra-label">STEROWANIE MISJĄ</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> UCZENIE GOTOWE</span>}</div></div>}
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">ŁAŃCUCH AUDYTU</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "brak danych"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
@@ -208,7 +208,7 @@ export default function UltraCommandCenter() {
       <div className="ultra-section-title"><span>03.5 / KOMERCYJNY KONTRAKT AGENTA</span><h2>Od działającej inteligencji<br/><i>do produktu gotowego do sprzedaży.</i></h2></div>
       <div className="ultra-commercial-grid">
         <div className="ultra-commercial-card">
-          <span className="ultra-label">KOMERCYJNY RUNTIME · {commercial?.contract || "commercial-agent-v1"}</span>
+          <span className="ultra-label">KOMERCYJNE ŚRODOWISKO · {commercial?.contract || "commercial-agent-v1"}</span>
           <h3>Wielodostępna infrastruktura agenta</h3>
           <p>Tożsamość, izolacja tenantów/workspace'ów, pomiar użycia i limity planów są jawnie zdefiniowanymi kontraktami produktu. Trwała persystencja produkcyjna pozostaje oparta o Supabase.</p>
           <div className="ultra-commercial-status"><b>{commercial?.product?.identity === "SUPABASE_AUTH" ? "UWIERZYTELNIANIE SUPABASE" : (commercial?.product?.identity || "brak danych")}</b><b>{commercial?.product?.tenancy === "TENANT_WORKSPACE" ? "PRZESTRZEŃ TENANTA" : (commercial?.product?.tenancy || "brak danych")}</b><b>{commercial?.product?.metering === "DATABASE_ENFORCED" ? "POMIAR Z BAZY DANYCH" : (commercial?.product?.metering || "brak danych")}</b><b>{commercial?.product?.billing === "INTERNAL_PLAN_V1" ? "PLAN WEWNĘTRZNY V1" : (commercial?.product?.billing || "brak danych")}</b></div>
