@@ -10,11 +10,12 @@ import {guardMutation} from "@/lib/http";
 import {authenticate} from "@/lib/auth";
 import {resolveTenant} from "@/lib/commercial-runtime";
 import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
+import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
 const MAX=16000;
 const nextByAction:Record<string,MissionState>={approve:"APPROVED",reject:"REJECTED",execute:"EXECUTING",measure:"MEASURING",complete:"COMPLETED",learn:"LEARNED",fail:"FAILED",retry:"EXECUTING",abort:"REJECTED"};
 
 export async function GET(request:Request){
-  const tenant=resolveTenant(request);
+  const runtime=await resolveSaaSContext(request);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId,tenantKey:runtime.identity.tenantKey}:runtime.legacyTenant!;
   const limit=Math.max(1,Math.min(100,Number(new URL(request.url).searchParams.get("limit")||50)));
   if(storageMode()==="supabase"){
     try{const ids=new Set(await tenantMissionIds(tenant.tenantId));const all=await listPersistedMissions(Math.max(limit,100));const m=all.filter(x=>ids.has(x.id)).slice(0,limit);const e=(await listPersistedEvents(Math.max(limit,100))).filter(x=>ids.has(x.missionId)).slice(0,limit);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,tenantId:tenant.tenantId,events:e})}
@@ -25,13 +26,15 @@ export async function GET(request:Request){
 
 export async function POST(request:Request){
   const guard=guardMutation(request,"mission");if(guard)return guard;
-  const actor=authenticate(request,true);const tenant=resolveTenant(request);
+  const runtime=await resolveSaaSContext(request);const actor=runtime.identity?{id:runtime.identity.userId,kind:"human" as const}:authenticate(request,true);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId,tenantKey:runtime.identity.tenantKey}:runtime.legacyTenant!;
   try{
     const raw=await request.text();
     if(new TextEncoder().encode(raw).byteLength>MAX)return NextResponse.json({ok:false,error:"REQUEST_TOO_LARGE"},{status:413});
     const b=raw?JSON.parse(raw):{};
     const id=String(b.id||""),action=String(b.action||""),key=String(b.idempotencyKey||""),capabilityActionId=String(b.capabilityActionId||"");
     if(!id||!action)return NextResponse.json({ok:false,error:"MISSION_ID_AND_ACTION_REQUIRED"},{status:400});
+    const quota=await consumeSaaSUsage(tenant.tenantId,1);
+    if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
     if(!key||key.length>200)return NextResponse.json({ok:false,error:"IDEMPOTENCY_KEY_REQUIRED"},{status:400});
     const next=nextByAction[action];if(!next)return NextResponse.json({ok:false,error:"UNKNOWN_ACTION"},{status:400});
     const outcome=b.outcome&&typeof b.outcome==="object"&&!Array.isArray(b.outcome)?b.outcome as Record<string,unknown>:{};
