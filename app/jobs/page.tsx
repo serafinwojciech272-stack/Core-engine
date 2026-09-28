@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ArrowRight, BrainCircuit, Check, CircleDot, Globe2, Loader2, RefreshCw, Search, ShieldCheck, Sparkles, Zap } from "lucide-react";
 
 type Job = {
-  id: string; title: string; company: string | null; location: string | null; salary: string | null;
+  id: string; title: string; company: string | null; location: string | null; salary: string | null; description?: string;
   match_score: number | null; source: string; url: string; decision: string | null; status: string | null;
 };
 type Decision = { recommendation: string; diagnosis: string; confidence: number; priority: string };
@@ -69,13 +69,23 @@ export default function JobsPage() {
     setSelectedJob(job); setApplication(null);
     setStatus(lang==="pl"?"Core Engine analizuje ofertę, CV i przygotowuje pakiet aplikacyjny...":"Core Engine is analyzing the job, CV and preparing the application package...");
     try{
-      const r=await fetch("/api/jobs/application/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:job.url,title:job.title,company:job.company,location:job.location,description:(job as Job & { description?: string }).description,matchScore:job.match_score,decision:job.decision})});
+      const r=await fetch("/api/jobs/application/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobId:job.id,url:job.url,title:job.title,company:job.company,location:job.location,description:job.description,matchScore:job.match_score,decision:job.decision,status:job.status})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||"Application preparation failed");
       setApplication(d.application);
       setStatus(lang==="pl"?"Pakiet aplikacyjny gotowy do kontroli.":"Application package ready for review.");
     }catch(e){setStatus(e instanceof Error?e.message:"Application preparation failed")}
   }
-  function openProvider(){if(!selectedJob)return;window.open(selectedJob.url,"_blank","noopener,noreferrer");setStatus(lang==="pl"?"Ogłoszenie otwarte. Ostateczne wysłanie pozostaje pod Twoją kontrolą.":"Job opened. Final submission remains under your control.");}
+  async function openProvider(){
+    if(!selectedJob)return;
+    try{
+      const r=await fetch("/api/jobs/application/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobId:selectedJob.id})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Approval failed");
+      window.open(d.providerUrl||selectedJob.url,"_blank","noopener,noreferrer");
+      setStatus(lang==="pl"?"Aplikacja zatwierdzona. Ogłoszenie otwarte — wysłanie pozostaje pod Twoją kontrolą.":"Application approved. Job opened — final submission remains under your control.");
+      setSelectedJob({...selectedJob,status:"APPROVED"});
+    }catch(e){setStatus(e instanceof Error?e.message:"Approval failed")}
+  }
   return <main className={`jobs-page ${standalone?"job-agent-standalone":""}`}>
     <nav><div className="brand"><span className="mark"><BrainCircuit size={19}/></span><span>{t.brand}</span></div><div className="nav-right"><div className="language-switch" aria-label={t.lang}><Globe2 size={15}/><button className={lang==="pl"?"active":""} onClick={()=>setLang("pl")}>PL</button><span>/</span><button className={lang==="en"?"active":""} onClick={()=>setLang("en")}>EN</button></div><Link className="navbtn" href="/">{t.home} <ArrowRight size={15}/></Link></div></nav>
     <section className="jobs-hero"><div className="eyebrow"><span className="pulse"/>{t.eyebrow}</div>
