@@ -12,6 +12,11 @@ export const ALLOWED_JOB_SOURCES = [
   "rocketjobs","pracapolis","adzuna","jooble","jobs.pl"
 ] as const;
 
+const localTerms = [
+  "gliwice","zabrze","bytom","ruda śląska","tarnowskie góry",
+  "knurów","pyskowice","chorzów"
+];
+
 const listingTitlePatterns = [
   /\b\d+\s+(ofert|oferty|jobs|job|results?)\b/i,
   /\bjobs?\s+in\b/i,
@@ -25,19 +30,6 @@ const listingTitlePatterns = [
   /\bjobs description\b/i
 ];
 
-const listingPathPatterns = [
-  /\/(?:jobs?|job-search|search|results?|collections?|wyszukiwarka|szukaj|stanowisko)\/?$/i,
-  /\/(?:jobs?|job-search)\/(?:search|list|results|collections?)\b/i,
-  /\/praca\/(?:szukaj|search|wyniki|oferty)\b/i,
-  /\/search(?:\?|\/)/i,
-  /[?&](?:q|query|keywords|search|page|pn)=/i
-];
-
-const localTerms = [
-  "gliwice","zabrze","bytom","ruda śląska","tarnowskie góry",
-  "knurów","pyskowice","chorzów"
-];
-
 const genericDescriptionPatterns = [
   /key account manager job description/i,
   /job description.*responsibilities/i,
@@ -45,28 +37,52 @@ const genericDescriptionPatterns = [
   /career guide.*job description/i
 ];
 
-function normalizeUrl(url: string) {
+function normalizeUrl(value: string) {
   try {
-    const parsed = new URL(url);
-    parsed.hash = "";
-    return parsed;
+    const url = new URL(value);
+    url.hash = "";
+    return url;
   } catch {
     return null;
   }
 }
 
 function hasLocalOrRemote(text: string) {
-  return localTerms.some(term => text.toLowerCase().includes(term)) ||
+  const low = text.toLowerCase();
+  return localTerms.some(term => low.includes(term)) ||
     /(?:cała polska|poland|remote|zdalna|hybrydowa)/i.test(text);
 }
 
-function providerDetailPath(source: string, url: string) {
-  const low = url.toLowerCase();
-  if (source === "linkedin") return /\/jobs\/view\/\d+/i.test(low);
-  if (source === "indeed") return /(?:\/viewjob\?|\/rc\/clk\?)/i.test(low);
-  if (source === "jooble") return /(?:\/desc\/|\/job(?:\/|\b))/i.test(low);
-  if (source === "jobs.pl") return /\/oferta-[^/?#]+/i.test(low);
-  return true;
+function providerDetailPath(source: string, url: URL) {
+  const path = url.pathname.toLowerCase();
+  const full = url.toString().toLowerCase();
+
+  switch (source) {
+    case "linkedin":
+      return /\/jobs\/view\/\d+/.test(path);
+    case "indeed":
+      return /\/viewjob$/.test(path) || /\/rc\/clk$/.test(path);
+    case "jooble":
+      return /\/desc\//.test(path) || /\/job(?:\/|$)/.test(path);
+    case "jobs.pl":
+      return /\/oferta-[^/?#]+/.test(path);
+    case "pracuj.pl":
+      return /\/oferta,\d+/.test(path) || /,oferta,\d+/.test(path);
+    case "olx":
+      return /\/oferta\//.test(path) && /praca|oferta/.test(path);
+    case "rocketjobs":
+      return /\/oferta\//.test(path);
+    case "nofluffjobs":
+      return /\/job\//.test(path);
+    case "justjoin.it":
+      return /\/job\//.test(path);
+    case "adzuna":
+      return /\/details\//.test(path) || /\/job\//.test(path);
+    case "pracapolis":
+      return /\/oferta\//.test(path) || /\/job\//.test(path);
+    default:
+      return false;
+  }
 }
 
 export function validateJobOpportunity(input: JobQualityInput) {
@@ -84,13 +100,16 @@ export function validateJobOpportunity(input: JobQualityInput) {
   if (listingTitlePatterns.some(pattern => pattern.test(title))) {
     return { valid: false, reason: "LISTING_TITLE" as const };
   }
-  if (listingPathPatterns.some(pattern => pattern.test(lowUrl))) {
+  if (/(?:^|[/?=&;])(search|szukaj|wyszukiwarka|wyniki|results|collections?)(?:[/?=&;]|$)/i.test(lowUrl)) {
+    return { valid: false, reason: "LISTING_URL" as const };
+  }
+  if (/[?&](?:q|query|keywords|search|page|pn)=/i.test(lowUrl)) {
     return { valid: false, reason: "LISTING_URL" as const };
   }
   if (genericDescriptionPatterns.some(pattern => pattern.test(haystack))) {
     return { valid: false, reason: "GENERIC_JOB_DESCRIPTION" as const };
   }
-  if (!providerDetailPath(input.source, lowUrl)) {
+  if (!providerDetailPath(input.source, url)) {
     return { valid: false, reason: "PROVIDER_NOT_DETAIL" as const };
   }
   if (!hasLocalOrRemote(haystack)) {
