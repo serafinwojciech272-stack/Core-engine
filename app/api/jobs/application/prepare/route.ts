@@ -45,7 +45,21 @@ export async function POST(request: Request) {
     });
 
     let eventPersisted = false;
-    const jobId = body.jobId ? String(body.jobId) : null;
+    let jobId = body.jobId ? String(body.jobId) : null;
+
+    if (!jobId) {
+      try {
+        const lookup = await requestSb(
+          "job_opportunities?select=id,status&url=eq." +
+          encodeURIComponent(String(body.url)) +
+          "&limit=1"
+        );
+        const rows = await lookup.json() as Array<{ id: string; status: string | null }>;
+        jobId = rows[0]?.id || null;
+      } catch {
+        jobId = null;
+      }
+    }
 
     if (jobId) {
       try {
