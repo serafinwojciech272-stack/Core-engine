@@ -210,7 +210,7 @@ export default function UltraCommandCenter() {
       </div>
 
       <div className="ultra-statebar">
-        {stageLabels[lang].map((stage, i) => <div key={stage} className={completed.has(["OBSERVE","CONTEXT","EVIDENCE","DIAGNOSE","DECIDE","MISSION","APPROVAL","EXECUTE","MEASURE","LEARN"][i]) ? "done" : ""}><span>{completed.has(["OBSERVE","CONTEXT","EVIDENCE","DIAGNOSE","DECIDE","MISSION","APPROVAL","EXECUTE","MEASURE","LEARN"][i]) ? <CheckCircle2 size={13}/> : <Circle size={13}/>}</span><b>{stage}</b>{i < stages.length - 1 && <i/>}</div>)}
+        {stageLabels[lang].map((stage, i) => <div key={stage} className={completed.has(["OBSERVE","CONTEXT","EVIDENCE","DIAGNOSE","DECIDE","MISSION","APPROVAL","EXECUTE","MEASURE","LEARN"][i]) ? "done" : ""}><span>{completed.has(["OBSERVE","CONTEXT","EVIDENCE","DIAGNOSE","DECIDE","MISSION","APPROVAL","EXECUTE","MEASURE","LEARN"][i]) ? <CheckCircle2 size={13}/> : <Circle size={13}/>}</span><b>{stage}</b>{i < stageIds.length - 1 && <i/>}</div>)}
       </div>
 
       {result && <div className="ultra-results">
