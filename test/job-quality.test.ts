@@ -29,7 +29,7 @@ test("job quality rejects a Pracuj search/listing page", () => {
 test("job quality rejects an out-of-scope detail offer", () => {
   const result = validateJobOpportunity({
     source: "linkedin",
-    url: "https://pl.linkedin.com/jobs/view/export-manager-at-example-4359520735",
+    url: "https://pl.linkedin.com/jobs/view/4359520735",
     title: "Export Manager",
     company: "Example",
     location: "Warszawa",
