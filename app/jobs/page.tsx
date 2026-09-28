@@ -23,7 +23,7 @@ export default function JobsPage() {
   const [running, setRunning] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [decision, setDecision] = useState<Decision | null>(null);
-  const [autoApply, setAutoApply] = useState(true);
+  const [autoApply] = useState(false);
   const [status, setStatus] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [latestSync, setLatestSync] = useState<{ finished_at?: string; discovered?: number; inserted?: number; status?: string } | null>(null);
@@ -43,7 +43,7 @@ export default function JobsPage() {
       const r = await fetch("/api/jobs", { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Job feed unavailable");
-      setJobs(data.jobs || []);
+      setJobs(data.jobs || []);\n      setLatestSync(data.latestSync || null);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Job feed unavailable");
     } finally {
@@ -138,8 +138,8 @@ export default function JobsPage() {
               {criteria.map(x => <div key={x}><Check size={14}/><span>{x}</span></div>)}
             </div>
             <div className="mode-row">
-              <div><div className="card-label">APPLICATION MODE</div><b>{autoApply ? "AUTO WHERE PERMITTED" : "REVIEW BEFORE SUBMIT"}</b></div>
-              <button className={"toggle " + (autoApply ? "on" : "")} onClick={() => setAutoApply(v => !v)} aria-pressed={autoApply}><span/></button>
+              <div><div className="card-label">APPLICATION MODE</div><b>"REVIEW BEFORE SUBMIT"</b></div>
+              <button className={"toggle " + (autoApply ? "on" : "")} disabled aria-pressed={false}><span/></button>
             </div>
             <div className="jobs-actions">
               <button className="primary jobs-run" onClick={runCoreEngine} disabled={running}>
@@ -167,7 +167,7 @@ export default function JobsPage() {
             </> : <>
               <div className="decision-orb"><BrainCircuit size={34}/></div>
               <h2>Waiting for evidence</h2>
-              <p>Run the engine. It will turn your constraints into an explicit search policy before applications start.</p>
+              <p>Run the engine. It will turn your constraints into an explicit search policy. Live discovery remains provider-aware and every submission stays behind human review.</p>
             </>}
           </section>
         </div>
@@ -187,9 +187,9 @@ export default function JobsPage() {
             <div className="job-meta"><b>{job.salary || "Salary not disclosed"}</b><span>{job.status || "NEW"}</span></div>
             <button className="apply" onClick={() => apply(job)}>OPEN & REVIEW <ArrowRight size={14}/></button>
           </article>)}
-          {!loadingJobs && jobs.length === 0 && <div className="empty-state">No synchronized opportunities yet. Add SERPER_API_KEY on the server and run a sync.</div>}
+          {!loadingJobs && jobs.length === 0 && <div className="empty-state">No synchronized opportunities yet. Check the LIVE runtime status, then run a sync. If the search provider is not configured, the status will identify the missing server configuration.</div>}
         </div>
-        <div className="guard"><ShieldCheck size={16}/><span>Execution follows the Core Engine approval and capability policy. Providers that prohibit third-party automation stay in review mode.</span></div>
+        <div className="guard"><ShieldCheck size={16}/><span>LIVE WEB discovery is provider-aware. Applications are REVIEW BEFORE SUBMIT; no provider submission is performed automatically.</span></div>\n        {latestSync && <div className="guard"><CircleDot size={16}/><span>Last sync: {latestSync.status || "UNKNOWN"} · {latestSync.discovered ?? 0} discovered · {latestSync.inserted ?? 0} stored</span></div>}
       </section>
 
       <footer><span>CORE ENGINE · JOB AGENT</span><span>Observe → Understand → Prioritize → Decide → Approve → Execute → Measure → Learn</span></footer>
