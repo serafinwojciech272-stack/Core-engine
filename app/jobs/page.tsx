@@ -43,7 +43,8 @@ export default function JobsPage() {
       const r = await fetch("/api/jobs", { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Job feed unavailable");
-      setJobs(data.jobs || []);\n      setLatestSync(data.latestSync || null);
+      setJobs(data.jobs || []);
+      setLatestSync(data.latestSync || null);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Job feed unavailable");
     } finally {
@@ -189,7 +190,8 @@ export default function JobsPage() {
           </article>)}
           {!loadingJobs && jobs.length === 0 && <div className="empty-state">No synchronized opportunities yet. Check the LIVE runtime status, then run a sync. If the search provider is not configured, the status will identify the missing server configuration.</div>}
         </div>
-        <div className="guard"><ShieldCheck size={16}/><span>LIVE WEB discovery is provider-aware. Applications are REVIEW BEFORE SUBMIT; no provider submission is performed automatically.</span></div>\n        {latestSync && <div className="guard"><CircleDot size={16}/><span>Last sync: {latestSync.status || "UNKNOWN"} · {latestSync.discovered ?? 0} discovered · {latestSync.inserted ?? 0} stored</span></div>}
+        <div className="guard"><ShieldCheck size={16}/><span>LIVE WEB discovery is provider-aware. Applications are REVIEW BEFORE SUBMIT; no provider submission is performed automatically.</span></div>
+        {latestSync && <div className="guard"><CircleDot size={16}/><span>Last sync: {latestSync.status || "UNKNOWN"} · {latestSync.discovered ?? 0} discovered · {latestSync.inserted ?? 0} stored</span></div>}
       </section>
 
       <footer><span>CORE ENGINE · JOB AGENT</span><span>Observe → Understand → Prioritize → Decide → Approve → Execute → Measure → Learn</span></footer>
