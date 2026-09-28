@@ -47,3 +47,35 @@ export function classifyHypothesisOutcome(input:{predicted:boolean;observed:bool
   if(input.predicted===input.observed && input.confidence>=0.7)return input.observed?"SUPPORTED":"REFUTED";
   return "TESTING";
 }
+
+type DbConfig={url:string;key:string};
+function cfg():DbConfig{const url=process.env.SUPABASE_URL;const key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");return{url,key};}
+function headers(key:string){return{apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json"};}
+
+export async function persistHypothesis(input:HypothesisInput){
+  const h=generateHypothesis(input);
+  const c=cfg();
+  const response=await fetch(c.url+"/rest/v1/ce_intelligence_hypotheses",{
+    method:"POST",cache:"no-store",headers:{...headers(c.key),Prefer:"return=representation"},
+    body:JSON.stringify({
+      tenant_id:input.tenantId,mission_id:input.missionId??null,domain:input.domain??null,
+      problem:input.problem,hypothesis:h.hypothesis,rationale:h.rationale,assumptions:h.assumptions,
+      predictions:h.predictions,experiment_plan:h.experimentPlan,
+      unknown_ids:(input.unknowns??[]).map(x=>x.id).filter((x):x is string=>typeof x==="string"),
+      evidence_refs:input.evidence??[],prior_probability:h.priorProbability,confidence:h.confidence,status:"PROPOSED"
+    })
+  });
+  if(!response.ok)throw new Error("HYPOTHESIS_DB_"+response.status);
+  return (await response.json() as unknown[])[0]??null;
+}
+
+export async function recordHypothesisOutcome(input:{tenantId:string;hypothesisId:string;predicted:boolean;observed:boolean;confidence:number;outcome:Record<string,unknown>}){
+  const status=classifyHypothesisOutcome(input);
+  const c=cfg();
+  const response=await fetch(c.url+"/rest/v1/ce_intelligence_hypotheses?id=eq."+encodeURIComponent(input.hypothesisId)+"&tenant_id=eq."+encodeURIComponent(input.tenantId),{
+    method:"PATCH",cache:"no-store",headers:{...headers(c.key),Prefer:"return=representation"},
+    body:JSON.stringify({status,outcome:input.outcome,updated_at:new Date().toISOString()})
+  });
+  if(!response.ok)throw new Error("HYPOTHESIS_OUTCOME_DB_"+response.status);
+  return {status,hypothesis:(await response.json() as unknown[])[0]??null};
+}
