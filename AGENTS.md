@@ -5,6 +5,10 @@
 - Supabase is the durable production path. In-memory mode is demo/development only and must be labelled non-durable.
 - Trading risk decisions remain deterministic and fail closed.
 - Never expose service-role secrets to client bundles.
+- Cognition LLM configuration is server-only: CORE_ENGINE_LLM_BASE_URL, CORE_ENGINE_LLM_API_KEY, CORE_ENGINE_LLM_MODEL.
+- Every configured LLM call requires durable tenant-scoped audit persistence in ce_cognition_audit_events.
+- LLM synthesis may change only natural-language diagnosis/recommendation; it must not alter confidence, probabilities, expectedR, riskGate or deterministic decision fields.
+- Learning output is a draft and requires human approval before durable promotion.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
