@@ -9,7 +9,7 @@ import { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recover
 import { consolidateLearning } from "@/lib/learning-consolidation";
 import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
 import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-engine";
-import { designExperiment, evaluateExperiment } from "@/lib/experiment-engine";
+import { designExperiment, evaluateExperiment, persistExperiment, recordExperimentResult } from "@/lib/experiment-engine";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       if (typeof body.problem !== "string" || typeof body.hypothesis !== "string" || typeof body.baselineMetric !== "string" || typeof body.targetMetric !== "string" || typeof body.intervention !== "string") {
         return NextResponse.json({ ok: false, error: "EXPERIMENT_INPUT_REQUIRED" }, { status: 400 });
       }
-      return NextResponse.json({ ok: true, experiment: designExperiment({
+      const design = designExperiment({
         problem: body.problem, hypothesis: body.hypothesis, baselineMetric: body.baselineMetric,
         targetMetric: body.targetMetric, intervention: body.intervention,
       }) });
