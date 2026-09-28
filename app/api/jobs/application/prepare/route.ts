@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    if (!body?.url || !/^https?:\\/\\//i.test(body.url)) {
-      return NextResponse.json({ ok:false, error:"INVALID_JOB_URL" }, { status:400 });
+    if (!body?.url || !String(body.url).startsWith("http")) {
+      return NextResponse.json({ ok: false, error: "INVALID_JOB_URL" }, { status: 400 });
     }
     const application = prepareApplication({
       title: String(body.title || "Selected position"),
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
       matchScore: typeof body.matchScore === "number" ? body.matchScore : null,
       decision: body.decision ? String(body.decision) : null
     });
-    return NextResponse.json({ ok:true, application });
+    return NextResponse.json({ ok: true, application });
   } catch (error) {
-    return NextResponse.json({ ok:false, error:String(error) }, { status:500 });
+    return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }
