@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { discoverJobs, scoreJobs } from "@/lib/job-discovery";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 function authorized(request:Request){
- const cron=request.headers.get("authorization"),secret=process.env.CRON_SECRET;
+ const cron=request.headers.get("authorization"),secret=process.env.CRON_SECRET,syncToken=process.env.JOB_SYNC_CRON_TOKEN;
+ if(syncToken&&cron==="Bearer "+syncToken)return true;
  if(secret&&cron==="Bearer "+secret)return true;
  if(process.env.NODE_ENV!=="production")return true;
  const origin=request.headers.get("origin");
