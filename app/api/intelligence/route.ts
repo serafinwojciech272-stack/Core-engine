@@ -12,6 +12,7 @@ import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-eng
 import { designExperiment, evaluateExperiment, persistExperiment, recordExperimentResult } from "@/lib/experiment-engine";
 import { assessDecision, decisionGate } from "@/lib/decision-intelligence";
 import { compareCounterfactual, counterfactualGate } from "@/lib/counterfactual-reasoning";
+import { evaluateTrajectory, improvementSignals } from "@/lib/self-evaluation";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -222,6 +223,16 @@ export async function POST(request: Request) {
       });
       const gate = counterfactualGate({ confidence: comparison.confidence, materialEffect: comparison.sensitivity === "MATERIAL_EFFECT", assumptionCount: comparison.assumptions.length });
       return NextResponse.json({ ok: true, counterfactual: comparison, gate });
+    }
+
+    if (operation === "self_evaluate") {
+      const bool=(key:string)=>body[key]===true;
+      const evaluation=evaluateTrajectory({
+        goalAchieved:bool("goalAchieved"),evidenceVerified:bool("evidenceVerified"),
+        decisionCalibrated:bool("decisionCalibrated"),executionVerified:bool("executionVerified"),
+        learningExtracted:bool("learningExtracted"),failureRecovered:bool("failureRecovered")
+      });
+      return NextResponse.json({ ok: true, evaluation, improvementSignals: improvementSignals(evaluation) });
     }
 
     if (operation === "entity") {
