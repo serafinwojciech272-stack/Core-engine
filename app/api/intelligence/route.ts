@@ -11,6 +11,7 @@ import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
 import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-engine";
 import { designExperiment, evaluateExperiment, persistExperiment, recordExperimentResult } from "@/lib/experiment-engine";
 import { assessDecision, decisionGate } from "@/lib/decision-intelligence";
+import { compareCounterfactual, counterfactualGate } from "@/lib/counterfactual-reasoning";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -207,6 +208,20 @@ export async function POST(request: Request) {
         approvalRequired: body.approvalRequired === true,
         criticalRisk: body.criticalRisk === true,
       }) });
+    }
+
+    if (operation === "counterfactual") {
+      if (typeof body.baselineOutcome !== "number" || typeof body.observedOutcome !== "number" || typeof body.alternativeOutcome !== "number") {
+        return NextResponse.json({ ok: false, error: "COUNTERFACTUAL_INPUT_REQUIRED" }, { status: 400 });
+      }
+      const comparison = compareCounterfactual({
+        baselineOutcome: body.baselineOutcome, observedOutcome: body.observedOutcome,
+        alternativeOutcome: body.alternativeOutcome,
+        confidence: typeof body.confidence === "number" ? body.confidence : 0,
+        assumptions: Array.isArray(body.assumptions) ? body.assumptions.filter((x): x is string => typeof x === "string") : [],
+      });
+      const gate = counterfactualGate({ confidence: comparison.confidence, materialEffect: comparison.sensitivity === "MATERIAL_EFFECT", assumptionCount: comparison.assumptions.length });
+      return NextResponse.json({ ok: true, counterfactual: comparison, gate });
     }
 
     if (operation === "entity") {
