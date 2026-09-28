@@ -221,9 +221,9 @@ export default function UltraCommandCenter() {
           <div><small>{tx("riskGate")}</small><strong>{result.decision?.riskGate || "PRZEJŚCIE"}</strong><span>{tx("policyScore")}</span></div>
           <div><small>{tx("audit")}</small><strong>{result.audit?.chainLength ?? 0}</strong><span>{result.audit?.integrity || "oczekuje"}</span></div>
         </div>
-        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">{tx("decisionCenter")}</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>PRIORYTET</small><b>{result.decision?.priority || "brak danych"}</b><small>{tx("reasoning")}</small><b>{result.decision?.reasoningSource || "Rdzeń"}</b></div></div>
+        <div className="ultra-decision"><div className="ultra-decision-main"><span className="ultra-label">{tx("decisionCenter")}</span><h3>{result.decision?.recommendation || "Wygenerowana decyzja"}</h3><p>{result.decision?.diagnosis || "Rdzeń przetworzył dostarczone sygnały."}</p></div><div className="ultra-decision-side"><small>{lang === "pl" ? "PRIORYTET" : lang === "de" ? "PRIORITÄT" : lang === "zh" ? "优先级" : "PRIORITY"}</small><b>{result.decision?.priority || "brak danych"}</b><small>{tx("reasoning")}</small><b>{result.decision?.reasoningSource || "Rdzeń"}</b></div></div>
         <div className="ultra-evidence"><div className="ultra-label">{tx("evidenceGraph")}</div>{(result.decision?.evidence || result.evidence || []).slice(0, 8).map((e: any, i: number) => <div key={typeof e === "string" ? e : e.id || i}><span>{String(i + 1).padStart(2,"0")}</span><b>{typeof e === "string" ? e : e.claim || e.id || "węzeł dowodowy"}</b><small>{typeof e === "string" ? "zweryfikowany węzeł" : e.source ? ({analytics:"analityka",funnel:"lejek",CRM:"CRM",sales:"sprzedaż",operations:"operacje",workforce:"zasoby zespołu",ERP:"ERP"} as Record<string,string>)[e.source] || e.source : "brak źródła"}</small></div>)}</div>
-        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">{tx("missionControl")}</span><h3>{result.mission.objective}</h3><p>Aktualny stan: <b>{state}</b> · kontrolowane przejście · weryfikacja wyniku demo aktywna</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> {tx("learningReady")}</span>}</div></div>}
+        {result.mission && <div className="ultra-mission"><div><span className="ultra-label">{tx("missionControl")}</span><h3>{result.mission.objective}</h3><p>{tx("currentState")} <b>{state}</b> · {tx("controlled")}</p></div><div className="ultra-mission-actions">{next ? <button onClick={() => mission(next)} disabled={missionBusy}>{missionBusy ? <Sparkles className="ultra-spin" size={14}/> : <ArrowRight size={14}/>} {missionBusy ? "PRZETWARZANIE" : next.toUpperCase()}</button> : <span><CheckCircle2 size={15}/> {tx("learningReady")}</span>}</div></div>}
         {result.audit && <div className="ultra-audit"><div><span className="ultra-label">{tx("audit")}</span><h3>{result.audit.algorithm || "Proweniencja kryptograficzna"}</h3></div><code>HEAD · {result.audit.head || "brak danych"}</code><b>{result.audit.integrity}</b></div>}
       </div>}
       {error && <div className="ultra-error">BŁĄD RDZENIA · {error}</div>}
@@ -235,7 +235,7 @@ export default function UltraCommandCenter() {
         <div className="ultra-commercial-card">
           <span className="ultra-label">KOMERCYJNE ŚRODOWISKO · {commercial?.contract || "commercial-agent-v1"}</span>
           <h3>{tx("multiTenant")}</h3>
-          <p>Tożsamość, izolacja tenantów/workspace'ów, pomiar użycia i limity planów są jawnie zdefiniowanymi kontraktami produktu. Trwała persystencja produkcyjna pozostaje oparta o Supabase.</p>
+          <p>{tx("multiTenantDesc")}</p>
           <div className="ultra-commercial-status"><b>{commercial?.product?.identity === "SUPABASE_AUTH" ? "UWIERZYTELNIANIE SUPABASE" : (commercial?.product?.identity || "brak danych")}</b><b>{commercial?.product?.tenancy === "TENANT_WORKSPACE" ? "PRZESTRZEŃ TENANTA" : (commercial?.product?.tenancy || "brak danych")}</b><b>{commercial?.product?.metering === "DATABASE_ENFORCED" ? "POMIAR Z BAZY DANYCH" : (commercial?.product?.metering || "brak danych")}</b><b>{commercial?.product?.billing === "INTERNAL_PLAN_V1" ? "PLAN WEWNĘTRZNY V1" : (commercial?.product?.billing || "brak danych")}</b></div>
         </div>
         <div className="ultra-commercial-card">
@@ -248,15 +248,7 @@ export default function UltraCommandCenter() {
 
     <div className="ultra-map" id="ultra-map">
       <div className="ultra-section-title"><span>{tx("intelligence")}</span><h2>{tx("oneCore")}<br/><i>{tx("seven")}</i></h2></div>
-      <div className="ultra-layer-stack">{[
-        ["01","SILNIK KONTEKSTU","Normalizuje sygnały, domenę i kontekst operacyjny",Database],
-        ["02","{tx("evidenceGraph")}","Łączy twierdzenia, źródła i proweniencję",Radar],
-        ["03","MACIERZ DECYZJI","Ocenia priorytet, pewność i rekomendację",Gauge],
-        ["04","{tx("riskGate")}","Stosuje politykę przed działaniem o konsekwencjach",ShieldCheck],
-        ["05","SILNIK MISJI","Zamienia decyzje w pracę ze stanem",Target],
-        ["06","WARSTWA KOMPETENCJI","Mapuje zatwierdzone misje na kontrolowane działania",Zap],
-        ["07","WYNIK + UCZENIE","Mierzy wyniki i zasila kolejną decyzję",BrainCircuit],
-      ].map(([n,t,d,Icon]) => <article key={n as string}><span>{n as string}</span><Icon size={18}/><div><b>{t as string}</b><p>{d as string}</p></div><ArrowRight size={14}/></article>)}</div>
+      <div className="ultra-layer-stack">{[["01","contextEngine","contextDesc",Database],["02","evidenceGraph","evidenceDesc",Radar],["03","decisionEngine","decisionDesc",Gauge],["04","riskGate","riskDesc",ShieldCheck],["05","missionEngine","missionDesc",Target],["06","capability","capabilityDesc",Zap],["07","outcome","outcomeDesc",BrainCircuit]].map(([n,k,d,Icon]) => <article key={n as string}><span>{n as string}</span><Icon size={18}/><div><b>{tx(k as keyof typeof copy.pl)}</b><p>{tx(d as keyof typeof copy.pl)}</p></div><ArrowRight size={14}/></article>)}</div>
     </div>
 
     <div className="ultra-portfolio" id="portfolio">
@@ -268,6 +260,6 @@ export default function UltraCommandCenter() {
       </div>
     </div>
 
-    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / {t("roadmap")} PLATFORMY</span><h2>{tx("roadmapTitle")}<br/><i>{tx("roadmapTitle2")}</i></h2></div><div className="ultra-roadmap-grid">{[["01","RDZEŃ","Kontrakt agenta, dowody, decyzje i cykl życia misji"],["02","PRODUKTY","Bet Builder, Growth Advisor i Extra Szpieg jako powierzchnie dowodowe"],["03","DANE","Konektory, proweniencja i trwały kontekst biznesowy"],["04","AUTONOMIA","Zarządzane wykonywanie kompetencji za politykami akceptacji"],["05","UCZENIE","Informacja zwrotna o wynikach i ponownie użyteczna inteligencja"],["06","PLATFORMA","Wielodostępność, uwierzytelnianie, pomiar użycia i kontrola enterprise"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> RDZEŃ SILNIK AI</div><span>{tx("oneCoreMany")}</span><a href="#top">{tx("backTop")}</a></footer>
+    <div className="ultra-roadmap" id="roadmap"><div className="ultra-section-title"><span>05 / {t("roadmap")} PLATFORMY</span><h2>{tx("roadmapTitle")}<br/><i>{tx("roadmapTitle2")}</i></h2></div><div className="ultra-roadmap-grid">{[["01","RDZEŃ","Kontrakt agenta, dowody, decyzje i cykl życia misji"],["02","PRODUKTY","Bet Builder, Growth Advisor i Extra Szpieg jako powierzchnie dowodowe"],["03","DANE","Konektory, proweniencja i trwały kontekst biznesowy"],["04","AUTONOMIA","Zarządzane wykonywanie kompetencji za politykami akceptacji"],["05","UCZENIE","Informacja zwrotna o wynikach i ponownie użyteczna inteligencja"],["06","PLATFORMA","Wielodostępność, uwierzytelnianie, pomiar użycia i kontrola enterprise"]].map(([n,t,d]) => <article key={n}><span>{n}</span><b>{t}</b><p>{d}</p><i/></article>)}</div></div><footer className="ultra-footer"><div><BrainCircuit size={17}/> {lang === "pl" ? "RDZEŃ SILNIK AI" : lang === "de" ? "CORE ENGINE AI" : lang === "zh" ? "核心引擎 AI" : "CORE ENGINE AI"}</div><span>{tx("oneCoreMany")}</span><a href="#top">{tx("backTop")}</a></footer>
   </section>;
 }
