@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowRight, BrainCircuit, Check, CircleDot, Loader2, RefreshCw, Search, ShieldCheck, Zap } from "lucide-react";
 
 type Job = {
@@ -20,6 +21,8 @@ type Job = {
 type Decision = { recommendation: string; diagnosis: string; confidence: number; priority: string };
 
 export default function JobsPage() {
+  const pathname = usePathname();
+  const standalone = pathname === "/job-agent";
   const [running, setRunning] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -120,7 +123,7 @@ export default function JobsPage() {
   }
 
   return (
-    <main className="jobs-page">
+    <main className={`jobs-page ${standalone ? "job-agent-standalone" : ""}`}>
       <nav>
         <div className="brand"><span className="mark"><BrainCircuit size={19}/></span><span>CORE ENGINE / JOB AGENT</span></div>
         <Link className="navbtn" href="/">Core Engine <ArrowRight size={15}/></Link>
@@ -173,6 +176,8 @@ export default function JobsPage() {
           </section>
         </div>
       </section>
+
+      <section className="provider-strip"><div><div className="card-label">DISCOVERY SOURCES</div><h2>Live web coverage</h2><p>Google/Serper is the discovery layer; provider domains below are searched and classified from live results.</p></div><div className="provider-list">{["Pracuj.pl","Indeed","OLX","LinkedIn Jobs","No Fluff Jobs","Just Join IT","RocketJobs","Pracapolis","Adzuna","Jooble"].map(source => <span key={source}>{source}</span>)}</div><div className="refresh-badge"><RefreshCw size={14}/> AUTOMATIC REFRESH · EVERY 60 MIN</div></section>
 
       <section className="jobs-results">
         <div className="results-head">
