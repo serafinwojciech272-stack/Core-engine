@@ -1,35 +1,8 @@
-import type { Decision } from "@/lib/engine";
-import { createLlmClient, type LlmClient } from "@/lib/cognition/llm-client";
-import { renderCognitionPrompt } from "@/lib/cognition/prompt-registry";
-
-export type UnderstandResult = { summary: string; signals: unknown[]; requirements: unknown[]; deadlines: unknown[]; criteria: unknown[]; unknowns: unknown[]; confidence_notes: string[] };
-export type DecisionSynthesis = { diagnosis: string; recommendation: string };
-export type LearningDraft = { lesson: string; evidence: unknown[]; conditions: unknown[]; limitations: unknown[]; follow_up_test: string; requiresHumanApproval: true };
-
-function parseObject(content: string): Record<string, unknown> {
-  try { const parsed = JSON.parse(content) as unknown; if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(); return parsed as Record<string, unknown>; }
-  catch { throw new Error("LLM_STRUCTURED_OUTPUT_INVALID"); }
-}
-function stringValue(value: unknown) { return typeof value === "string" ? value : ""; }
-function arrayValue(value: unknown) { return Array.isArray(value) ? value : []; }
-
-export async function understand(input: { tenantId: string; missionId?: string; text: string; client?: LlmClient }) {
-  const prompt = renderCognitionPrompt("UNDERSTAND", { input: input.text.slice(0, 50_000) });
-  const result = await (input.client ?? createLlmClient()).complete({ messages: prompt.messages, temperature: 0, audit: { tenantId: input.tenantId, missionId: input.missionId, operation: "understand", promptName: prompt.name, promptVersion: prompt.version, promptHash: prompt.hash } });
-  const parsed = parseObject(result.content);
-  return { summary: stringValue(parsed.summary), signals: arrayValue(parsed.signals), requirements: arrayValue(parsed.requirements), deadlines: arrayValue(parsed.deadlines), criteria: arrayValue(parsed.criteria), unknowns: arrayValue(parsed.unknowns), confidence_notes: arrayValue(parsed.confidence_notes).filter((x): x is string => typeof x === "string") } satisfies UnderstandResult;
-}
-
-export async function decide(input: { tenantId: string; missionId?: string; context: unknown; deterministicDecision: Decision; client?: LlmClient }) {
-  const prompt = renderCognitionPrompt("DECIDE", { decision: JSON.stringify(input.deterministicDecision), context: JSON.stringify(input.context) });
-  const result = await (input.client ?? createLlmClient()).complete({ messages: prompt.messages, temperature: 0, audit: { tenantId: input.tenantId, missionId: input.missionId, operation: "decide", promptName: prompt.name, promptVersion: prompt.version, promptHash: prompt.hash } });
-  const parsed = parseObject(result.content);
-  return { ...input.deterministicDecision, diagnosis: stringValue(parsed.diagnosis), recommendation: stringValue(parsed.recommendation), reasoningSource: "LLM" as const };
-}
-
-export async function learn(input: { tenantId: string; missionId?: string; outcome: unknown; client?: LlmClient }) {
-  const prompt = renderCognitionPrompt("LEARN", { outcome: JSON.stringify(input.outcome) });
-  const result = await (input.client ?? createLlmClient()).complete({ messages: prompt.messages, temperature: 0, audit: { tenantId: input.tenantId, missionId: input.missionId, operation: "learn", promptName: prompt.name, promptVersion: prompt.version, promptHash: prompt.hash } });
-  const parsed = parseObject(result.content);
-  return { lesson: stringValue(parsed.lesson), evidence: arrayValue(parsed.evidence), conditions: arrayValue(parsed.conditions), limitations: arrayValue(parsed.limitations), follow_up_test: stringValue(parsed.follow_up_test), requiresHumanApproval: true as const } satisfies LearningDraft;
-}
+import type {Decision} from "@/lib/engine";
+import {createLlmClient,type LlmClientError} from "@/lib/cognition/llm-client";
+import {renderCognitionPrompt} from "@/lib/cognition/prompt-registry";
+type Base={tenantId:string;missionId?:string;client?:ReturnType<typeof createLlmClient>};
+const obj=(text:string)=>{try{const v=JSON.parse(text);if(!v||typeof v!=="object"||Array.isArray(v))throw 0;return v as Record<string,unknown>}catch{throw new Error("COGNITION_INVALID_JSON")}};
+export async function understand(i:Base&{text:string}){const r=renderCognitionPrompt("UNDERSTAND",{input:i.text});try{const x=await (i.client??createLlmClient()).complete({messages:r.messages,temperature:0,audit:{tenantId:i.tenantId,missionId:i.missionId,operation:"understand",promptName:r.prompt.name,promptVersion:r.prompt.version,promptHash:r.prompt.hash}});const o=obj(x.content);return{source:"LLM" as const,summary:String(o.summary??""),signals:Array.isArray(o.signals)?o.signals:[],requirements:Array.isArray(o.requirements)?o.requirements:[],deadlines:Array.isArray(o.deadlines)?o.deadlines:[],criteria:Array.isArray(o.criteria)?o.criteria:[],unknowns:Array.isArray(o.unknowns)?o.unknowns:[],confidence_notes:Array.isArray(o.confidence_notes)?o.confidence_notes:[]}}catch(e){if(e instanceof Error&&"kind" in e&&(e as LlmClientError).kind==="NOT_CONFIGURED")return{source:"DETERMINISTIC_RULES" as const,summary:i.text,signals:[],requirements:[],deadlines:[],criteria:[],unknowns:["LLM_NOT_CONFIGURED"],confidence_notes:["No LLM configuration; deterministic fallback used."]};throw e}}
+export async function decide(i:Base&{context:string;deterministicDecision:Decision}){const r=renderCognitionPrompt("DECIDE",{context:i.context,decision:JSON.stringify(i.deterministicDecision)});try{const x=await(i.client??createLlmClient()).complete({messages:r.messages,temperature:0,audit:{tenantId:i.tenantId,missionId:i.missionId,operation:"decide",promptName:r.prompt.name,promptVersion:r.prompt.version,promptHash:r.prompt.hash}});const o=obj(x.content);return{...i.deterministicDecision,diagnosis:String(o.diagnosis??i.deterministicDecision.diagnosis),recommendation:String(o.recommendation??i.deterministicDecision.recommendation),reasoningSource:"LLM" as const}}catch(e){if(e instanceof Error&&"kind" in e&&(e as LlmClientError).kind==="NOT_CONFIGURED")return{...i.deterministicDecision,reasoningSource:"DETERMINISTIC_RULES" as const};throw e}}
+export async function learn(i:Base&{outcome:unknown}){const r=renderCognitionPrompt("LEARN",{outcome:JSON.stringify(i.outcome)});try{const x=await(i.client??createLlmClient()).complete({messages:r.messages,temperature:0,audit:{tenantId:i.tenantId,missionId:i.missionId,operation:"learn",promptName:r.prompt.name,promptVersion:r.prompt.version,promptHash:r.prompt.hash}});const o=obj(x.content);return{source:"LLM" as const,lesson:String(o.lesson??""),evidence:Array.isArray(o.evidence)?o.evidence:[],conditions:Array.isArray(o.conditions)?o.conditions:[],limitations:Array.isArray(o.limitations)?o.limitations:[],follow_up_test:String(o.follow_up_test??""),requiresHumanApproval:true}}catch(e){if(e instanceof Error&&"kind" in e&&(e as LlmClientError).kind==="NOT_CONFIGURED")return{source:"DETERMINISTIC_RULES" as const,lesson:"No LLM lesson drafted.",evidence:[],conditions:[],limitations:["LLM_NOT_CONFIGURED"],follow_up_test:"Configure LLM and rerun learning synthesis.",requiresHumanApproval:true};throw e}}
