@@ -12,44 +12,50 @@ const queries = [
   "Customer Experience Manager",
   "Customer Service Manager",
   "Sales Manager",
-  "Account Manager Key Account Manager",
+  "Account Manager",
+  "Key Account Manager",
   "Export Manager Commercial Manager",
   "German speaking manager customer service",
-  "Process Manager Team Leader Supervisor"
+  "Process Manager Team Leader Supervisor",
+  "Customer Service Specialist German English",
+  "Order Management German English"
 ];
 
-const local = "(Gliwice OR Zabrze OR Bytom OR \"Ruda Śląska\" OR \"Tarnowskie Góry\" OR Knurów)";
+const local = "(Gliwice OR Zabrze OR Bytom OR \"Ruda Śląska\" OR \"Tarnowskie Góry\" OR Knurów OR Pyskowice OR Chorzów)";
 const sources = [
   ["pracuj.pl","pracuj.pl"],["indeed","indeed.com"],["olx","olx.pl"],["linkedin","linkedin.com/jobs"],
   ["nofluffjobs","nofluffjobs.com"],["justjoin.it","justjoin.it"],["rocketjobs","rocketjobs.pl"],
-  ["pracapolis","pracapolis.pl"],["adzuna","adzuna.pl"],["jooble","jooble.org"]
+  ["pracapolis","pracapolis.pl"],["adzuna","adzuna.pl"],["jooble","jooble.org"],["jobs.pl","jobs.pl"]
 ] as const;
 
 const listingTitlePatterns = [
-  /\b\d+\s+(ofert|oferty|jobs|job)\b/i,
+  /\b\d+\s+(ofert|oferty|jobs|job|results?)\b/i,
   /\bjobs?\s+in\b/i,
   /\bjob(?:s)?\s+(?:near|around|for)\b/i,
   /\bjob\s+search\b/i,
   /\bsearch\s+results?\b/i,
   /\boferty\s+pracy\s+na\s+stanowisku\b/i,
   /\bpraca\s+.+\s+-\s+\d+\s+ofert/i,
-  /\bcustomer service\s+english-speaking jobs\b/i
+  /\bcustomer service\s+english-speaking jobs\b/i,
+  /\boferty pracy\b/i
 ];
 
 const listingPathPatterns = [
-  /\/jobs?\/?$/i,
-  /\/jobs?\/(?:search|list|results|collections?)\b/i,
+  /\/(?:jobs?|job-search|search|results?|collections?|wyszukiwarka|szukaj)\/?$/i,
+  /\/(?:jobs?|job-search)\/(?:search|list|results|collections?)\b/i,
   /\/praca\/(?:szukaj|search|wyniki|oferty)\b/i,
   /\/search(?:\?|\/)/i,
-  /[?&](?:q|query|keywords|search)=/i
+  /[?&](?:q|query|keywords|search|page|pn)=/i
 ];
+
+const localTerms = ["gliwice","zabrze","bytom","ruda śląska","tarnowskie góry","knurów","pyskowice","chorzów"];
 
 function text(x:unknown){ return typeof x==="string" ? x.trim() : ""; }
 function find(value:string, terms:string[]){ const low=value.toLowerCase(); return terms.find(x=>low.includes(x.toLowerCase())) || null; }
 
 function sourceFor(url:string){
   const low=url.toLowerCase();
-  return sources.find(x=>low.includes(x[1]))?.[0] || "web";
+  return sources.find(x=>low.includes(x[1]))?.[0] || null;
 }
 
 function looksLikeJobDetail(url:string,title:string,source:string){
@@ -59,17 +65,27 @@ function looksLikeJobDetail(url:string,title:string,source:string){
 
   if(source==="linkedin" && !/\/jobs\/view\//i.test(lowUrl)) return false;
   if(source==="indeed" && !/(?:\/viewjob\?|\/rc\/clk\?)/i.test(lowUrl)) return false;
-  if(source==="jooble" && !/(?:\/desc\/|\/job\b)/i.test(lowUrl)) return false;
+  if(source==="jooble" && !/(?:\/desc\/|\/job(?:\/|\b))/i.test(lowUrl)) return false;
+  if(source==="jobs.pl" && !/\/oferta-/i.test(lowUrl)) return false;
 
   return true;
 }
 
+function hasLocalOrRemote(hay:string){
+  const low=hay.toLowerCase();
+  return localTerms.some(term=>low.includes(term)) ||
+    /(?:cała polska|poland|remote|zdalna|hybrydowa)/i.test(hay);
+}
+
 function normalize(r:Record<string,unknown>, source:string):JobOpportunity|null{
   const url=text(r.link), title=text(r.title), snippet=text(r.snippet);
-  if(!url || !title || !looksLikeJobDetail(url,title,source)) return null;
+  if(!url || !title || !source || !looksLikeJobDetail(url,title,source)) return null;
 
   const hay=title+" "+snippet;
-  const location=find(hay,["Gliwice","Zabrze","Bytom","Ruda Śląska","Tarnowskie Góry","Knurów"]);
+  if(!hasLocalOrRemote(hay)) return null;
+
+  const location=find(hay,["Gliwice","Zabrze","Bytom","Ruda Śląska","Tarnowskie Góry","Knurów","Pyskowice","Chorzów"]) ||
+    (/cała polska|poland|remote|zdalna/i.test(hay) ? "Polska / zdalnie" : null);
   const salary=find(hay,["PLN","zł","brutto","gross","EUR","€"]);
   const parts=title.split(/\s[-–—|]\s/);
   const company=parts.length>1 ? parts[parts.length-1].trim() : null;
@@ -102,7 +118,7 @@ export async function discoverJobs(){
   const errors:string[]=[];
   const out:JobOpportunity[]=[];
   const settled=await Promise.allSettled(
-    queries.map(role=>search(`(${role}) ${local} jobs`))
+    queries.map(role=>search(`(${role}) ${local} (praca OR job OR zatrudnienie) -oferty -wyniki -search`))
   );
 
   settled.forEach((result,index)=>{
@@ -113,6 +129,7 @@ export async function discoverJobs(){
     for(const row of result.value){
       const link=text(row.link);
       const source=sourceFor(link);
+      if(!source) continue;
       const job=normalize(row,source);
       if(job) out.push(job);
     }
@@ -148,7 +165,7 @@ export async function scoreJobs(
   const roleTerms=[
     "business development","operations","customer experience","customer service","sales",
     "account manager","key account","export manager","commercial","process manager",
-    "team leader","supervisor"
+    "team leader","supervisor","customer service specialist","order management"
   ];
 
   const scored=jobs.map(j=>{
@@ -157,9 +174,12 @@ export async function scoreJobs(
     score+=Math.min(30,roleTerms.filter(x=>hay.includes(x)).length*7);
     if(/german|deutsch|niemiecki/.test(hay)) score+=15;
     if(/english|angielski/.test(hay)) score+=7;
+    if(/manager|lead|supervisor|kierownik|koordynator|senior/.test(hay)) score+=6;
     if(hay.includes("gliwice")) score+=10;
-    else if(/zabrze|bytom|ruda śląska|knurów|tarnowskie góry/.test(hay)) score+=7;
+    else if(/zabrze|bytom|ruda śląska|knurów|tarnowskie góry|pyskowice|chorzów/.test(hay)) score+=7;
+    if(/remote|zdalna|cała polska/.test(hay)) score+=4;
     if(/driving licence|driving license|prawo jazdy/.test(hay)) score-=10;
+    if(/własny samochód|samochód służbowy|mobile sales|praca mobilna/.test(hay)) score-=8;
 
     const deterministic=Math.max(0,Math.min(100,score));
     const features=extractJobFeatures({...j,match_score:deterministic});
