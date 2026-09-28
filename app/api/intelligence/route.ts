@@ -9,6 +9,7 @@ import { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recover
 import { consolidateLearning } from "@/lib/learning-consolidation";
 import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
 import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-engine";
+import { designExperiment, evaluateExperiment, persistExperiment, recordExperimentResult } from "@/lib/experiment-engine";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -159,6 +160,26 @@ export async function POST(request: Request) {
         outcome: body.outcome && typeof body.outcome === "object" && !Array.isArray(body.outcome) ? body.outcome as Record<string,unknown> : {},
       });
       return NextResponse.json({ ok: true, hypothesisOutcome: result });
+    }
+
+    if (operation === "experiment_design") {
+      if (typeof body.problem !== "string" || typeof body.hypothesis !== "string" || typeof body.baselineMetric !== "string" || typeof body.targetMetric !== "string" || typeof body.intervention !== "string") {
+        return NextResponse.json({ ok: false, error: "EXPERIMENT_INPUT_REQUIRED" }, { status: 400 });
+      }
+      const design = designExperiment({
+        problem: body.problem, hypothesis: body.hypothesis, baselineMetric: body.baselineMetric,
+        targetMetric: body.targetMetric, intervention: body.intervention,
+      }) });
+    }
+
+    if (operation === "experiment_evaluate") {
+      if (typeof body.baseline !== "number" || typeof body.observed !== "number" || (body.direction !== "higher" && body.direction !== "lower") || typeof body.minEffect !== "number") {
+        return NextResponse.json({ ok: false, error: "EXPERIMENT_EVALUATION_REQUIRED" }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true, experimentEvaluation: evaluateExperiment({
+        baseline: body.baseline, observed: body.observed, direction: body.direction,
+        minEffect: body.minEffect, confidence: typeof body.confidence === "number" ? body.confidence : 0,
+      }) });
     }
 
     if (operation === "entity") {
