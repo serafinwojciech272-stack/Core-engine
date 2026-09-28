@@ -118,3 +118,21 @@ The test asserts, over real HTTP against a running server:
 - Measurement, completion and learning follow the same mission to `LEARNED`.
 - A second `POST /api/engine` produces a distinct mission, closing the loop to the next decision.
 - The finished mission is observable through `GET /api/mission`.
+
+
+## Cognition / LLM
+
+The cognition layer is optional and server-side only. It uses an OpenAI-compatible HTTP API without adding an SDK dependency.
+
+Required server environment:
+- CORE_ENGINE_LLM_BASE_URL
+- CORE_ENGINE_LLM_API_KEY
+- CORE_ENGINE_LLM_MODEL
+
+If these variables are not configured, cognition fails closed with `NOT_CONFIGURED`; deterministic rules remain authoritative.
+
+Every configured LLM call requires tenant-scoped durable audit persistence in `ce_cognition_audit_events`, including prompt version/hash, model, response, latency and token usage. The audit writer uses the server-only Supabase secret key.
+
+LLM synthesis may change only natural-language diagnosis/recommendation. It never supplies confidence, probabilities, expectedR or riskGate. Learning output is a draft and requires human approval before durable learning.
+
+No LLM provider SDK is required.
