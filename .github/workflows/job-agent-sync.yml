@@ -1,0 +1,20 @@
+name: job-agent-sync
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run production job sync
+        env:
+          JOB_AGENT_URL: https://job-agent-live.onrender.com
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --retry 2 --max-time 120 \
+            -H "Origin: ${JOB_AGENT_URL}" \
+            -H "Accept: application/json" \
+            "${JOB_AGENT_URL}/api/jobs/sync"
