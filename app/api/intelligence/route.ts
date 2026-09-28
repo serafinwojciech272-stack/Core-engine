@@ -10,6 +10,7 @@ import { consolidateLearning } from "@/lib/learning-consolidation";
 import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
 import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-engine";
 import { designExperiment, evaluateExperiment, persistExperiment, recordExperimentResult } from "@/lib/experiment-engine";
+import { assessDecision, decisionGate } from "@/lib/decision-intelligence";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -179,6 +180,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, experimentEvaluation: evaluateExperiment({
         baseline: body.baseline, observed: body.observed, direction: body.direction,
         minEffect: body.minEffect, confidence: typeof body.confidence === "number" ? body.confidence : 0,
+      }) });
+    }
+
+    if (operation === "decision_assess") {
+      if (!Array.isArray(body.options)) return NextResponse.json({ ok: false, error: "DECISION_OPTIONS_REQUIRED" }, { status: 400 });
+      const options = body.options.filter((x): x is Record<string,unknown> => !!x && typeof x === "object").map(o => ({
+        id: typeof o.id === "string" ? o.id : crypto.randomUUID(),
+        action: typeof o.action === "string" ? o.action : "",
+        expectedBenefit: typeof o.expectedBenefit === "number" ? o.expectedBenefit : 0,
+        confidence: typeof o.confidence === "number" ? o.confidence : 0,
+        downside: typeof o.downside === "number" ? o.downside : 1,
+        reversibility: typeof o.reversibility === "number" ? o.reversibility : 0,
+        evidenceStrength: typeof o.evidenceStrength === "number" ? o.evidenceStrength : 0,
+        effort: typeof o.effort === "number" ? o.effort : 1,
+      }));
+      const assessments = assessDecision(options);
+      return NextResponse.json({ ok: true, assessments });
+    }
+
+    if (operation === "decision_gate") {
+      if (!body.assessment || typeof body.assessment !== "object") return NextResponse.json({ ok: false, error: "DECISION_ASSESSMENT_REQUIRED" }, { status: 400 });
+      const assessment = body.assessment as { optionId: string; utility: number; confidence: number; reasons: string[] };
+      return NextResponse.json({ ok: true, gate: decisionGate({
+        assessment,
+        approvalRequired: body.approvalRequired === true,
+        criticalRisk: body.criticalRisk === true,
       }) });
     }
 
