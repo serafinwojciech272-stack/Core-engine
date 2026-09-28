@@ -8,6 +8,7 @@ import { classifyFailure, recordFailureLearning } from "@/lib/failure-recovery-l
 import { generalizeRecoveryPattern, recallRecoveryPatterns } from "@/lib/recovery-pattern-generalization";
 import { consolidateLearning } from "@/lib/learning-consolidation";
 import { evaluateLearningQuality } from "@/lib/learning-quality-gate";
+import { persistHypothesis, recordHypothesisOutcome } from "@/lib/hypothesis-engine";
 
 function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
   return runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
@@ -130,6 +131,34 @@ export async function POST(request: Request) {
         evidenceCount: typeof body.evidenceCount === "number" ? body.evidenceCount : 0,
       });
       return NextResponse.json({ ok: true, evaluation: result });
+    }
+
+    if (operation === "hypothesis") {
+      if (typeof body.problem !== "string") return NextResponse.json({ ok: false, error: "PROBLEM_REQUIRED" }, { status: 400 });
+      const result = await persistHypothesis({
+        tenantId,
+        missionId: typeof body.missionId === "string" ? body.missionId : undefined,
+        domain: typeof body.domain === "string" ? body.domain : undefined,
+        problem: body.problem,
+        unknowns: Array.isArray(body.unknowns) ? body.unknowns.filter((x): x is { id?: string; question: string; importance?: string } => !!x && typeof x === "object" && typeof (x as Record<string,unknown>).question === "string") : undefined,
+        evidence: Array.isArray(body.evidence) ? body.evidence.filter((x): x is { ref?: string; claim?: string; confidence?: number } => !!x && typeof x === "object") : undefined,
+      });
+      return NextResponse.json({ ok: true, hypothesis: result });
+    }
+
+    if (operation === "hypothesis_outcome") {
+      if (typeof body.hypothesisId !== "string" || typeof body.predicted !== "boolean" || typeof body.observed !== "boolean") {
+        return NextResponse.json({ ok: false, error: "HYPOTHESIS_OUTCOME_REQUIRED" }, { status: 400 });
+      }
+      const result = await recordHypothesisOutcome({
+        tenantId,
+        hypothesisId: body.hypothesisId,
+        predicted: body.predicted,
+        observed: body.observed,
+        confidence: typeof body.confidence === "number" ? body.confidence : 0,
+        outcome: body.outcome && typeof body.outcome === "object" && !Array.isArray(body.outcome) ? body.outcome as Record<string,unknown> : {},
+      });
+      return NextResponse.json({ ok: true, hypothesisOutcome: result });
     }
 
     if (operation === "entity") {
