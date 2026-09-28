@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValidJobOpportunity } from "@/lib/job-quality";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(){
       get("job_sync_runs?select=id,started_at,finished_at,discovered,inserted,errors,status&order=started_at.desc&limit=1")
     ]);
     const latestSync=Array.isArray(syncRuns)?syncRuns[0]??null:null;
-    const rows=Array.isArray(jobs)?jobs:[];
+    const rows=(Array.isArray(jobs)?jobs:[]).filter((job:{source:string;url:string;title:string;company?:string|null;location?:string|null}) => isValidJobOpportunity(job));
     return NextResponse.json({
       ok:true,
       jobs:rows,
