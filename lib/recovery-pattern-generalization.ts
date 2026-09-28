@@ -9,7 +9,7 @@ type RecoveryInput = {
 function cfg(){const url=process.env.SUPABASE_URL;const key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("SUPABASE_SERVER_CONFIG_MISSING");return{url,key};}
 function headers(key:string){return{apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};}
 async function db(path:string,init:RequestInit={}){const c=cfg();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);try{const r=await fetch(`${c.url}/rest/v1/${path}`,{...init,cache:"no-store",signal:controller.signal,headers:{...headers(c.key),...(init.headers||{})}});if(!r.ok)throw new Error(`RECOVERY_PATTERN_DB_${r.status}`);return r;}finally{clearTimeout(timer);}}
-function normalize(v:string){return v.toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu," ").replace(/\\s+/g," ").trim();}
+function normalize(v:string){return v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").replace(/\s+/g," ").trim();}
 function signature(input:RecoveryInput,type:FailureType){return normalize(`${type}|\${input.recoveryAction}`);}
 function key(sig:string){return sig.slice(0,240);}
 export function buildRecoveryPattern(input:RecoveryInput){
