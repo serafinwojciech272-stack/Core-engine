@@ -25,6 +25,25 @@ const sources = [
   ["pracapolis","pracapolis.pl"],["adzuna","adzuna.pl"],["jooble","jooble.org"]
 ] as const;
 
+const listingTitlePatterns = [
+  /\b\d+\s+(ofert|oferty|jobs|job)\b/i,
+  /\bjobs?\s+in\b/i,
+  /\bjob(?:s)?\s+(?:near|around|for)\b/i,
+  /\bjob\s+search\b/i,
+  /\bsearch\s+results?\b/i,
+  /\boferty\s+pracy\s+na\s+stanowisku\b/i,
+  /\bpraca\s+.+\s+-\s+\d+\s+ofert/i,
+  /\bcustomer service\s+english-speaking jobs\b/i
+];
+
+const listingPathPatterns = [
+  /\/jobs?\/?$/i,
+  /\/jobs?\/(?:search|list|results|collections?)\b/i,
+  /\/praca\/(?:szukaj|search|wyniki|oferty)\b/i,
+  /\/search(?:\?|\/)/i,
+  /[?&](?:q|query|keywords|search)=/i
+];
+
 function text(x:unknown){ return typeof x==="string" ? x.trim() : ""; }
 function find(value:string, terms:string[]){ const low=value.toLowerCase(); return terms.find(x=>low.includes(x.toLowerCase())) || null; }
 
@@ -33,14 +52,28 @@ function sourceFor(url:string){
   return sources.find(x=>low.includes(x[1]))?.[0] || "web";
 }
 
+function looksLikeJobDetail(url:string,title:string,source:string){
+  const lowUrl=url.toLowerCase();
+  if(listingTitlePatterns.some(pattern=>pattern.test(title))) return false;
+  if(listingPathPatterns.some(pattern=>pattern.test(lowUrl))) return false;
+
+  if(source==="linkedin" && !/\/jobs\/view\//i.test(lowUrl)) return false;
+  if(source==="indeed" && !/(?:\/viewjob\?|\/rc\/clk\?)/i.test(lowUrl)) return false;
+  if(source==="jooble" && !/(?:\/desc\/|\/job\b)/i.test(lowUrl)) return false;
+
+  return true;
+}
+
 function normalize(r:Record<string,unknown>, source:string):JobOpportunity|null{
   const url=text(r.link), title=text(r.title), snippet=text(r.snippet);
-  if(!url || !title) return null;
+  if(!url || !title || !looksLikeJobDetail(url,title,source)) return null;
+
   const hay=title+" "+snippet;
   const location=find(hay,["Gliwice","Zabrze","Bytom","Ruda Śląska","Tarnowskie Góry","Knurów"]);
   const salary=find(hay,["PLN","zł","brutto","gross","EUR","€"]);
   const parts=title.split(/\s[-–—|]\s/);
   const company=parts.length>1 ? parts[parts.length-1].trim() : null;
+
   return {
     source,url,title,company,location,salary,
     description:snippet||null,
@@ -78,7 +111,9 @@ export async function discoverJobs(){
       return;
     }
     for(const row of result.value){
-      const job=normalize(row,sourceFor(text(row.link)));
+      const link=text(row.link);
+      const source=sourceFor(link);
+      const job=normalize(row,source);
       if(job) out.push(job);
     }
   });
@@ -88,7 +123,11 @@ export async function discoverJobs(){
     const key=job.url.split("#")[0].replace(/\/$/,"").toLowerCase();
     dedupe.set(key,job);
   }
-  return {jobs:[...dedupe.values()].slice(0,250),errors};
+
+  return {
+    jobs:[...dedupe.values()].slice(0,250),
+    errors
+  };
 }
 
 export async function scoreJobs(
