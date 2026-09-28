@@ -93,7 +93,7 @@ const cognitionAdapter: CapabilityAdapter = {
       return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Cognition understand synthesis completed.", output: { operation, result } };
     }
     if (operation === "decide" && input.deterministicDecision && typeof input.deterministicDecision === "object") {
-      const result = await decide({ tenantId, missionId: context.missionId, context: input.context, deterministicDecision: input.deterministicDecision as Parameters<typeof decide>[0]["deterministicDecision"] });
+      const result = await decide({ tenantId, missionId: context.missionId, context: typeof input.context === "string" ? input.context : JSON.stringify(input.context ?? ""), deterministicDecision: input.deterministicDecision as Parameters<typeof decide>[0]["deterministicDecision"] });
       return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Cognition decision synthesis completed.", output: { operation, result } };
     }
     if (operation === "learn") {
