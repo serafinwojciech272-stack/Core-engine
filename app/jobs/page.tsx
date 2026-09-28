@@ -69,7 +69,7 @@ export default function JobsPage() {
     setSelectedJob(job); setApplication(null);
     setStatus(lang==="pl"?"Core Engine analizuje ofertę, CV i przygotowuje pakiet aplikacyjny...":"Core Engine is analyzing the job, CV and preparing the application package...");
     try{
-      const r=await fetch("/api/jobs/application/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:job.url,title:job.title,company:job.company,location:job.location,description:job.description,matchScore:job.match_score,decision:job.decision})});
+      const r=await fetch("/api/jobs/application/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:job.url,title:job.title,company:job.company,location:job.location,description:(job as Job & { description?: string }).description,matchScore:job.match_score,decision:job.decision})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||"Application preparation failed");
       setApplication(d.application);
       setStatus(lang==="pl"?"Pakiet aplikacyjny gotowy do kontroli.":"Application package ready for review.");
