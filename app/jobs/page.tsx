@@ -53,7 +53,7 @@ export default function JobsPage() {
   const pathname=usePathname(); const standalone=pathname==="/job-agent";
   const [lang,setLang]=useState<Lang>("pl"); const t=copy[lang];
   const [running,setRunning]=useState(false),[loadingJobs,setLoadingJobs]=useState(true),[decision,setDecision]=useState<Decision|null>(null),[status,setStatus]=useState("");
-  const [jobs,setJobs]=useState<Job[]>([]),[latestSync,setLatestSync]=useState<{finished_at?:string;discovered?:number;inserted?:number;status?:string}|null>(null);
+  const [jobs,setJobs]=useState<Job[]>([]),[selectedJob,setSelectedJob]=useState<Job|null>(null),[latestSync,setLatestSync]=useState<{finished_at?:string;discovered?:number;inserted?:number;status?:string}|null>(null);
   const criteria=useMemo(()=>t.criteria,[t]);
 
   useEffect(()=>{const saved=window.localStorage.getItem("job-agent-lang") as Lang|null;if(saved==="pl"||saved==="en")setLang(saved)},[]);
@@ -65,7 +65,16 @@ export default function JobsPage() {
     const r=await fetch("/api/engine",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({domain:"jobs",signals})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Core Engine request failed");setDecision(d.decision);setStatus(lang==="pl"?"Polityka wyszukiwania wygenerowana przez Core Engine.":"Core Engine generated the search policy.")}catch(e){setStatus(e instanceof Error?e.message:"Core Engine request failed")}finally{setRunning(false)}}
   async function syncJobs(){setRunning(true);setStatus(t.syncing);try{const r=await fetch("/api/jobs/sync",{method:"POST"});const d=await r.json();if(!r.ok)throw new Error(d.error||"Sync failed");setStatus(lang==="pl"?`Synchronizacja zakończona: ${d.sync.discovered} znaleziono, ${d.sync.inserted} zapisano.`:`Sync complete: ${d.sync.discovered} discovered, ${d.sync.inserted} stored.`);await loadJobs()}catch(e){setStatus(e instanceof Error?e.message:"Sync failed")}finally{setRunning(false)}}
   useEffect(()=>{(async()=>{const sync=await loadJobs();const finished=sync?.finished_at?Date.parse(sync.finished_at):0;const stale=!finished||Date.now()-finished>45*60*1000;if(stale){await syncJobs()}})()},[]);
-  function apply(job:Job){window.open(job.url,"_blank","noopener,noreferrer");setStatus(lang==="pl"?"Otwarto stronę dostawcy. Wysłanie aplikacji pozostaje pod kontrolą człowieka.":"Provider page opened. Submission remains under human approval.")}
+  async function prepareApplication(job:Job){
+    setSelectedJob(job);
+    setStatus(lang==="pl"?"Core Engine przygotowuje aplikację i sprawdza bramkę akceptacji...":"Core Engine is preparing the application and checking the approval gate...");
+    try{
+      const r=await fetch("/api/jobs/application",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobId:job.id,jobUrl:job.url,title:job.title,company:job.company})});
+      const d=await r.json(); if(!r.ok) throw new Error(d.error||"Application preparation failed");
+      setStatus(lang==="pl"?"Aplikacja przygotowana. Sprawdź CV i zatwierdź przejście do serwisu pracodawcy.":"Application prepared. Review the CV and approve opening the provider.");
+    }catch(e){setStatus(e instanceof Error?e.message:"Application preparation failed")}
+  }
+  function openProvider(){if(!selectedJob)return;window.open(selectedJob.url,"_blank","noopener,noreferrer");setStatus(lang==="pl"?"Ogłoszenie otwarte. Ostateczne wysłanie pozostaje pod Twoją kontrolą.":"Job opened. Final submission remains under your control.");}
   return <main className={`jobs-page ${standalone?"job-agent-standalone":""}`}>
     <nav><div className="brand"><span className="mark"><BrainCircuit size={19}/></span><span>{t.brand}</span></div><div className="nav-right"><div className="language-switch" aria-label={t.lang}><Globe2 size={15}/><button className={lang==="pl"?"active":""} onClick={()=>setLang("pl")}>PL</button><span>/</span><button className={lang==="en"?"active":""} onClick={()=>setLang("en")}>EN</button></div><Link className="navbtn" href="/">{t.home} <ArrowRight size={15}/></Link></div></nav>
     <section className="jobs-hero"><div className="eyebrow"><span className="pulse"/>{t.eyebrow}</div>
@@ -79,9 +88,9 @@ export default function JobsPage() {
     </section>
     <section className="provider-strip"><div><div className="card-label">{t.sources}</div><h2>{t.coverage}</h2><p>{t.sourceText}</p></div><div className="provider-list">{providers.map(source=><span key={source}>{source}</span>)}</div><div className="refresh-badge"><RefreshCw size={14}/>{t.hourly}</div></section>
     <section className="jobs-results"><div className="results-head"><div><div className="card-label">{t.pipeline}</div><h2>{t.relevant}</h2></div><span><Search size={14}/> {loadingJobs?t.loading:`${jobs.length} ${t.matches}`}</span></div>
-      <div className="job-list">{jobs.map(job=><article className="job-card" key={job.id}><div className="job-main"><div className="match">{Math.round(job.match_score??0)}%</div><div><h3>{job.title}</h3><p>{job.company||t.company} · {job.location||t.location}</p><small>{job.source} · {job.decision||"REVIEW"}</small></div></div><div className="job-meta"><b>{job.salary||t.salary}</b><span>{job.status||"NEW"}</span></div><button className="apply" onClick={()=>apply(job)}>{t.reviewBtn} <ArrowRight size={14}/></button></article>)}{!loadingJobs&&jobs.length===0&&<div className="empty-state">{t.empty}</div>}</div>
+      <div className="job-list">{jobs.map(job=><article className="job-card" key={job.id}><div className="job-main"><div className="match">{Math.round(job.match_score??0)}%</div><div><h3>{job.title}</h3><p>{job.company||t.company} · {job.location||t.location}</p><small>{job.source} · {job.decision||"REVIEW"}</small></div></div><div className="job-meta"><b>{job.salary||t.salary}</b><span>{job.status||"NEW"}</span></div><button className="apply" onClick={()=>prepareApplication(job)}>{lang==="pl"?"PRZYGOTUJ APLIKACJĘ":"PREPARE APPLICATION"} <ArrowRight size={14}/></button></article>)}{!loadingJobs&&jobs.length===0&&<div className="empty-state">{t.empty}</div>}</div>
       <div className="guard"><ShieldCheck size={16}/><span>{t.guard}</span></div>{latestSync&&<div className="guard"><CircleDot size={16}/><span>{t.last}: {latestSync.status||"UNKNOWN"} · {latestSync.discovered??0} {t.discovered} · {latestSync.inserted??0} {t.stored}</span></div>}
     </section>
-    <footer><span>CORE ENGINE · JOB AGENT</span><span>{t.footer}</span></footer>
+    <div className="cv-entry"><Link className="secondary jobs-run" href="/cv">OTWÓRZ MOJE CV</Link><span>CV jest częścią profilu Core Engine i może być używane przy przygotowaniu aplikacji.</span></div>{selectedJob&&<div className="application-gate"><div className="application-panel"><div className="card-label">CORE ENGINE · APPLICATION GATE</div><h2>{selectedJob.title}</h2><p>{selectedJob.company||"Firma"} · {selectedJob.location||"Lokalizacja nieodczytana"}</p><div className="criteria"><div><Check size={14}/> CV kandydata załadowane do profilu</div><div><Check size={14}/> Dopasowanie oferty sprawdzone</div><div><ShieldCheck size={14}/> Human approval wymagany przed wysłaniem</div></div><div className="jobs-actions"><Link className="secondary jobs-run" href="/cv">SPRAWDŹ CV</Link><button className="primary jobs-run" onClick={openProvider}>ZATWIERDZAM · OTWÓRZ OGŁOSZENIE</button><button className="secondary jobs-run" onClick={()=>setSelectedJob(null)}>ANULUJ</button></div></div></div>}<footer><span>CORE ENGINE · JOB AGENT</span><span>{t.footer}</span></footer>
   </main>
 }
