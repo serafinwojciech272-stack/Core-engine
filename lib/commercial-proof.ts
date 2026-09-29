@@ -30,8 +30,8 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
   const reports=input.reports;
   const completed=input.missions.filter(m=>m.state==="COMPLETED"||m.state==="LEARNED").length;
   const learned=input.missions.filter(m=>m.state==="LEARNED").length;
-  const approvalCandidates=input.missions.filter(m=>input.events.some(e=>e.missionId===m.id&&e.eventType==="CAPABILITY_APPROVED"));
-  const executed=input.missions.filter(m=>input.events.some(e=>e.missionId===m.id&&(e.eventType==="CAPABILITY_EXECUTED"||e.eventType==="EXECUTION_RECORDED")));
+  const approvalCandidates=input.missions.filter(m=>input.events.some(e=>e.missionId===m.id&&e.eventType==="STATE_CHANGED"&&e.fromState==="AWAITING_APPROVAL"));
+  const approved=input.missions.filter(m=>input.events.some(e=>e.missionId===m.id&&e.eventType==="STATE_CHANGED"&&e.toState==="APPROVED"));\n  const executed=input.missions.filter(m=>input.events.some(e=>e.missionId===m.id&&(e.eventType==="CAPABILITY_EXECUTED"||e.eventType==="EXECUTION_RECORDED")));
   const resolved=reports.filter(r=>r.outcome.predicted!==undefined&&r.outcome.actual!==undefined);
   const verified=reports.filter(r=>r.outcome.quality==="VERIFIED");
   const cycles=reports.map(r=>r.commercial.timeToValueMs).filter((x):x is number=>typeof x==="number");
@@ -47,7 +47,7 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
     completedMissionCount:completed,
     learnedMissionCount:learned,
     approvalRate:ratio(approvalCandidates.length,input.missions.length),
-    executionRate:ratio(executed.length,approvalCandidates.length),
+    executionRate:ratio(executed.length,approved.length),
     verifiedOutcomeRate:ratio(verified.length,resolved.length),
     predictionAccuracy:resolved.length?ratio(reports.filter(r=>r.summary.predictionCorrect===true).length,resolved.length):null,
     unverifiedOutcomeRate:reports.length?ratio(reports.filter(r=>r.outcome.quality==="UNVERIFIED").length,reports.length):null,
