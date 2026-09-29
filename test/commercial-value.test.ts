@@ -1,22 +1,23 @@
-import {describe,it,expect} from "vitest";
-import {calculateCommercialValue} from "@/lib/commercial-value";
+import test from "node:test";
+import assert from "node:assert/strict";
+import {calculateCommercialValue} from "../lib/commercial-value.ts";
 
-describe("commercial value ledger",()=>{
-  it("keeps baseline and actual distinct and calculates ROI only with an investment",()=>{
-    const result=calculateCommercialValue({baselineValue:10000,targetValue:12000,actualValue:13000,investmentValue:1000});
-    expect(result.valueDelta).toBe(3000);
-    expect(result.roiPct).toBe(200);
-    expect(result.quality).toBe("VERIFIED");
-  });
-  it("does not invent ROI before an actual outcome exists",()=>{
-    const result=calculateCommercialValue({baselineValue:10000,targetValue:12000,investmentValue:1000});
-    expect(result.valueDelta).toBeNull();
-    expect(result.roiPct).toBeNull();
-    expect(result.quality).toBe("UNVERIFIED");
-  });
-  it("keeps zero-investment cases without a fake ROI percentage",()=>{
-    const result=calculateCommercialValue({baselineValue:10000,actualValue:11000,investmentValue:0});
-    expect(result.valueDelta).toBe(1000);
-    expect(result.roiPct).toBeNull();
-  });
+test("commercial value ledger calculates verified value and ROI",()=>{
+  const result=calculateCommercialValue({baselineValue:10000,targetValue:12000,actualValue:13000,investmentValue:1000});
+  assert.equal(result.valueDelta,3000);
+  assert.equal(result.roiPct,200);
+  assert.equal(result.quality,"VERIFIED");
+});
+
+test("commercial value ledger does not invent ROI before actual outcome",()=>{
+  const result=calculateCommercialValue({baselineValue:10000,targetValue:12000,investmentValue:1000});
+  assert.equal(result.valueDelta,null);
+  assert.equal(result.roiPct,null);
+  assert.equal(result.quality,"UNVERIFIED");
+});
+
+test("commercial value ledger does not fabricate ROI for zero investment",()=>{
+  const result=calculateCommercialValue({baselineValue:10000,actualValue:11000,investmentValue:0});
+  assert.equal(result.valueDelta,1000);
+  assert.equal(result.roiPct,null);
 });
