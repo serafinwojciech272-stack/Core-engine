@@ -29,12 +29,16 @@ export async function executeCompiledMission(input: {
   tenantId?: string;
   workspaceRoot?: string;
   payloadByStep?: Record<string, Record<string, unknown>>;
+  verifiedCriteria?: string[];
 }): Promise<MissionExecutionReport> {
   const mode = input.mode ?? "PLAN_ONLY";
   const steps: MissionExecutionStep[] = [];
   const completed = new Set<string>();
   const artifacts = new Set<string>();
   const blockers = [...input.mission.blockers];
+  const verifiedCriteria = new Set(input.verifiedCriteria ?? []);
+  const blockingCriteria = input.mission.successCriteria.filter((criterion) => criterion.blocking);
+  const pendingCriteria = () => blockingCriteria.filter((criterion) => !verifiedCriteria.has(criterion.id)).map((criterion) => criterion.id);
 
   if (mode === "PLAN_ONLY" || input.mission.blocked) {
     return {
@@ -49,7 +53,7 @@ export async function executeCompiledMission(input: {
       })),
       artifacts: input.mission.requiredArtifacts.map((artifact) => artifact.id),
       blockers,
-      criteriaPending: input.mission.successCriteria.filter((criterion) => criterion.blocking).map((criterion) => criterion.id)
+      criteriaPending: pendingCriteria()
     };
   }
 
@@ -61,7 +65,7 @@ export async function executeCompiledMission(input: {
       steps: [],
       artifacts: [],
       blockers: ["MISSION_APPROVAL_REQUIRED"],
-      criteriaPending: input.mission.successCriteria.filter((criterion) => criterion.blocking).map((criterion) => criterion.id)
+      criteriaPending: pendingCriteria()
     };
   }
 
@@ -109,7 +113,7 @@ export async function executeCompiledMission(input: {
     }
   }
 
-  const pending = input.mission.successCriteria.filter((criterion) => criterion.blocking && !artifacts.has(criterion.id)).map((criterion) => criterion.id);
-  const status = blockers.length ? "BLOCKED" : pending.length ? "BLOCKED" : steps.some((step) => step.status === "FAILED") ? "FAILED" : "COMPLETED";
-  return { mode, missionId: input.missionId, status, steps, artifacts: [...artifacts], blockers, criteriaPending: pending };
+  const criteriaPending = pendingCriteria();
+  const status = blockers.length ? "BLOCKED" : steps.some((step) => step.status === "FAILED") ? "FAILED" : criteriaPending.length ? "BLOCKED" : "COMPLETED";
+  return { mode, missionId: input.missionId, status, steps, artifacts: [...artifacts], blockers, criteriaPending };
 }
