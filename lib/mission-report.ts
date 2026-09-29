@@ -1,0 +1,29 @@
+import type {Mission} from "@/lib/engine";
+
+export type ReportEvent = {id:string;missionId:string;eventType:string;createdAt:string;metadata?:Record<string,unknown>;decisionId?:string|null;fromState?:string|null;toState?:string|null;actorType?:string};
+export type MissionReport = {missionId:string;tenantId?:string;objective:string;state:Mission["state"];summary:{whatSystemSaw:string[];whatItBelieved:string[];whatItDidNotKnow:string[];whyMissionSelected:string;whatActionItTook:string[];whatHappened:string[];predictionCorrect:boolean|null;whatItLearned:string[];nextAction:string};evidence:{eventCount:number;evidenceRefs:string[];provenanceCoverage:number};outcome:{predicted?:number;actual?:number;delta?:number;deltaPct?:number;quality:"VERIFIED"|"NEGATIVE"|"UNVERIFIED"};commercial:{timeToValueMs?:number;valueEvidenceAvailable:boolean};trace:ReportEvent[]};
+
+function finiteNumber(value:unknown):number|undefined{return typeof value==="number"&&Number.isFinite(value)?value:undefined}
+function firstNumber(values:unknown[]):number|undefined{for(const value of values){const number=finiteNumber(value);if(number!==undefined)return number}return undefined}
+function withinTwentyPercent(predicted:number|undefined,delta:number|undefined):boolean{return predicted!==undefined&&delta!==undefined&&Math.abs(delta)<=Math.abs(predicted)*0.2}
+function normalizeEvent(event:ReportEvent):ReportEvent{return{...event,decisionId:event.decisionId??undefined,fromState:event.fromState??undefined,toState:event.toState??undefined}}
+
+export function buildMissionReport(input:{mission:Mission;events:ReportEvent[];tenantId?:string}):MissionReport{
+ const mission=input.mission;
+ const trace=input.events.filter(event=>event.missionId===mission.id).map(normalizeEvent);
+ const metadata=trace.flatMap(event=>event.metadata?[event.metadata]:[]);
+ const saw=trace.filter(event=>event.eventType==="MISSION_CREATED").map(event=>String(event.metadata?.objective??mission.objective));
+ const actions=trace.filter(event=>event.eventType==="CAPABILITY_EXECUTED"||event.eventType==="EXECUTION_RECORDED").map(event=>String(event.metadata?.actionId??event.metadata?.capabilityActionId??event.eventType));
+ const evidenceRefs=trace.flatMap(event=>{const value=event.metadata?.evidenceId;return typeof value==="string"?[value]:[]});
+ const unknowns=trace.filter(event=>String(event.metadata?.unknown??"").length>0).map(event=>String(event.metadata?.unknown));
+ const lessons=trace.filter(event=>event.eventType==="LEARNING_RECORDED").map(event=>String(event.metadata?.lesson??event.metadata?.content??"Learning recorded."));
+ const predicted=firstNumber(metadata.map(value=>value.predicted)),actual=firstNumber(metadata.map(value=>value.actual));
+ const delta=predicted!==undefined&&actual!==undefined?actual-predicted:undefined;
+ const deltaPct=delta!==undefined&&predicted!==undefined&&predicted!==0?(delta/Math.abs(predicted))*100:undefined;
+ const quality:MissionReport["outcome"]["quality"]=actual===undefined||predicted===undefined?"UNVERIFIED":delta===0||withinTwentyPercent(predicted,delta)?"VERIFIED":"NEGATIVE";
+ const predictionCorrect=actual===undefined||predicted===undefined?null:quality==="VERIFIED";
+ const firstCreatedAt=trace[0]?.createdAt,lastCreatedAt=trace[trace.length-1]?.createdAt;
+ const start=firstCreatedAt?Date.parse(firstCreatedAt):Number.NaN,end=lastCreatedAt?Date.parse(lastCreatedAt):Number.NaN;
+ const timeToValueMs=Number.isFinite(start)&&Number.isFinite(end)?Math.max(0,end-start):undefined;
+ return{missionId:mission.id,tenantId:input.tenantId,objective:mission.objective,state:mission.state,summary:{whatSystemSaw:saw.length?saw:["Mission input/evidence is available in the trace."],whatItBelieved:trace.filter(event=>event.eventType==="STATE_CHANGED").map(event=>String(event.metadata?.reason??((event.fromState??"")+"→"+(event.toState??"")))).filter(Boolean),whatItDidNotKnow:unknowns.length?unknowns:["No explicit unknown was recorded in the available mission trace."],whyMissionSelected:String(trace.find(event=>event.eventType==="MISSION_CREATED")?.metadata?.selectionReason??"Selected by the existing deterministic decision/runtime path."),whatActionItTook:actions,whatHappened:trace.filter(event=>event.eventType==="CAPABILITY_OUTCOME_RECORDED"||event.eventType==="CAPABILITY_EXECUTION_FAILED"||event.eventType==="MEASUREMENT_RECORDED").map(event=>String(event.metadata?.message??event.eventType)),predictionCorrect,whatItLearned:lessons,nextAction:mission.state==="LEARNED"?"Generate or evaluate the next highest-value mission.":mission.state==="COMPLETED"?"Run learning/lesson validation before reuse.":"Complete the remaining governed mission lifecycle."},evidence:{eventCount:trace.length,evidenceRefs:[...new Set(evidenceRefs)],provenanceCoverage:trace.length?Math.min(1,evidenceRefs.length/trace.length):0},outcome:{predicted,actual,delta,deltaPct,quality},commercial:{timeToValueMs,valueEvidenceAvailable:actual!==undefined||evidenceRefs.length>0},trace};
+}
