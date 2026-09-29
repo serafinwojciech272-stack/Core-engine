@@ -34,7 +34,7 @@ export type CommercialProofMetrics = {
 function ratio(n:number,d:number){return d? n/d:null}
 function avg(values:number[]){return values.length?values.reduce((a,b)=>a+b,0)/values.length:null}
 
-export function buildCommercialProofMetrics(input:{missions:Mission[];events:ProofEvent[];reports:MissionReport[];valueCases?:CommercialValueCase[];billing?:CommercialBillingEvidence}):CommercialProofMetrics{
+export function buildCommercialProofMetrics(input:{missions:Mission[];events:ProofEvent[];reports:MissionReport[];valueCases?:CommercialValueCase[];billing?:CommercialBillingEvidence;tenantCreatedAt?:string|null}):CommercialProofMetrics{
   const reports=input.reports;
   const valueCases=input.valueCases??[];
   const billing=input.billing;
@@ -57,7 +57,14 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
   if(!valueCases.length)missingEvidence.push("FINANCIAL_BASELINE");
   if(aggregateRoiPct===null)missingEvidence.push("ROI");
   if(!billing?.subscriptionActive)missingEvidence.push("BILLING_SUBSCRIPTION_EVIDENCE");
-  const first=input.missions.map(m=>Date.parse(m.createdAt)).filter(Number.isFinite).sort((a,b)=>a-b)[0];
+  const tenantStart=input.tenantCreatedAt?Date.parse(input.tenantCreatedAt):Number.NaN;
+  const missionStarts=input.missions.map(m=>Date.parse(m.createdAt)).filter(Number.isFinite);
+  const firstMissionAt=missionStarts.length?Math.min(...missionStarts):Number.NaN;
+  const firstValueTimes=valueCases.filter(x=>x.actualValue!==null).map(x=>Date.parse(x.updatedAt)).filter(Number.isFinite);
+  const reportValueTimes=reports.filter(r=>r.outcome.actual!==undefined).flatMap(r=>r.trace.map(e=>Date.parse(e.createdAt)).filter(Number.isFinite));
+  const firstValueAt=[...firstValueTimes,...reportValueTimes].length?Math.min(...firstValueTimes,...reportValueTimes):Number.NaN;
+  const timeToFirstMissionMs=Number.isFinite(tenantStart)&&Number.isFinite(firstMissionAt)?Math.max(0,firstMissionAt-tenantStart):null;
+  const timeToValueMs=Number.isFinite(tenantStart)&&Number.isFinite(firstValueAt)?Math.max(0,firstValueAt-tenantStart):null;
   return{
     missionCount:input.missions.length,
     completedMissionCount:completed,
@@ -71,8 +78,8 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
     valueEvidenceRate:reports.length?ratio(reports.filter(r=>r.commercial.valueEvidenceAvailable).length,reports.length):null,
     averageMissionCycleMs:avg(cycles),
     roiAvailable:aggregateRoiPct!==null,
-    timeToFirstMissionMs:null,
-    timeToValueMs:cycles.length?Math.min(...cycles):null,
+    timeToFirstMissionMs,
+    timeToValueMs,
     billingEvidenceAvailable:billing?.subscriptionActive===true,
     billingAccountConfigured:billing?.configured===true,
     subscriptionActive:billing?.subscriptionActive===true,

@@ -15,7 +15,7 @@ test("commercial proof never invents ROI or time-to-first-mission",()=>{
  const rs=[report("m1","VERIFIED",120),report("m2","UNVERIFIED")];
  const es=[{...event("m1","STATE_CHANGED"),fromState:"AWAITING_APPROVAL",toState:"APPROVED"},event("m1","CAPABILITY_EXECUTED"),{...event("m2","STATE_CHANGED"),fromState:"AWAITING_APPROVAL",toState:"APPROVED"}];
  const valueCase:CommercialValueCase={id:"v1",tenantId:"t1",missionId:"m1",name:"Revenue pilot",currency:"EUR",baselineValue:10000,targetValue:12000,actualValue:13000,investmentValue:1000,valueDelta:3000,roiPct:200,quality:"VERIFIED",createdAt:"2026-09-29T10:00:00.000Z",updatedAt:"2026-09-29T10:05:00.000Z"};
- const x=buildCommercialProofMetrics({missions:m,events:es,reports:rs,valueCases:[valueCase]});
+ const x=buildCommercialProofMetrics({missions:m,events:es,reports:rs,valueCases:[valueCase],tenantCreatedAt:"2026-09-29T09:00:00.000Z"});
  assert.equal(x.missionCount,2);
  assert.equal(x.approvalRate,1);
  assert.equal(x.executionRate,.5);
@@ -25,7 +25,7 @@ test("commercial proof never invents ROI or time-to-first-mission",()=>{
  assert.equal(x.aggregateValueDelta,3000);
  assert.equal(x.aggregateInvestment,1000);
  assert.equal(x.aggregateRoiPct,200);
- assert.equal(x.timeToFirstMissionMs,null);
- assert.equal(x.timeToValueMs,300000);
+ assert.equal(x.timeToFirstMissionMs,3600000);
+ assert.equal(x.timeToValueMs,3900000);
  assert.ok(x.missingEvidence.includes("BILLING_SUBSCRIPTION_EVIDENCE"));
 });
