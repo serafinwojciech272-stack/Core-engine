@@ -2,10 +2,9 @@ import {NextResponse} from "next/server";
 import {missions,events} from "@/lib/engine";
 import {storageMode,listPersistedMissions,listPersistedEvents} from "@/lib/storage";
 import {resolveSaaSContext} from "@/lib/saas-runtime";
-import {tenantMissionIds} from "@/lib/commercial-storage";
+import {tenantMissionIds,listValueCases,getBillingEvidence} from "@/lib/commercial-storage";
 import {buildMissionReport,type ReportEvent} from "@/lib/mission-report";
 import {buildCommercialProofMetrics} from "@/lib/commercial-proof";
-import {listValueCases,getBillingEvidence} from "@/lib/commercial-storage";
 
 export async function GET(request:Request){
  try{
@@ -13,7 +12,7 @@ export async function GET(request:Request){
   const tenant=runtime.identity?{tenantId:runtime.identity.tenantId}:runtime.legacyTenant!;
   const ids=new Set(await tenantMissionIds(tenant.tenantId));
   if(storageMode()==="supabase"){
-   const [allMissions,allEvents,valueCases]=await Promise.all([listPersistedMissions(100),listPersistedEvents(500),listValueCases(tenant.tenantId,100),getBillingEvidence(tenant.tenantId)]);
+   const [allMissions,allEvents,valueCases,billing]=await Promise.all([listPersistedMissions(100),listPersistedEvents(500),listValueCases(tenant.tenantId,100),getBillingEvidence(tenant.tenantId)]);
    const tenantMissions=allMissions.filter(m=>ids.has(m.id));
    const reportEvents:ReportEvent[]=allEvents.filter(e=>ids.has(e.missionId)).map(x=>({id:x.id,missionId:x.missionId,eventType:x.eventType,createdAt:x.createdAt,metadata:x.metadata,decisionId:x.decisionId??undefined,fromState:x.fromState??undefined,toState:x.toState??undefined,actorType:x.actorType}));
    const reports=tenantMissions.map(m=>buildMissionReport({mission:m,events:reportEvents,tenantId:tenant.tenantId}));
