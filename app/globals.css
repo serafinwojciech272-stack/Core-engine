@@ -168,3 +168,59 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 .cv-side-block{padding:0 0 28px;margin-bottom:26px;border-bottom:1px solid #e1e5ec}.cv-side-block:last-child{border-bottom:0}.cv-tags{display:flex;gap:7px;flex-wrap:wrap}.cv-tags span{padding:7px 9px;border-radius:7px;background:#fff;border:1px solid #dce2ec;color:#43536a;font-size:9px;line-height:1.25}.cv-language{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #e6e9ef;font-size:11px}.cv-language:last-child{border-bottom:0}.cv-language b{color:#273142}.cv-language span{color:#6941c6;font-weight:800}.cv-note{margin:0;color:#59687a;font-size:10px;line-height:1.7}.cv-facts{display:grid;gap:13px}.cv-facts div{display:flex;flex-direction:column;gap:4px}.cv-facts span{font:800 8px ui-monospace,monospace;letter-spacing:.13em;color:#8792a2}.cv-facts b{font-size:10px;color:#293648}.cv-footer{display:flex;justify-content:space-between;gap:15px;padding:16px 48px;border-top:1px solid #e1e5ec;background:#fbfcfe;color:#778497;font:800 8px ui-monospace,monospace;letter-spacing:.08em}
 @media print{.cv-page{padding:0;background:#fff}.cv-toolbar{display:none}.cv-sheet{box-shadow:none;border:0}.cv-hero{print-color-adjust:exact;-webkit-print-color-adjust:exact}.cv-layout{grid-template-columns:minmax(0,1fr) 260px}.cv-main{padding:30px 36px}.cv-side{padding:30px 22px}.cv-footer{padding:12px 36px}}
 @media(max-width:760px){.cv-page{padding:12px 8px 30px}.cv-toolbar{padding:0 4px}.cv-toolbar span{display:none}.cv-hero{padding:34px 25px;flex-direction:column}.cv-hero h1{font-size:42px}.cv-score-card{min-width:0;display:grid;grid-template-columns:auto auto auto auto;text-align:left;gap:6px;align-items:center}.cv-score-card span{grid-column:1/-1}.cv-score-card small{margin:0}.cv-layout{grid-template-columns:1fr}.cv-side{border-left:0;border-top:1px solid #e1e5ec}.cv-main{padding:30px 25px}.cv-side{padding:30px 25px}.cv-exp-head{flex-direction:column;gap:5px}.cv-footer{padding:14px 25px;flex-direction:column}}
+
+/* UI SYSTEM V2 · EXECUTIVE / JOB AGENT */
+:root{--ce-ink:#151823;--ce-muted:#647083;--ce-line:#dfe5ee;--ce-violet:#6d3fd4;--ce-violet2:#9b6cff;--ce-orange:#ff8a24;--ce-green:#2f8a5b}
+.job-agent-standalone{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.job-agent-standalone nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(18px);background:rgba(255,255,255,.82);box-shadow:0 1px 0 rgba(28,38,55,.06),0 10px 36px rgba(45,35,75,.06)}
+.job-agent-standalone .jobs-hero{position:relative;overflow:hidden}
+.job-agent-standalone .jobs-hero:before{content:"";position:absolute;inset:-20% -10% auto;height:520px;background:radial-gradient(circle at 78% 30%,rgba(142,92,246,.16),transparent 25%),radial-gradient(circle at 25% 55%,rgba(255,138,36,.08),transparent 20%);pointer-events:none}
+.job-agent-standalone .jobs-hero>*{position:relative;z-index:1}
+.job-agent-standalone .eyebrow{font-weight:850;letter-spacing:.18em}
+.job-agent-standalone .pulse{box-shadow:0 0 0 5px rgba(47,138,91,.1),0 0 18px rgba(47,138,91,.55)}
+.job-agent-standalone .jobs-hero h1{font-weight:800;text-shadow:0 12px 35px rgba(39,29,70,.08)}
+.job-agent-standalone .jobs-hero h1 em{background:linear-gradient(100deg,#5d32bd,#9a68f3 55%,#e4771b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.job-agent-standalone .lead{color:#56657a}
+.job-agent-standalone .profile-card,.job-agent-standalone .decision-card{border-radius:20px;box-shadow:0 24px 70px rgba(35,40,55,.09),0 2px 8px rgba(35,40,55,.04);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.job-agent-standalone .profile-card:hover,.job-agent-standalone .decision-card:hover{transform:translateY(-3px);box-shadow:0 30px 85px rgba(35,40,55,.12),0 3px 10px rgba(35,40,55,.05);border-color:#d1c5ee}
+.job-agent-standalone .card-label{font-weight:900;color:#7046c6}
+.job-agent-standalone .jobs-run.primary{box-shadow:0 12px 28px rgba(104,66,199,.22);background:linear-gradient(110deg,#5d32bd,#8050dc 55%,#a06cf4);border:1px solid #7445c9;color:#fff}
+.job-agent-standalone .jobs-run.primary:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(104,66,199,.28)}
+.job-agent-standalone .jobs-actions .secondary{box-shadow:0 7px 18px rgba(40,50,70,.05)}
+.job-agent-standalone .provider-strip{box-shadow:0 20px 55px rgba(30,40,60,.07),inset 0 1px 0 #fff}
+.job-agent-standalone .provider-list span{transition:all .18s ease}
+.job-agent-standalone .provider-list span:hover{border-color:#c7b4ec;background:#f5efff;color:#5d36aa;transform:translateY(-1px)}
+.job-agent-standalone .job-card{border-radius:16px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.job-agent-standalone .job-card:hover{transform:translateY(-2px);border-color:#cfc2e9;box-shadow:0 18px 42px rgba(32,43,60,.10)}
+.job-agent-standalone .match{box-shadow:inset 0 0 20px rgba(112,70,198,.06)}
+.job-agent-standalone .apply{box-shadow:0 8px 20px rgba(105,65,199,.10);transition:all .18s ease}
+.job-agent-standalone .apply:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(105,65,199,.16)}
+.job-agent-standalone .guard{border-radius:12px}
+.job-agent-standalone .application-gate{background:rgba(20,23,34,.58)}
+.job-agent-standalone .application-panel{border-radius:22px;box-shadow:0 40px 120px rgba(15,20,35,.28);background:linear-gradient(180deg,#fff,#fafbfe)}
+.job-agent-standalone .application-panel h2{letter-spacing:-.035em;color:#182334}
+.job-agent-standalone .application-preview{box-shadow:inset 0 1px 0 #fff,0 8px 24px rgba(30,40,60,.04)}
+.job-agent-standalone .cv-entry{padding-top:4px}
+.job-agent-standalone footer{background:linear-gradient(90deg,transparent,#fff,transparent)}
+/* CV visual refinement */
+.cv-page{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.cv-sheet{border-radius:18px;box-shadow:0 35px 100px rgba(29,39,56,.16),0 4px 18px rgba(29,39,56,.06)}
+.cv-hero{background:radial-gradient(circle at 85% 20%,rgba(155,108,244,.28),transparent 23%),radial-gradient(circle at 12% 95%,rgba(255,138,36,.12),transparent 24%),linear-gradient(132deg,#101117 0%,#18142a 52%,#2b1743 100%);box-shadow:inset 0 -1px 0 rgba(255,255,255,.08)}
+.cv-hero:before{content:"";position:absolute;left:-80px;bottom:-170px;width:360px;height:360px;border:1px solid rgba(155,108,244,.18);border-radius:50%;box-shadow:0 0 100px rgba(155,108,244,.10)}
+.cv-hero h1{background:linear-gradient(100deg,#fff 0%,#eee7ff 65%,#d8b8ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 10px 35px rgba(0,0,0,.25)}
+.cv-hero h2{color:#e7e1f1;text-shadow:0 3px 18px rgba(0,0,0,.2)}
+.cv-contact a{box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 7px 18px rgba(0,0,0,.12);transition:.18s ease}
+.cv-contact a:hover{background:rgba(255,255,255,.09);transform:translateY(-1px)}
+.cv-score-card{box-shadow:0 20px 55px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.08)}
+.cv-section-label{color:#7046c6}
+.cv-summary h3{color:#182233}
+.cv-summary p,.cv-exp li{color:#526174}
+.cv-exp{transition:padding-left .18s ease,border-color .18s ease}
+.cv-exp:hover{padding-left:7px;border-color:#cdbbe9}
+.cv-exp-head strong{color:#7046c6}
+.cv-tags span{box-shadow:0 4px 12px rgba(40,50,70,.04);transition:.18s ease}
+.cv-tags span:hover{border-color:#c9b8ec;background:#f8f4ff;transform:translateY(-1px)}
+.cv-language span{color:#7046c6}
+.cv-side{background:linear-gradient(180deg,#f7f8fb,#f4f6fa)}
+.cv-footer{background:linear-gradient(90deg,#fafbfc,#f7f8fb,#fafbfc)}
+@media(max-width:760px){.cv-sheet{border-radius:12px}.cv-hero{border-radius:0}.job-agent-standalone .profile-card,.job-agent-standalone .decision-card{border-radius:16px}}
