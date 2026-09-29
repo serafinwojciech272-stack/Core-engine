@@ -1,0 +1,37 @@
+export const SKILL_RUNTIME_VERSION = "skill-runtime-v2" as const;
+export type SkillRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type SkillPermission = "OBSERVE" | "WRITE_WORKSPACE" | "EXECUTE_SANDBOX" | "EXTERNAL_API" | "FINANCIAL" | "PUBLISH";
+export type SkillSideEffect = "NONE" | "FILE_WRITE" | "DATABASE_WRITE" | "EXTERNAL_API" | "MESSAGE_SEND" | "DEPLOYMENT" | "FINANCIAL" | "DESTRUCTIVE";
+export type SkillExecutionMode = "PLAN_ONLY" | "EXECUTE";
+export type SkillExecutionStatus = "PLANNED" | "BLOCKED" | "APPROVAL_REQUIRED" | "ADAPTER_NOT_FOUND" | "EXECUTED" | "FAILED" | "RETRYABLE" | "IDEMPOTENCY_REQUIRED" | "IDEMPOTENCY_CONFLICT";
+export type RetryPolicy = { maxAttempts: number; backoffMs: number; maxBackoffMs: number; retryable: boolean };
+export type Schema = { type: "object"; required?: string[]; properties?: Record<string, { type: string; description?: string }> };
+export type SkillAction = {
+ id:string; name:string; description:string; risk:SkillRisk; permissions:SkillPermission[]; sideEffect:SkillSideEffect;
+ requiresApproval:boolean; requiresIdempotency:boolean; adapterId:string; input:Schema; output:Schema; retryPolicy:RetryPolicy;
+ preconditions?:string[]; capabilityActionId?:string;
+};
+export type SkillPack = { id:string; name:string; version:string; description:string; categories:string[]; signals:string[]; actions:SkillAction[] };
+export type SkillPlanStep = {
+ id:string; skillId:string; actionId:string; adapterId:string; risk:SkillRisk; permissions:SkillPermission[];
+ sideEffect:SkillSideEffect; requiresApproval:boolean; requiresIdempotency:boolean; retryPolicy:RetryPolicy;
+ status:"PLANNED"|"BLOCKED"; reason?:string;
+};
+export type SkillPlan = { runtime:typeof SKILL_RUNTIME_VERSION; executionMode:SkillExecutionMode; objective:string; locale:string; steps:SkillPlanStep[]; selectedSkills:string[]; missingAdapters:string[] };
+export type AdapterExecutionContext = {
+ missionId?:string; tenantId?:string; workspaceRoot?:string; input:Record<string,unknown>; idempotencyKey?:string; attempt:number; signal?:AbortSignal;
+};
+export type AdapterResult = { status:"EXECUTED"|"REJECTED"|"FAILED"; message:string; output?:Record<string,unknown>; sideEffectApplied?:boolean; retryable?:boolean; provenance?:Record<string,unknown> };
+export type SkillAdapter = {
+ id:string; version:string; capabilities:string[]; permissions:SkillPermission[]; actionIds:string[]; idempotencySupport:boolean;
+ retryPolicy:RetryPolicy; observationalOnly?:boolean;
+ execute:(context:AdapterExecutionContext,action:SkillAction)=>Promise<AdapterResult>;
+};
+export type SkillAuditEvent = {
+ type:"SKILL_PLANNED"|"SKILL_BLOCKED"|"SKILL_APPROVAL_REQUIRED"|"SKILL_EXECUTED"|"SKILL_FAILED";
+ skillId:string; actionId:string; adapterId?:string; missionId?:string; idempotencyKey?:string; attempt:number; status:SkillExecutionStatus;
+ provenance?:Record<string,unknown>; createdAt:string;
+};
+export type SkillExecutionResult = {
+ status:SkillExecutionStatus; skillId:string; actionId:string; adapterId:string; attempt:number; message:string; output?:Record<string,unknown>; provenance?:Record<string,unknown>;
+};
