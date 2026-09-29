@@ -3,7 +3,7 @@ import {guardMutation} from "@/lib/http";
 import {resolveSaaSContext} from "@/lib/saas-runtime";
 import {createValueCase,listValueCases,missionBelongsToTenant} from "@/lib/commercial-storage";
 
-function finite(value:unknown){return typeof value==="number"&&Number.isFinite(value)}
+function finite(value:unknown):value is number{return typeof value==="number"&&Number.isFinite(value)}
 function bodyNumber(body:Record<string,unknown>,key:string){const value=body[key];return finite(value)?value:Number.NaN}
 
 export async function GET(request:Request){
