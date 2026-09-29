@@ -224,3 +224,94 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 .cv-side{background:linear-gradient(180deg,#f7f8fb,#f4f6fa)}
 .cv-footer{background:linear-gradient(90deg,#fafbfc,#f7f8fb,#fafbfc)}
 @media(max-width:760px){.cv-sheet{border-radius:12px}.cv-hero{border-radius:0}.job-agent-standalone .profile-card,.job-agent-standalone .decision-card{border-radius:16px}}
+
+
+/* JOB AGENT UI/UX HARDENING · FINAL PASS */
+.job-agent-standalone{min-width:0}
+.job-agent-standalone .jobs-hero{position:relative;overflow:hidden}
+.job-agent-standalone .jobs-hero:before{content:"";position:absolute;inset:0 auto auto 50%;width:720px;height:420px;transform:translateX(-5%);background:radial-gradient(circle,rgba(112,70,198,.10),transparent 68%);pointer-events:none}
+.job-agent-standalone .profile-card,.job-agent-standalone .decision-card{min-width:0}
+.job-agent-standalone .criteria div{line-height:1.45}
+.job-agent-standalone .jobs-actions .jobs-run{min-height:42px;justify-content:center}
+.job-agent-standalone .jobs-actions .primary.jobs-run{padding-inline:16px}
+.job-agent-standalone .job-list{grid-template-columns:1fr}
+.job-agent-standalone .job-card{min-width:0}
+.job-agent-standalone .job-main{min-width:0}
+.job-agent-standalone .job-main>div:last-child{min-width:0}
+.job-agent-standalone .job-card h3{line-height:1.3;overflow-wrap:anywhere}
+.job-agent-standalone .job-card p{line-height:1.45;overflow-wrap:anywhere}
+.job-agent-standalone .job-meta{min-width:0}
+.job-agent-standalone .job-meta b{line-height:1.35}
+.job-agent-standalone .apply{justify-content:center;white-space:nowrap}
+.job-agent-standalone .results-head>span{white-space:nowrap}
+.job-agent-standalone .guard{line-height:1.45}
+.job-agent-standalone .cv-entry{align-items:center}
+.job-agent-standalone .cv-entry .secondary{min-height:42px}
+.job-agent-standalone footer{gap:20px;line-height:1.5}
+.application-gate{overflow:auto}
+.application-panel{max-height:calc(100vh - 40px);overflow:auto}
+.application-panel .jobs-actions{position:sticky;bottom:-1px;padding-top:14px;margin-top:18px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff 28%)}
+.application-panel .jobs-actions .jobs-run{min-height:44px;justify-content:center}
+.application-preview{overflow:hidden}
+.application-preview pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(max-width:1050px){
+  .job-agent-standalone .jobs-hero{padding-left:6vw;padding-right:6vw}
+  .job-agent-standalone .jobs-results{padding-left:6vw;padding-right:6vw}
+  .job-agent-standalone .provider-strip{margin-left:6vw;margin-right:6vw}
+}
+@media(max-width:720px){
+  .job-agent-standalone nav{height:64px;padding:0 16px}
+  .job-agent-standalone .brand{font-size:10px;letter-spacing:.12em}
+  .job-agent-standalone .mark{width:30px;height:30px}
+  .job-agent-standalone .language-switch{padding:5px 7px}
+  .job-agent-standalone .jobs-hero{padding:68px 18px 48px}
+  .job-agent-standalone .jobs-hero h1{font-size:clamp(43px,13vw,68px);line-height:.95;margin:20px 0}
+  .job-agent-standalone .lead{font-size:16px;line-height:1.6}
+  .job-agent-standalone .agent-architecture{font-size:8px;line-height:1.7;margin-top:24px}
+  .job-agent-standalone .agent-architecture svg{width:10px}
+  .job-agent-standalone .jobs-grid{gap:12px;margin-top:32px}
+  .job-agent-standalone .profile-card,.job-agent-standalone .decision-card{padding:21px}
+  .job-agent-standalone .profile-card h2,.job-agent-standalone .decision-card h2,.job-agent-standalone .results-head h2{font-size:25px}
+  .job-agent-standalone .criteria div{font-size:13px;align-items:flex-start}
+  .job-agent-standalone .mode-row{align-items:flex-start;gap:12px}
+  .job-agent-standalone .approval-pill{white-space:nowrap}
+  .job-agent-standalone .jobs-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .job-agent-standalone .jobs-actions .jobs-run{width:100%;margin-top:0}
+  .job-agent-standalone .provider-strip{margin:16px 18px 0;padding:18px;gap:16px}
+  .job-agent-standalone .provider-list{gap:6px}
+  .job-agent-standalone .provider-list span{font-size:10px;padding:7px 9px}
+  .job-agent-standalone .refresh-badge{width:100%;justify-content:center}
+  .job-agent-standalone .jobs-results{padding:48px 18px}
+  .job-agent-standalone .results-head{margin-bottom:20px}
+  .job-agent-standalone .job-card{padding:16px;gap:14px}
+  .job-agent-standalone .job-main{align-items:flex-start;gap:12px}
+  .job-agent-standalone .match{width:46px;height:46px;min-width:46px;border-radius:13px}
+  .job-agent-standalone .job-card h3{font-size:16px}
+  .job-agent-standalone .job-card p{font-size:11px}
+  .job-agent-standalone .job-card small{font-size:10px;margin-top:6px}
+  .job-agent-standalone .job-meta{margin-left:58px;gap:5px}
+  .job-agent-standalone .apply{width:100%;margin-top:2px}
+  .job-agent-standalone .cv-entry{padding:0 18px 10px;align-items:stretch}
+  .job-agent-standalone .cv-entry .secondary{justify-content:center}
+  .job-agent-standalone footer{padding:28px 18px;font-size:9px;align-items:flex-start}
+  .application-gate{padding:10px}
+  .application-panel{max-height:calc(100vh - 20px);padding:21px;border-radius:18px}
+  .application-panel h2{font-size:22px;line-height:1.25}
+  .application-panel p{font-size:12px;line-height:1.45}
+  .application-panel .criteria{gap:8px;margin:16px 0}
+  .application-panel .criteria div{font-size:12px}
+  .application-preview{padding:14px}
+  .application-preview pre{font-size:11px;max-height:190px}
+  .application-risks{font-size:11px}
+  .application-panel .jobs-actions{position:static;display:grid;grid-template-columns:1fr}
+  .application-panel .jobs-actions .jobs-run{width:100%;margin-top:0}
+}
+@media(max-width:380px){
+  .job-agent-standalone .brand span:last-child{display:none}
+  .job-agent-standalone .jobs-hero h1{font-size:42px}
+  .job-agent-standalone .lead{font-size:15px}
+  .job-agent-standalone .agent-architecture{font-size:7px}
+}
+@media(prefers-reduced-motion:reduce){
+  .job-agent-standalone .profile-card,.job-agent-standalone .decision-card,.job-agent-standalone .job-card,.job-agent-standalone .apply{transition:none}
+}
