@@ -66,7 +66,7 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
     averageProvenanceCoverage:avg(reports.map(r=>r.evidence.provenanceCoverage)),
     valueEvidenceRate:reports.length?ratio(reports.filter(r=>r.commercial.valueEvidenceAvailable).length,reports.length):null,
     averageMissionCycleMs:avg(cycles),
-    roiAvailable:false,
+    roiAvailable:aggregateRoiPct!==null,
     timeToFirstMissionMs:null,
     timeToValueMs:cycles.length?Math.min(...cycles):null,
     billingEvidenceAvailable:false,
