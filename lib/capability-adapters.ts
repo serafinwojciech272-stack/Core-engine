@@ -85,7 +85,7 @@ const cognitionAdapter: CapabilityAdapter = {
   async execute(action, context) {
     const startedAt = new Date().toISOString();
     const input = context.input ?? {};
-    const operation = input.operation;
+    const operation = typeof input.operation === "string" ? input.operation : "";
     const tenantId = typeof input.tenant_id === "string" ? input.tenant_id : "";
     if (!tenantId) throw new Error("COGNITION_TENANT_REQUIRED");
     if (operation === "understand" && typeof input.text === "string") {
