@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { embedText, isEmbeddingConfigured } from "@/lib/memory/embeddings";
+
 export type IntelligenceMemoryType =
   | "OBSERVATION" | "EXPERIENCE" | "LESSON" | "STRATEGY" | "FACT"
   | "BELIEF" | "OPINION" | "UNKNOWN" | "CONTRADICTION";
@@ -43,13 +46,35 @@ export async function storeIntelligenceMemory(input: {
   domain?: string; confidence?: number; source?: string; sourceRef?: string; tags?: string[]; metadata?: Record<string, unknown>;
 }) {
   const c = cfg();
+  const title = input.title.slice(0, 240);
+  const content = input.content.slice(0, 12000);
+  const semanticText = [title, content, input.domain ?? ""].filter(Boolean).join("\n");
+  let embedding: number[] | undefined;
+  let embeddingModel: string | undefined;
+  let embeddingDimensions: number | undefined;
+  let embeddingHash: string | undefined;
+
+  if (isEmbeddingConfigured()) {
+    try {
+      embedding = await embedText(semanticText);
+      embeddingModel = process.env.CORE_ENGINE_EMBEDDING_MODEL || "text-embedding-3-small";
+      embeddingDimensions = embedding.length;
+      embeddingHash = createHash("sha256").update(semanticText).digest("hex");
+    } catch {
+      // Semantic memory is an enhancement; durable lexical memory remains the authoritative fallback.
+    }
+  }
+
   const response = await db("ce_intelligence_memories", {
     method: "POST", headers: { Prefer: "return=representation" },
     body: JSON.stringify({
       tenant_id: input.tenantId, mission_id: input.missionId ?? null, memory_type: input.memoryType,
-      title: input.title.slice(0,240), content: input.content.slice(0,12000), domain: input.domain ?? null,
+      title, content, domain: input.domain ?? null,
       confidence: input.confidence ?? null, source: input.source ?? null, source_ref: input.sourceRef ?? null,
       tags: input.tags ?? [], metadata: input.metadata ?? {},
+      embedding: embedding ?? null, embedding_model: embeddingModel ?? null,
+      embedding_dimensions: embeddingDimensions ?? null, embedding_hash: embeddingHash ?? null,
+      embedding_updated_at: embedding ? new Date().toISOString() : null,
     }),
   });
   const rows = await response.json() as unknown[];
@@ -58,6 +83,27 @@ export async function storeIntelligenceMemory(input: {
 
 export async function recallIntelligence(input: { tenantId: string; query: string; domain?: string; limit?: number }) {
   const c = cfg();
+  const requestedLimit = Math.max(1, Math.min(input.limit ?? 10, 50));
+
+  if (input.query.trim() && isEmbeddingConfigured()) {
+    try {
+      const queryEmbedding = await embedText(input.query);
+      const response = await db("rpc/match_ce_intelligence_memories", {
+        method: "POST",
+        body: JSON.stringify({
+          p_tenant_id: input.tenantId,
+          p_query_embedding: queryEmbedding,
+          p_domain: input.domain ?? null,
+          p_match_count: requestedLimit,
+        }),
+      });
+      const semanticRows = await response.json() as Array<Record<string, unknown>>;
+      if (semanticRows.length) return semanticRows.map(row => ({ ...row, relevance: Number(row.relevance ?? 0) }));
+    } catch {
+      // Fall through to deterministic lexical recall.
+    }
+  }
+
   const url = new URL(`${c.url}/rest/v1/ce_intelligence_memories`);
   url.searchParams.set("tenant_id", `eq.${input.tenantId}`);
   url.searchParams.set("status", "eq.ACTIVE");
@@ -76,7 +122,7 @@ export async function recallIntelligence(input: { tenantId: string; query: strin
   return ranked.filter(row => !input.domain || row.domain === input.domain)
     .filter(row => row.relevance > 0 || !query)
     .sort((a,b) => Number(b.relevance) - Number(a.relevance) || Number(b.confidence ?? .5) - Number(a.confidence ?? .5))
-    .slice(0, Math.max(1, Math.min(input.limit ?? 10, 50)));
+    .slice(0, requestedLimit);
 }
 
 export function reflectOnExperience(input: {
