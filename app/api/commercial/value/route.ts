@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {guardMutation} from "@/lib/http";
 import {resolveSaaSContext} from "@/lib/saas-runtime";
-import {createValueCase,listValueCases} from "@/lib/commercial-storage";
+import {createValueCase,listValueCases,missionBelongsToTenant} from "@/lib/commercial-storage";
 
 function finite(value:unknown){return typeof value==="number"&&Number.isFinite(value)}
 function bodyNumber(body:Record<string,unknown>,key:string){const value=body[key];return finite(value)?value:Number.NaN}
@@ -36,6 +36,7 @@ export async function POST(request:Request){
     if(!name||!/^[A-Z]{3}$/.test(currency)||!finite(baselineValue)||baselineValue<0||(targetValue!==null&&!finite(targetValue))||(actualValue!==null&&!finite(actualValue))||!finite(investmentValue)||investmentValue<0){
       return NextResponse.json({ok:false,error:"INVALID_VALUE_CASE"},{status:400});
     }
+    if(missionId && !(await missionBelongsToTenant(missionId,tenantId)))return NextResponse.json({ok:false,error:"MISSION_TENANT_MISMATCH"},{status:403});
     const item=await createValueCase({tenantId,missionId,name,currency,baselineValue,targetValue,actualValue,investmentValue});
     return NextResponse.json({ok:true,case:item}, {status:201});
   }catch(error){
