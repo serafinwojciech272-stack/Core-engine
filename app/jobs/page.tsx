@@ -78,7 +78,7 @@ export default function JobsPage() {
     }catch(e){setStatus(e instanceof Error?e.message:"Application preparation failed")}
   }
   async function openProvider(){
-    if(!selectedJob)return;
+    if(!selectedJob||!application)return;
     try{
       const r=await fetch("/api/jobs/application/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobId:selectedJob.id})});
       const d=await r.json();
@@ -106,6 +106,6 @@ export default function JobsPage() {
     </section>
     <div className="job-trust-row"><span><ShieldCheck size={14}/> KANONICZNE OGŁOSZENIE</span><span><Zap size={14}/> LIVE DATA</span><span><CircleDot size={14}/> HUMAN REVIEW</span></div>
     <div className="cv-entry"><Link className="secondary jobs-run" href="/cv">OTWÓRZ MOJE CV</Link><span>CV jest częścią profilu Core Engine i może być używane przy przygotowaniu aplikacji.</span></div>{selectedJob&&<div className="application-gate"><div className="application-panel"><div className="card-label">CORE ENGINE · APPLICATION GATE</div><h2>{selectedJob.title}</h2><p>{selectedJob.company||"Firma"} · {selectedJob.location||"Lokalizacja nieodczytana"}</p><div className="criteria"><div><Check size={14}/> CV kandydata załadowane do profilu</div><div><Check size={14}/> Dopasowanie oferty sprawdzone: {application?.match?.score ?? "—"}%</div><div><ShieldCheck size={14}/> Human approval wymagany przed wysłaniem</div></div>
-{application&&<div className="application-preview"><div className="card-label">CV DOPASOWANE DO OFERTY</div><h3>{application.cv.tailoredHeadline}</h3><p>{application.cv.tailoredSummary}</p><div className="card-label">LIST MOTYWACYJNY</div><pre>{application.coverLetter}</pre>{application.match.risks?.length>0&&<div className="application-risks"><b>DO WERYFIKACJI</b>{application.match.risks.map((x:string)=><div key={x}>• {x}</div>)}</div>}</div>}<div className="jobs-actions"><Link className="secondary jobs-run" href="/cv">SPRAWDŹ CV</Link><button className="primary jobs-run" onClick={openProvider}>ZATWIERDZAM · OTWÓRZ OGŁOSZENIE</button><button className="secondary jobs-run" onClick={()=>setSelectedJob(null)}>ANULUJ</button></div></div></div>}<footer><span>CORE ENGINE · JOB AGENT</span><span>{t.footer}</span></footer>
+{application&&<div className="application-preview"><div className="card-label">CV DOPASOWANE DO OFERTY</div><h3>{application.cv.tailoredHeadline}</h3><p>{application.cv.tailoredSummary}</p><div className="card-label">LIST MOTYWACYJNY</div><pre>{application.coverLetter}</pre>{application.match.risks?.length>0&&<div className="application-risks"><b>DO WERYFIKACJI</b>{application.match.risks.map((x:string)=><div key={x}>• {x}</div>)}</div>}</div>}<div className="jobs-actions"><Link className="secondary jobs-run" href="/cv">SPRAWDŹ CV</Link><button className="primary jobs-run" onClick={openProvider} disabled={!application||selectedJob.status==="APPROVED"}>{selectedJob.status==="APPROVED"?"ZATWIERDZONE · OGŁOSZENIE OTWARTE":"ZATWIERDZAM · OTWÓRZ OGŁOSZENIE"}</button><button className="secondary jobs-run" onClick={()=>setSelectedJob(null)}>ANULUJ</button></div></div></div>}<footer><span>CORE ENGINE · JOB AGENT</span><span>{t.footer}</span></footer>
   </main>
 }
