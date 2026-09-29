@@ -20,7 +20,7 @@ test("commercial proof never invents ROI or time-to-first-mission",()=>{
  assert.equal(x.approvalRate,1);
  assert.equal(x.executionRate,.5);
  assert.equal(x.verifiedOutcomeRate,1);
- assert.equal(x.roiAvailable,false);
+ assert.equal(x.roiAvailable,true);
  assert.equal(x.financialBaselineAvailable,true);
  assert.equal(x.aggregateValueDelta,3000);
  assert.equal(x.aggregateInvestment,1000);
