@@ -54,5 +54,7 @@ as $$
   limit greatest(1, least(coalesce(p_match_count,10),50));
 $$;
 
-revoke execute on function public.match_ce_intelligence_memories(uuid, extensions.vector(1536), text, integer) from anon, authenticated;
+revoke execute on function public.match_ce_intelligence_memories(uuid, extensions.vector(1536), text, integer) from public, anon, authenticated;
 grant execute on function public.match_ce_intelligence_memories(uuid, extensions.vector(1536), text, integer) to service_role;
+alter function public.match_ce_intelligence_memories(uuid, extensions.vector(1536), text, integer)
+  set search_path = public, extensions;
