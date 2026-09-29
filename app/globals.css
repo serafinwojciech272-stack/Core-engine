@@ -315,3 +315,42 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 @media(prefers-reduced-motion:reduce){
   .job-agent-standalone .profile-card,.job-agent-standalone .decision-card,.job-agent-standalone .job-card,.job-agent-standalone .apply{transition:none}
 }
+
+
+/* JOB AGENT UI V3 · COMMAND CENTER POLISH */
+.job-agent-standalone .jobs-hero{padding-top:88px}
+.job-agent-standalone .jobs-hero:after{content:"";position:absolute;left:8vw;right:8vw;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#d9d0ec 18%,#c8b4ef 50%,#e8d6c8 82%,transparent);opacity:.7}
+.job-agent-standalone .job-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:940px;margin:34px 0 0}
+.job-agent-standalone .job-kpi{min-height:72px;padding:14px 16px;border:1px solid #dce2ec;background:rgba(255,255,255,.72);border-radius:14px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 24px rgba(31,41,55,.045)}
+.job-agent-standalone .job-kpi span{font:850 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:#7c8797}
+.job-agent-standalone .job-kpi b{font-size:15px;letter-spacing:-.02em;color:#253043}
+.job-agent-standalone .job-kpi.green{border-color:#c5e5d0}.job-agent-standalone .job-kpi.green b{color:#2f8a5b}
+.job-agent-standalone .job-kpi.violet{border-color:#d8ccf0}.job-agent-standalone .job-kpi.violet b{color:#6941c6}
+.job-agent-standalone .job-kpi.orange{border-color:#ecd5bd}.job-agent-standalone .job-kpi.orange b{color:#a55d1c}
+.job-agent-standalone .results-live{display:flex;align-items:center;gap:6px}
+.job-agent-standalone .results-live i{width:7px;height:7px;border-radius:50%;background:#35a66b;box-shadow:0 0 0 4px rgba(53,166,107,.10)}
+.job-agent-standalone .job-card{position:relative;grid-template-columns:minmax(0,1.5fr) minmax(130px,.7fr) auto;overflow:hidden}
+.job-agent-standalone .job-card-top{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:-7px}
+.job-agent-standalone .job-source,.job-agent-standalone .job-decision{font:850 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;padding:6px 8px;border-radius:999px}
+.job-agent-standalone .job-source{color:#687588;background:#f5f7fa;border:1px solid #e0e5ec}
+.job-agent-standalone .job-decision{color:#6b7280;background:#f7f8fa;border:1px solid #e0e4eb}
+.job-agent-standalone .job-decision.apply-candidate{color:#26714a;background:#effaf3;border-color:#bfe2cb}
+.job-agent-standalone .job-main{padding-top:3px}
+.job-agent-standalone .job-card h3{letter-spacing:-.018em}
+.job-agent-standalone .job-card small{color:#8a95a4}
+.job-agent-standalone .job-trust-row{max-width:940px;margin:20px 0 0;display:flex;flex-wrap:wrap;gap:8px}
+.job-agent-standalone .job-trust-row span{display:inline-flex;align-items:center;gap:6px;border:1px solid #dce2ec;background:#fff;border-radius:999px;padding:8px 10px;color:#657286;font:800 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+.job-agent-standalone .job-trust-row span svg{color:#6941c6}
+.job-agent-standalone .job-trust-row span:nth-child(1) svg{color:#2f8a5b}
+.job-agent-standalone .job-trust-row span:nth-child(2) svg{color:#ff8a24}
+@media(max-width:760px){
+  .job-agent-standalone .jobs-hero{padding-top:60px}
+  .job-agent-standalone .job-kpis{grid-template-columns:1fr 1fr;margin-top:26px}
+  .job-agent-standalone .job-kpi{min-height:64px}
+  .job-agent-standalone .job-card{grid-template-columns:1fr}
+  .job-agent-standalone .job-card-top{margin-bottom:0}
+  .job-agent-standalone .job-main{padding-top:0}
+  .job-agent-standalone .job-trust-row{margin:12px 18px 0}
+  .job-agent-standalone .job-trust-row span{font-size:7px}
+}
+@media(max-width:380px){.job-agent-standalone .job-kpis{gap:7px}.job-agent-standalone .job-kpi{padding:11px 12px}.job-agent-standalone .job-kpi span{font-size:7px}}
