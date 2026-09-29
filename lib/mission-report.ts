@@ -5,6 +5,7 @@ export type MissionReport = {missionId:string;tenantId?:string;objective:string;
 
 function finiteNumber(value:unknown):number|undefined{return typeof value==="number"&&Number.isFinite(value)?value:undefined}
 function firstNumber(values:unknown[]):number|undefined{for(const value of values){const number=finiteNumber(value);if(number!==undefined)return number}return undefined}
+function withinTwentyPercent(predicted:number|undefined,delta:number|undefined):boolean{return predicted!==undefined&&delta!==undefined&&Math.abs(delta)<=Math.abs(predicted)*0.2}
 function normalizeEvent(event:ReportEvent):ReportEvent{return{...event,decisionId:event.decisionId??undefined,fromState:event.fromState??undefined,toState:event.toState??undefined}}
 
 export function buildMissionReport(input:{mission:Mission;events:ReportEvent[];tenantId?:string}):MissionReport{
@@ -19,7 +20,7 @@ export function buildMissionReport(input:{mission:Mission;events:ReportEvent[];t
  const predicted=firstNumber(metadata.map(value=>value.predicted)),actual=firstNumber(metadata.map(value=>value.actual));
  const delta=predicted!==undefined&&actual!==undefined?actual-predicted:undefined;
  const deltaPct=delta!==undefined&&predicted!==undefined&&predicted!==0?(delta/Math.abs(predicted))*100:undefined;
- const quality:MissionReport["outcome"]["quality"]=actual===undefined||predicted===undefined?"UNVERIFIED":delta===0?"VERIFIED":Math.abs(delta)<=Math.abs(predicted)*0.2?"VERIFIED":"NEGATIVE";
+ const quality:MissionReport["outcome"]["quality"]=actual===undefined||predicted===undefined?"UNVERIFIED":delta===0||withinTwentyPercent(predicted,delta)?"VERIFIED":"NEGATIVE";
  const predictionCorrect=actual===undefined||predicted===undefined?null:quality==="VERIFIED";
  const firstCreatedAt=trace[0]?.createdAt,lastCreatedAt=trace[trace.length-1]?.createdAt;
  const start=firstCreatedAt?Date.parse(firstCreatedAt):Number.NaN,end=lastCreatedAt?Date.parse(lastCreatedAt):Number.NaN;
