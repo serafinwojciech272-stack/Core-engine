@@ -13,7 +13,7 @@ export async function executeSkillAction(input:{skillId:string;actionId:string;m
  if(!action)return{status:"BLOCKED",skillId:input.skillId,actionId:input.actionId,adapterId:"",attempt:1,message:"SKILL_ACTION_NOT_FOUND"};
  const adapter=getSkillAdapter(action.adapterId);const payload=input.payload??{};
  if(!adapter){const r={status:"ADAPTER_NOT_FOUND" as const,skillId:input.skillId,actionId:action.id,adapterId:action.adapterId,attempt:1,message:"ADAPTER_NOT_FOUND"};audit({type:"SKILL_BLOCKED",...r,status:r.status,createdAt:new Date().toISOString()});return r;}
- if(!adapter.actionIds.includes(action.id))return{status:"BLOCKED",skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt:1,message:"ADAPTER_ACTION_NOT_SUPPORTED"};
+ if(!adapter.actionIds.includes(action.id)&&!adapter.actionIds.includes("*"))return{status:"BLOCKED",skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt:1,message:"ADAPTER_ACTION_NOT_SUPPORTED"};
  const missingAdapterPermission=action.permissions.find(p=>!adapter.permissions.includes(p));if(missingAdapterPermission)return{status:"BLOCKED",skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt:1,message:`ADAPTER_PERMISSION_MISSING:${missingAdapterPermission}`};
  const inputError=validateInput(action,payload);if(inputError)return{status:"BLOCKED",skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt:1,message:inputError};
  if(action.requiresApproval&&!input.approved){const r={status:"APPROVAL_REQUIRED" as const,skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt:1,message:"APPROVAL_REQUIRED"};audit({type:"SKILL_APPROVAL_REQUIRED",...r,status:r.status,createdAt:new Date().toISOString()});return r;}
