@@ -30,6 +30,6 @@ export async function executeSkillAction(input:{skillId:string;actionId:string;m
   const result=await adapter.execute({missionId:input.missionId,tenantId:input.tenantId,workspaceRoot:input.workspaceRoot,input:input.payload??{},idempotencyKey:input.idempotencyKey,attempt},action);
   const status:SkillExecutionResult["status"]=result.status==="EXECUTED"?"EXECUTED":result.retryable?"RETRYABLE":"FAILED";
   const r={status,skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt,message:result.message,output:result.output,provenance:result.provenance};
-  audit({type:status==="EXECUTED"?"SKILL_EXECUTED":"SKILL_FAILED",...r,status,createdAt:new Date().toISOString()});return r;
+  if(input.idempotencyKey)executionKeys.set(input.idempotencyKey,r);audit({type:status==="EXECUTED"?"SKILL_EXECUTED":"SKILL_FAILED",...r,status,createdAt:new Date().toISOString()});return r;
  }catch(error){const message=error instanceof Error?error.message:"SKILL_ADAPTER_EXECUTION_FAILED";const r={status:"FAILED" as const,skillId:input.skillId,actionId:action.id,adapterId:adapter.id,attempt,message};audit({type:"SKILL_FAILED",...r,status:r.status,createdAt:new Date().toISOString()});return r;}
 }
