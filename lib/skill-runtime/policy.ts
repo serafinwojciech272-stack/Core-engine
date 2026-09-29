@@ -1,0 +1,3 @@
+import type {SkillAction,SkillPermission} from "./contracts";
+const effectPermission:Partial<Record<SkillAction["sideEffect"],SkillPermission>>={FILE_WRITE:"WRITE_WORKSPACE",DATABASE_WRITE:"EXTERNAL_API",EXTERNAL_API:"EXTERNAL_API",MESSAGE_SEND:"EXTERNAL_API",DEPLOYMENT:"PUBLISH",FINANCIAL:"FINANCIAL",DESTRUCTIVE:"PUBLISH"};
+export function validatePermission(action:SkillAction,granted:SkillPermission[]){for(const p of action.permissions)if(!granted.includes(p))return{ok:false,reason:"PERMISSION_REQUIRED:"+p};const required=effectPermission[action.sideEffect];if(required&&!granted.includes(required))return{ok:false,reason:"PERMISSION_REQUIRED:"+required};return{ok:true as const};}
