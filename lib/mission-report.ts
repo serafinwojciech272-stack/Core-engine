@@ -1,0 +1,20 @@
+import type {Mission,EngineEvent} from "@/lib/engine";
+export type MissionReport={missionId:string;tenantId?:string;objective:string;state:Mission["state"];summary:{whatSystemSaw:string[];whatItBelieved:string[];whatItDidNotKnow:string[];whyMissionSelected:string;whatActionItTook:string[];whatHappened:string[];predictionCorrect:boolean|null;whatItLearned:string[];nextAction:string};evidence:{eventCount:number;evidenceRefs:string[];provenanceCoverage:number};outcome:{predicted?:number;actual?:number;delta?:number;deltaPct?:number;quality:"VERIFIED"|"NEGATIVE"|"UNVERIFIED"};commercial:{timeToValueMs?:number;valueEvidenceAvailable:boolean};trace:EngineEvent[]};
+function num(x:unknown){return typeof x==="number"&&Number.isFinite(x)?x:null}
+export function buildMissionReport(input:{mission:Mission;events:EngineEvent[];tenantId?:string}):MissionReport{
+ const m=input.mission,e=input.events.filter(x=>x.missionId===m.id),meta=e.flatMap(x=>x.metadata?[x.metadata]:[]);
+ const saw=e.filter(x=>x.eventType==="MISSION_CREATED").map(x=>String(x.metadata?.objective??m.objective));
+ const actions=e.filter(x=>x.eventType==="CAPABILITY_EXECUTED"||x.eventType==="EXECUTION_RECORDED").map(x=>String(x.metadata?.actionId??x.metadata?.capabilityActionId??x.eventType));
+ const evidenceRefs=e.flatMap(x=>{const v=x.metadata?.evidenceId;return typeof v==="string"?[v]:[]});
+ const unknowns=e.filter(x=>String(x.metadata?.unknown??"").length).map(x=>String(x.metadata?.unknown));
+ const lessons=e.filter(x=>x.eventType==="LEARNING_RECORDED").map(x=>String(x.metadata?.lesson??x.metadata?.content??"Learning recorded."));
+ const predicted=meta.map(x=>num(x.predicted)).find(x=>x!==null)??undefined;
+ const actual=meta.map(x=>num(x.actual)).find(x=>x!==null)??undefined;
+ const delta=predicted!==undefined&&actual!==undefined?actual-predicted:undefined;
+ const deltaPct=delta!==undefined&&predicted!==0?delta/Math.abs(predicted)*100:undefined;
+ const quality=actual===undefined?"UNVERIFIED":delta===0?"VERIFIED":Math.abs(delta)<=Math.abs(predicted??0)*.2?"VERIFIED":"NEGATIVE";
+ const predictionCorrect=actual===undefined||predicted===undefined?null:quality==="VERIFIED";
+ const start=e[0]?.createdAt?Date.parse(e[0].createdAt):undefined;
+ const end=e.at(-1)?.createdAt?Date.parse(e.at(-1)!.createdAt):undefined;
+ return{missionId:m.id,tenantId:input.tenantId,objective:m.objective,state:m.state,summary:{whatSystemSaw:saw.length?saw:["Mission input/evidence is available in the trace."],whatItBelieved:e.filter(x=>x.eventType==="STATE_CHANGED").map(x=>String(x.metadata?.reason??((x.fromState??"")+"→"+(x.toState??"")))).filter(Boolean),whatItDidNotKnow:unknowns.length?unknowns:["No explicit unknown was recorded in the available mission trace."],whyMissionSelected:String(e.find(x=>x.eventType==="MISSION_CREATED")?.metadata?.selectionReason??"Selected by the existing deterministic decision/runtime path."),whatActionItTook:actions,whatHappened:e.filter(x=>x.eventType==="CAPABILITY_OUTCOME_RECORDED"||x.eventType==="CAPABILITY_EXECUTION_FAILED"||x.eventType==="MEASUREMENT_RECORDED").map(x=>String(x.metadata?.message??x.eventType)),predictionCorrect,whatItLearned:lessons,nextAction:m.state==="LEARNED"?"Generate or evaluate the next highest-value mission.":m.state==="COMPLETED"?"Run learning/lesson validation before reuse.":"Complete the remaining governed mission lifecycle."},evidence:{eventCount:e.length,evidenceRefs:[...new Set(evidenceRefs)],provenanceCoverage:e.length?Math.min(1,evidenceRefs.length/e.length):0},outcome:{predicted,actual,delta,deltaPct,quality},commercial:{timeToValueMs:start&&end?Math.max(0,end-start):undefined,valueEvidenceAvailable:actual!==undefined||evidenceRefs.length>0},trace:e};
+}
