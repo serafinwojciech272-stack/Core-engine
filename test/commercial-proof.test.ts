@@ -12,7 +12,7 @@ const report=(id:string,quality:MissionReport["outcome"]["quality"],actual?:numb
 test("commercial proof never invents ROI or time-to-first-mission",()=>{
  const m=[mission("m1","LEARNED"),mission("m2","COMPLETED")];
  const rs=[report("m1","VERIFIED",120),report("m2","UNVERIFIED")];
- const es=[event("m1","CAPABILITY_APPROVED"),event("m1","CAPABILITY_EXECUTED"),event("m2","CAPABILITY_APPROVED")];
+ const es=[{...event("m1","STATE_CHANGED"),fromState:"AWAITING_APPROVAL",toState:"APPROVED"},event("m1","CAPABILITY_EXECUTED"),{...event("m2","STATE_CHANGED"),fromState:"AWAITING_APPROVAL",toState:"APPROVED"}];
  const x=buildCommercialProofMetrics({missions:m,events:es,reports:rs});
  assert.equal(x.missionCount,2);
  assert.equal(x.approvalRate,1);
