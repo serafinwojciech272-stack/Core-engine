@@ -1,6 +1,7 @@
 import type { Mission } from "@/lib/engine";
 import type { MissionReport } from "@/lib/mission-report";
 import type { CommercialValueCase } from "@/lib/commercial-value";
+import type { CommercialBillingEvidence } from "@/lib/commercial-storage";
 
 export type ProofEvent={missionId:string;eventType:string;fromState?:string|null;toState?:string|null};
 
@@ -20,6 +21,8 @@ export type CommercialProofMetrics = {
   timeToFirstMissionMs:number|null;
   timeToValueMs:number|null;
   billingEvidenceAvailable:boolean;
+  billingAccountConfigured:boolean;
+  subscriptionActive:boolean;
   financialBaselineAvailable:boolean;
   aggregateValueDelta:number|null;
   aggregateInvestment:number|null;
@@ -31,9 +34,10 @@ export type CommercialProofMetrics = {
 function ratio(n:number,d:number){return d? n/d:null}
 function avg(values:number[]){return values.length?values.reduce((a,b)=>a+b,0)/values.length:null}
 
-export function buildCommercialProofMetrics(input:{missions:Mission[];events:ProofEvent[];reports:MissionReport[];valueCases?:CommercialValueCase[]}):CommercialProofMetrics{
+export function buildCommercialProofMetrics(input:{missions:Mission[];events:ProofEvent[];reports:MissionReport[];valueCases?:CommercialValueCase[];billing?:CommercialBillingEvidence}):CommercialProofMetrics{
   const reports=input.reports;
   const valueCases=input.valueCases??[];
+  const billing=input.billing;
   const realizedValueCases=valueCases.filter(x=>x.actualValue!==null);
   const aggregateValueDelta=realizedValueCases.length?realizedValueCases.reduce((sum,x)=>sum+(x.valueDelta??0),0):null;
   const aggregateInvestment=realizedValueCases.length?realizedValueCases.reduce((sum,x)=>sum+x.investmentValue,0):null;
@@ -52,7 +56,7 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
   if(!reports.some(r=>r.outcome.predicted!==undefined))missingEvidence.push("PREDICTION");
   if(!valueCases.length)missingEvidence.push("FINANCIAL_BASELINE");
   if(aggregateRoiPct===null)missingEvidence.push("ROI");
-  missingEvidence.push("BILLING_SUBSCRIPTION_EVIDENCE");
+  if(!billing?.subscriptionActive)missingEvidence.push("BILLING_SUBSCRIPTION_EVIDENCE");
   const first=input.missions.map(m=>Date.parse(m.createdAt)).filter(Number.isFinite).sort((a,b)=>a-b)[0];
   return{
     missionCount:input.missions.length,
@@ -69,7 +73,9 @@ export function buildCommercialProofMetrics(input:{missions:Mission[];events:Pro
     roiAvailable:aggregateRoiPct!==null,
     timeToFirstMissionMs:null,
     timeToValueMs:cycles.length?Math.min(...cycles):null,
-    billingEvidenceAvailable:false,
+    billingEvidenceAvailable:billing?.subscriptionActive===true,
+    billingAccountConfigured:billing?.configured===true,
+    subscriptionActive:billing?.subscriptionActive===true,
     financialBaselineAvailable:valueCases.length>0,
     aggregateValueDelta,
     aggregateInvestment,
