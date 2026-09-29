@@ -203,3 +203,16 @@ export async function getBillingEvidence(tenantId:string):Promise<CommercialBill
     subscriptionActive:subscriptionPresent&&(status==="active"||status==="trialing")
   };
 }
+
+export async function getTenantCreatedAt(tenantId:string):Promise<string|null>{
+  const c=cfg();
+  if(!c)return null;
+  const url=new URL(c.url+"/rest/v1/ce_tenants");
+  url.searchParams.set("id","eq."+tenantId);
+  url.searchParams.set("select","created_at");
+  url.searchParams.set("limit","1");
+  const response=await request(url.toString(),{headers:headers(c.key)});
+  if(!response.ok)throw new Error("SUPABASE_TENANT_CREATED_AT_READ_"+response.status);
+  const rows=await response.json() as Array<{created_at?:string|null}>;
+  return rows[0]?.created_at??null;
+}
