@@ -1,7 +1,7 @@
 import type { Mission } from "@/lib/engine";
 import type { MissionReport } from "@/lib/mission-report";
 
-export type ProofEvent={missionId:string;eventType:string};
+export type ProofEvent={missionId:string;eventType:string;fromState?:string;toState?:string};
 
 export type CommercialProofMetrics = {
   missionCount:number;
