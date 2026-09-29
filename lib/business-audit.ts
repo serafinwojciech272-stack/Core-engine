@@ -2,11 +2,11 @@ import {executeCapabilityAction,getCapabilityAction} from "@/lib/capability-acti
 
 export type BusinessAudit={url:string;httpStatus:number;trustGate:"PASS"|"REVIEW"|"BLOCK";trustReasons:string[];signals:{name:string;value:string;source:string}[];evidence:Record<string,unknown>;opportunities:string[]};
 
-export async function runBusinessAudit(input:{url:string;idempotencyKey:string}):Promise<BusinessAudit>{
+export async function runBusinessAudit(input:{url:string;idempotencyKey:string;missionId?:string}):Promise<BusinessAudit>{
   const action=getCapabilityAction("seo.audit");
   if(!action)throw new Error("BUSINESS_AUDIT_CAPABILITY_NOT_REGISTERED");
   if(action.requiresApproval)throw new Error("BUSINESS_AUDIT_APPROVAL_POLICY_MISMATCH");
-  const receipt=await executeCapabilityAction({actionId:"seo.audit",approved:true,missionId:"business-audit",idempotencyKey:input.idempotencyKey,input:{url:input.url}});
+  const receipt=await executeCapabilityAction({actionId:"seo.audit",approved:true,missionId:input.missionId??"business-audit",idempotencyKey:input.idempotencyKey,input:{url:input.url}});
   if(receipt.status!=="EXECUTED")throw new Error(receipt.error?.message||receipt.message||"BUSINESS_AUDIT_FAILED");
   const output=receipt.output??{};
   const httpStatus=typeof output.httpStatus==="number"?output.httpStatus:0;
