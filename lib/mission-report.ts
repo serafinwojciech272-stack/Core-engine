@@ -5,7 +5,7 @@ export type MissionReport = {missionId:string;tenantId?:string;objective:string;
 
 function finiteNumber(value:unknown):number|undefined{return typeof value==="number"&&Number.isFinite(value)?value:undefined}
 function firstNumber(values:unknown[]):number|undefined{for(const value of values){const number=finiteNumber(value);if(number!==undefined)return number}return undefined}
-function withinTwentyPercent(predicted:number|undefined,delta:number|undefined):boolean{return predicted!==undefined&&delta!==undefined&&Math.abs(delta)<=Math.abs(predicted)*0.2}
+function withinTwentyPercent(predicted:number|undefined,delta:number|undefined):boolean{if(predicted===undefined||delta===undefined)return false;return Math.abs(delta)<=Math.abs(predicted)*0.2}
 function normalizeEvent(event:ReportEvent):ReportEvent{return{...event,decisionId:event.decisionId??undefined,fromState:event.fromState??undefined,toState:event.toState??undefined}}
 
 export function buildMissionReport(input:{mission:Mission;events:ReportEvent[];tenantId?:string}):MissionReport{
