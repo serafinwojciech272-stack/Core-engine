@@ -19,3 +19,11 @@ Every configured LLM invocation is durably audited in ce_cognition_audit_events 
 If LLM configuration is absent, cognition degrades to DETERMINISTIC_RULES; the core engine remains operational.
 
 The cognition.llm.synthesize capability is HIGH risk and remains behind the existing approval gate.
+
+## Phase B - semantic memory
+
+Semantic memory is an optional pgvector-backed retrieval layer over ce_intelligence_memories. Embeddings use an OpenAI-compatible embeddings endpoint with no additional SDK dependency.
+
+Server-side variables: CORE_ENGINE_EMBEDDING_BASE_URL, CORE_ENGINE_EMBEDDING_API_KEY, CORE_ENGINE_EMBEDDING_MODEL, with the cognition LLM base URL/key accepted as provider fallbacks. The current durable schema uses 1536-dimensional vectors and an HNSW cosine index.
+
+If embedding configuration is absent or the provider fails, memory persistence remains durable and recall falls back to the existing deterministic token-overlap ranking. Embedding failures never block memory writes.
