@@ -1,12 +1,13 @@
 import {NextResponse} from "next/server";
-import {missions,events,type Mission} from "@/lib/engine";
+import {missions,events,type Mission, type EngineEvent} from "@/lib/engine";
 import {storageMode,listPersistedMissions,listPersistedEvents,type EngineEventRow} from "@/lib/storage";
 import {resolveSaaSContext} from "@/lib/saas-runtime";
 import {tenantMissionIds} from "@/lib/commercial-storage";
 import {buildMissionReport,type ReportEvent} from "@/lib/mission-report";
 
-function toReportEvent(event:EngineEventRow|{id:string;missionId:string;decisionId?:string;eventType:string;fromState?:string;toState?:string;actorType:string;createdAt:string;metadata?:Record<string,unknown>}):ReportEvent{return{id:event.id,missionId:event.missionId,eventType:event.eventType,createdAt:event.createdAt,metadata:event.metadata,decisionId:event.decisionId??undefined,fromState:event.fromState??undefined,toState:event.toState??undefined,actorType:event.actorType}}
-
+function toReportEvent(event:EngineEventRow|EngineEvent):ReportEvent{
+ return {id:event.id,missionId:event.missionId,eventType:event.eventType,createdAt:event.createdAt,metadata:"metadata" in event?event.metadata:undefined,decisionId:event.decisionId??undefined,fromState:event.fromState??undefined,toState:event.toState??undefined,actorType:event.actorType};
+}
 export async function GET(request:Request){
  const runtime=await resolveSaaSContext(request);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId}:runtime.legacyTenant!;
  const id=new URL(request.url).searchParams.get("id")||"";
