@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { understand, decide, learn } from "@/lib/cognition/synthesis";
 import type { CapabilityAction, CapabilityFailureCategory } from "@/lib/capability-contracts";
 
 export type CapabilityAdapterContext = { missionId?: string; idempotencyKey?: string; attempt: number; input?: Record<string, unknown> };
@@ -77,7 +78,33 @@ const webhookAdapter: CapabilityAdapter = {
   }
 };
 
-const adapters: CapabilityAdapter[] = [publicWebAuditAdapter, webhookAdapter, simulationAdapter];
+const cognitionAdapter: CapabilityAdapter = {
+  id: "core.cognition.llm.v1",
+  observationalOnly: true,
+  supports: (action) => action.id === "cognition.llm.synthesize",
+  async execute(action, context) {
+    const startedAt = new Date().toISOString();
+    const input = context.input ?? {};
+    const operation = typeof input.operation === "string" ? input.operation : "";
+    const tenantId = typeof input.tenant_id === "string" ? input.tenant_id : "";
+    if (!tenantId) throw new Error("COGNITION_TENANT_REQUIRED");
+    if (operation === "understand" && typeof input.text === "string") {
+      const result = await understand({ tenantId, missionId: context.missionId, text: input.text });
+      return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Cognition understand synthesis completed.", output: { operation, result } };
+    }
+    if (operation === "decide" && input.deterministicDecision && typeof input.deterministicDecision === "object") {
+      const result = await decide({ tenantId, missionId: context.missionId, context: typeof input.context === "string" ? input.context : JSON.stringify(input.context ?? ""), deterministicDecision: input.deterministicDecision as Parameters<typeof decide>[0]["deterministicDecision"] });
+      return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Cognition decision synthesis completed.", output: { operation, result } };
+    }
+    if (operation === "learn") {
+      const result = await learn({ tenantId, missionId: context.missionId, outcome: input.outcome });
+      return { status: "EXECUTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Cognition learning draft completed.", output: { operation, result } };
+    }
+    return { status: "REJECTED", startedAt, completedAt: new Date().toISOString(), sideEffect: false, message: "Unsupported cognition operation.", errorCategory: "EXECUTION_BLOCKED", retryable: false };
+  }
+};
+
+const adapters: CapabilityAdapter[] = [publicWebAuditAdapter, webhookAdapter, cognitionAdapter, simulationAdapter];
 export function isObservationalAdapter(adapter: CapabilityAdapter) { return adapter.observationalOnly === true || adapter.id === "core.simulation.v1"; }
 export function registerCapabilityAdapter(adapter: CapabilityAdapter) { if (!adapter.id.trim()) throw new Error("CAPABILITY_ADAPTER_ID_REQUIRED"); if (adapters.some((item) => item.id === adapter.id)) throw new Error("CAPABILITY_ADAPTER_ALREADY_REGISTERED"); adapters.push(adapter); }
 // Registry maintenance primitive. Removing the last adapter that supports an

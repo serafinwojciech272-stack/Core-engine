@@ -5,13 +5,11 @@
 - Supabase is the durable production path. In-memory mode is demo/development only and must be labelled non-durable.
 - Trading risk decisions remain deterministic and fail closed.
 - Never expose service-role secrets to client bundles.
-
+- Cognition is optional and server-side only. Required variables are CORE_ENGINE_LLM_BASE_URL, CORE_ENGINE_LLM_API_KEY and CORE_ENGINE_LLM_MODEL.
+- LLM synthesis may change only bounded language fields; deterministic risk, probability, expectedR and evidence fields remain authoritative.
+- Every configured LLM call must produce a durable tenant-scoped cognition audit record.
+- Learning synthesis is a draft only and requires human approval before learning state changes.
 <!-- BEGIN:nextjs-agent-rules -->
-
 # This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
+This version has breaking changes — APIs and conventions may differ from training data. Read relevant guide in node_modules/next/dist/docs/ before using unknown Next APIs.
 <!-- END:nextjs-agent-rules -->
