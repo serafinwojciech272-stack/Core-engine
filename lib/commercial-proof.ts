@@ -1,6 +1,7 @@
 import type { Mission } from "@/lib/engine";
-import type { EngineEvent } from "@/lib/engine";
 import type { MissionReport } from "@/lib/mission-report";
+
+export type ProofEvent={missionId:string;eventType:string};
 
 export type CommercialProofMetrics = {
   missionCount:number;
@@ -25,7 +26,7 @@ export type CommercialProofMetrics = {
 function ratio(n:number,d:number){return d? n/d:null}
 function avg(values:number[]){return values.length?values.reduce((a,b)=>a+b,0)/values.length:null}
 
-export function buildCommercialProofMetrics(input:{missions:Mission[];events:EngineEvent[];reports:MissionReport[]}):CommercialProofMetrics{
+export function buildCommercialProofMetrics(input:{missions:Mission[];events:ProofEvent[];reports:MissionReport[]}):CommercialProofMetrics{
   const reports=input.reports;
   const completed=input.missions.filter(m=>m.state==="COMPLETED"||m.state==="LEARNED").length;
   const learned=input.missions.filter(m=>m.state==="LEARNED").length;
