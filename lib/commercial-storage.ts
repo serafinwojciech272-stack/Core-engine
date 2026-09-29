@@ -169,3 +169,37 @@ export async function listValueCases(tenantId:string,limit=50):Promise<{durable:
   const rows=await response.json() as Record<string,unknown>[];
   return {durable:true,items:rows.map(mapValueCase)};
 }
+
+
+export type CommercialBillingEvidence={
+  configured:boolean;
+  provider:string|null;
+  plan:string|null;
+  status:string|null;
+  externalSubscriptionIdPresent:boolean;
+  subscriptionActive:boolean;
+};
+
+export async function getBillingEvidence(tenantId:string):Promise<CommercialBillingEvidence>{
+  const c=cfg();
+  if(!c)return {configured:false,provider:null,plan:null,status:null,externalSubscriptionIdPresent:false,subscriptionActive:false};
+  const url=new URL(c.url+"/rest/v1/ce_billing_accounts");
+  url.searchParams.set("tenant_id","eq."+tenantId);
+  url.searchParams.set("select","provider,plan,status,external_subscription_id");
+  url.searchParams.set("limit","1");
+  const response=await request(url.toString(),{headers:headers(c.key)});
+  if(!response.ok)throw new Error("SUPABASE_BILLING_EVIDENCE_READ_"+response.status);
+  const rows=await response.json() as Array<Record<string,unknown>>;
+  const row=rows[0];
+  if(!row)return {configured:false,provider:null,plan:null,status:null,externalSubscriptionIdPresent:false,subscriptionActive:false};
+  const subscriptionPresent=typeof row.external_subscription_id==="string"&&row.external_subscription_id.length>0;
+  const status=String(row.status);
+  return {
+    configured:true,
+    provider:String(row.provider),
+    plan:String(row.plan),
+    status,
+    externalSubscriptionIdPresent:subscriptionPresent,
+    subscriptionActive:subscriptionPresent&&(status==="active"||status==="trialing")
+  };
+}
