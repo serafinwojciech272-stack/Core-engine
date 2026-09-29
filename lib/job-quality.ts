@@ -67,7 +67,7 @@ function providerDetailPath(source: string, url: URL) {
     case "jobs.pl":
       return /\/oferta-[^/?#]+/.test(path);
     case "pracuj.pl":
-      return /\/oferta,\d+/.test(path) || /,oferta,\d+/.test(path);
+      return /,oferta,\d+(?:[/?#]|$)/.test(path) || /\/oferta,\d+(?:[/?#]|$)/.test(path);
     case "olx":
       return /\/oferta\//.test(path) && /praca|oferta/.test(path);
     case "rocketjobs":
