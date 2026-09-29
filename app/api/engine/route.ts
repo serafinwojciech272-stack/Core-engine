@@ -21,10 +21,15 @@ import { authenticate } from "@/lib/auth";
 import { resolveTenant } from "@/lib/commercial-runtime";
 import { ensureTenant, bindMissionTenant, recordUsage } from "@/lib/commercial-storage";
 import { resolveSaaSContext, consumeSaaSUsage } from "@/lib/saas-runtime";
+import { recallIntelligence } from "@/lib/intelligence-core";
+import { getWorldContext } from "@/lib/world-model";
+import { buildIntelligenceContext } from "@/lib/intelligence-context";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
 const MAX_EVIDENCE = 60;
+
+function decisionDomain(domain: string | undefined) { return domain ?? "business"; }
 
 function signal(x: unknown): x is EngineSignal {
   if (!x || typeof x !== "object") return false;
@@ -86,7 +91,22 @@ export async function POST(request: Request) {
     }
 
     const learning = storageMode() === "supabase" ? await listPersistedLearning(10) : [];
-    const decision = await buildDecision(signals, domain, learning);
+    let intelligenceContext: ReturnType<typeof buildIntelligenceContext> = buildIntelligenceContext({ memories: [], claims: [], unknowns: [], contradictions: [], learning });
+    if (storageMode() === "supabase") {
+      const query = [signals.map((s) => s.name + " " + s.value).join(" "), decisionDomain(domain)].filter(Boolean).join(" ");
+      const [memoryResult, worldResult] = await Promise.allSettled([
+        recallIntelligence({ tenantId: tenant.tenantId, query, domain, limit: 8 }),
+        getWorldContext({ tenantId: tenant.tenantId, domain, limit: 12 })
+      ]);
+      intelligenceContext = buildIntelligenceContext({
+        memories: memoryResult.status === "fulfilled" ? memoryResult.value : [],
+        claims: worldResult.status === "fulfilled" ? worldResult.value.claims : [],
+        unknowns: worldResult.status === "fulfilled" ? worldResult.value.unknowns : [],
+        contradictions: worldResult.status === "fulfilled" ? worldResult.value.contradictions : [],
+        learning
+      });
+    }
+    const decision = await buildDecision(signals, domain, learning, intelligenceContext);
 
     if (decision.riskGate === "BLOCK") {
       return NextResponse.json({
@@ -138,6 +158,7 @@ export async function POST(request: Request) {
     const trace = [
       { stage: "OBSERVE", status: "COMPLETE", evidence: signals.map((s) => s.name), output: signals.length + " signals accepted" },
       { stage: "CONTEXT", status: "COMPLETE", evidence: contextEvidence.evidence.map((e) => e.id), output: contextEvidence.context.domain },
+      { stage: "INTELLIGENCE_CONTEXT", status: "COMPLETE", evidence: intelligenceContext.unknowns.map((u) => String(u.key ?? "")), output: String(intelligenceContext.claims.length) + " claims, " + String(intelligenceContext.memories.length) + " memories, " + String(intelligenceContext.unknowns.length) + " unknowns, " + String(intelligenceContext.contradictions.length) + " contradictions" },
       { stage: "EVIDENCE", status: "COMPLETE", evidence: contextEvidence.evidence.map((e) => e.id), output: `${contextEvidence.evidence.length} evidence items; quality ${contextEvidence.evidenceQuality.score}` },
       { stage: "DIAGNOSE", status: "COMPLETE", evidence: decision.evidence.slice(0, 8), output: decision.diagnosis },
       { stage: "PRIORITIZE", status: "COMPLETE", evidence: ["priority=" + decision.priority, "confidence=" + decision.confidence.toFixed(3)], output: decision.priority },
@@ -168,6 +189,7 @@ export async function POST(request: Request) {
       evidenceQuality: contextEvidence.evidenceQuality,
       decision,
       learning: { applied: learning.length, lessons: learning.slice(0, 4) },
+      intelligenceContext,
       mission,
       growthMission,
       trace,
