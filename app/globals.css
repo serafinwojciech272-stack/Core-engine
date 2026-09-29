@@ -317,6 +317,9 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 }
 
 
+.job-agent-standalone .jobs-run:disabled,.job-agent-standalone .apply:disabled{opacity:.52;cursor:not-allowed;transform:none;box-shadow:none}
+.job-agent-standalone .application-panel .jobs-actions .primary.jobs-run:disabled{background:#e7eaf0;border-color:#d8dde6;color:#7c8797}
+
 /* JOB AGENT UI V3 · COMMAND CENTER POLISH */
 .job-agent-standalone .jobs-hero{padding-top:88px}
 .job-agent-standalone .jobs-hero:after{content:"";position:absolute;left:8vw;right:8vw;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#d9d0ec 18%,#c8b4ef 50%,#e8d6c8 82%,transparent);opacity:.7}
