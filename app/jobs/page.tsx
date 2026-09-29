@@ -47,7 +47,9 @@ const copy = {
   }
 } as const;
 
-const providers=["Pracuj.pl","Indeed","OLX","LinkedIn Jobs","No Fluff Jobs","Just Join IT","RocketJobs","Pracapolis","Adzuna","Jooble"];\nconst kpis=[{label:"LIVE DISCOVERY",value:"ACTIVE",tone:"green"},{label:"GEO FILTER",value:"30 KM",tone:"violet"},{label:"PROFILE MATCH",value:"AI",tone:"violet"},{label:"APPLICATION",value:"HUMAN GATE",tone:"orange"}];
+const providers=["Pracuj.pl","Indeed","OLX","LinkedIn Jobs","No Fluff Jobs","Just Join IT","RocketJobs","Pracapolis","Adzuna","Jooble"];
+
+const kpis=[{label:"LIVE DISCOVERY",value:"ACTIVE",tone:"green"},{label:"GEO FILTER",value:"30 KM",tone:"violet"},{label:"PROFILE MATCH",value:"AI",tone:"violet"},{label:"APPLICATION",value:"HUMAN GATE",tone:"orange"}];
 
 export default function JobsPage() {
   const pathname=usePathname(); const standalone=pathname==="/job-agent";
