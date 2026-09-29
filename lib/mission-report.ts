@@ -1,5 +1,5 @@
-import type {Mission,EngineEvent} from "@/lib/engine";
-type ReportEvent=Pick<EngineEvent,"id"|"missionId"|"eventType"|"createdAt"|"metadata"> & Partial<Pick<EngineEvent,"decisionId"|"fromState"|"toState"|"actorType">>;
+import type {Mission} from "@/lib/engine";
+type ReportEvent={id:string;missionId:string;eventType:string;createdAt:string;metadata?:Record<string,unknown>;decisionId?:string|null;fromState?:string|null;toState?:string|null;actorType?:string};
 export type MissionReport={missionId:string;tenantId?:string;objective:string;state:Mission["state"];summary:{whatSystemSaw:string[];whatItBelieved:string[];whatItDidNotKnow:string[];whyMissionSelected:string;whatActionItTook:string[];whatHappened:string[];predictionCorrect:boolean|null;whatItLearned:string[];nextAction:string};evidence:{eventCount:number;evidenceRefs:string[];provenanceCoverage:number};outcome:{predicted?:number;actual?:number;delta?:number;deltaPct?:number;quality:"VERIFIED"|"NEGATIVE"|"UNVERIFIED"};commercial:{timeToValueMs?:number;valueEvidenceAvailable:boolean};trace:ReportEvent[]};
 function num(x:unknown):number|undefined{return typeof x==="number"&&Number.isFinite(x)?x:undefined}
 function firstNumber(values:unknown[]):number|undefined{for(const value of values){const n=num(value);if(n!==undefined)return n}return undefined}
