@@ -1,4 +1,5 @@
 import { storeIntelligenceMemory } from "@/lib/intelligence-core";
+import { applyLessonConfidenceDecay, governLessonStatus, lessonAgeDays } from "@/lib/learning-governance";
 
 export type LearningQuality = "VERIFIED" | "NEGATIVE" | "UNVERIFIED";
 export type LessonStatus = "CANDIDATE" | "PROMOTED" | "REJECTED" | "STALE";
@@ -146,7 +147,7 @@ export async function promoteValidatedLesson(input: {
       title: "Validated learning",
       content: input.candidate.lesson,
       domain: input.candidate.domain,
-      confidence: input.validation.confidence,
+      confidence: governedConfidence,
       source: "M10.6_LESSON_PROMOTION",
       sourceRef: input.candidate.missionId,
       tags: ["M10.6", "PROMOTED"],
@@ -155,18 +156,27 @@ export async function promoteValidatedLesson(input: {
         evidenceCount: input.validation.evidenceCount,
         supportCount: input.validation.supportCount,
         contradictionCount: input.validation.contradictionCount,
-        provenance: input.candidate.provenance
+        provenance: input.candidate.provenance,
+        governance: { status: governedStatus, ageDays, governedConfidence }
       }
     });
     promotedMemoryId = memory && typeof memory === "object" && "id" in memory ? String((memory as Record<string, unknown>).id) : null;
   }
+
+  const governedStatus = governLessonStatus({
+    existingStatus: existing?.status as LessonStatus | undefined,
+    lastValidatedAt: typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null,
+    validationStatus: input.validation.status
+  });
+  const ageDays = lessonAgeDays(typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null);
+  const governedConfidence = applyLessonConfidenceDecay(input.validation.confidence, ageDays);
 
   const payload = {
     tenant_id: input.tenantId,
     candidate_key: input.candidate.candidateKey,
     lesson: input.candidate.lesson,
     domain: input.candidate.domain ?? null,
-    status: input.validation.status,
+    status: governedStatus,
     evidence_count: input.validation.evidenceCount,
     support_count: input.validation.supportCount,
     contradiction_count: input.validation.contradictionCount,
@@ -177,7 +187,7 @@ export async function promoteValidatedLesson(input: {
     promoted_memory_id: promotedMemoryId,
     first_observed_at: existing?.first_observed_at ?? now,
     last_validated_at: now,
-    promoted_at: input.validation.status === "PROMOTED" ? (existing?.promoted_at ?? now) : (existing?.promoted_at ?? null),
+    promoted_at: governedStatus === "PROMOTED" ? (existing?.promoted_at ?? now) : (existing?.promoted_at ?? null),
     updated_at: now
   };
 
