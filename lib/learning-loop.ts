@@ -2,7 +2,7 @@ import { buildMissionReport, type ReportEvent } from "@/lib/mission-report";
 import { buildLessonCandidate, validateAndPromoteLesson } from "@/lib/learning-promotion";
 import { buildLearningLesson } from "@/lib/learning-engine";
 import { recordIntelligenceExperience } from "@/lib/intelligence-core";
-import { listPersistedEvents, listPersistedMissions, type EngineEventRow, storageMode } from "@/lib/storage";
+import { getPersistedPrediction, listPersistedEvents, listPersistedMissions, resolvePersistedPrediction, type EngineEventRow, storageMode } from "@/lib/storage";
 
 function toReportEvent(event: EngineEventRow): ReportEvent {
   return {
@@ -47,7 +47,7 @@ export async function runMissionLearningLoop(input: {
 }) {
   if (storageMode() !== "supabase") {
     return {
-      version: "M10.7",
+      version: "M10.8",
       mode: "NON_DURABLE",
       promoted: false,
       reason: "LEARNING_REQUIRES_SUPABASE",
@@ -67,6 +67,24 @@ export async function runMissionLearningLoop(input: {
     events: events.map(toReportEvent),
     tenantId: input.tenantId
   });
+
+  const prediction = await getPersistedPrediction(input.missionId);
+  if (prediction && report.outcome.actual !== undefined) {
+    const outcomeStatus = report.outcome.quality === "VERIFIED" ? "WON" : report.outcome.quality === "NEGATIVE" ? "LOST" : "UNRESOLVED";
+    await resolvePersistedPrediction(
+      input.missionId,
+      report.outcome.actual ?? null,
+      outcomeStatus,
+      {
+        predicted: report.outcome.predicted ?? null,
+        actual: report.outcome.actual ?? null,
+        delta: report.outcome.delta ?? null,
+        deltaPct: report.outcome.deltaPct ?? null,
+        quality: report.outcome.quality,
+        source: "M10.8_OUTCOME_CALIBRATION"
+      }
+    );
+  }
   const lessons = report.summary.whatItLearned.filter(Boolean).slice(0, 6);
   const generatedLesson = buildLearningLesson(
     { quality: report.outcome.quality, improved: report.outcome.quality === "VERIFIED" ? true : report.outcome.quality === "NEGATIVE" ? false : null,
