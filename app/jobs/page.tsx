@@ -52,7 +52,7 @@ const providers=["Pracuj.pl","Indeed","OLX","LinkedIn Jobs","No Fluff Jobs","Jus
 const kpis=[{label:"LIVE DISCOVERY",value:"ACTIVE",tone:"green"},{label:"GEO FILTER",value:"30 KM",tone:"violet"},{label:"PROFILE MATCH",value:"SMART MATCH",tone:"violet"},{label:"APPLICATION",value:"HUMAN GATE",tone:"orange"}];
 
 export default function JobsPage() {
-  const pathname=usePathname(); const standalone=pathname==="/job-agent";
+  const pathname=usePathname(); const standalone=pathname==="/jobs" || pathname==="/job-agent";
   const [lang,setLang]=useState<Lang>("pl"); const t=copy[lang];
   const [running,setRunning]=useState(false),[loadingJobs,setLoadingJobs]=useState(true),[decision,setDecision]=useState<Decision|null>(null),[status,setStatus]=useState("");
   const [jobs,setJobs]=useState<Job[]>([]),[selectedJob,setSelectedJob]=useState<Job|null>(null),[application,setApplication]=useState<any>(null),[latestSync,setLatestSync]=useState<{finished_at?:string;discovered?:number;inserted?:number;status?:string}|null>(null);
