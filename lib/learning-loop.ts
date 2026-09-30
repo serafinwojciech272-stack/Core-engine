@@ -1,5 +1,7 @@
 import { buildMissionReport, type ReportEvent } from "@/lib/mission-report";
 import { buildLessonCandidate, validateAndPromoteLesson } from "@/lib/learning-promotion";
+import { buildLearningLesson } from "@/lib/learning-engine";
+import { recordIntelligenceExperience } from "@/lib/intelligence-core";
 import { listPersistedEvents, listPersistedMissions, type EngineEventRow, storageMode } from "@/lib/storage";
 
 function toReportEvent(event: EngineEventRow): ReportEvent {
@@ -53,10 +55,9 @@ export async function runMissionLearningLoop(input: {
     };
   }
 
-  const [missions, events, experiences] = await Promise.all([
+  const [missions, events] = await Promise.all([
     listPersistedMissions(100),
-    listPersistedEvents(500),
-    fetchExperiences(input.tenantId)
+    listPersistedEvents(500)
   ]);
   const mission = missions.find(item => item.id === input.missionId);
   if (!mission) throw new Error("MISSION_NOT_FOUND");
@@ -67,7 +68,33 @@ export async function runMissionLearningLoop(input: {
     tenantId: input.tenantId
   });
   const lessons = report.summary.whatItLearned.filter(Boolean).slice(0, 6);
-  if (!lessons.length) {
+  const generatedLesson = buildLearningLesson(
+    { quality: report.outcome.quality, improved: report.outcome.quality === "VERIFIED" ? true : report.outcome.quality === "NEGATIVE" ? false : null,
+      delta: report.outcome.delta ?? null, deltaPct: report.outcome.deltaPct ?? null,
+      reason: report.outcome.quality === "VERIFIED" ? "Mission outcome verified." : report.outcome.quality === "NEGATIVE" ? "Mission outcome was negative." : "Mission outcome remains unverified." },
+    { missionObjective: mission.objective, kpi: mission.kpi }
+  );
+  if (report.outcome.quality !== "UNVERIFIED") {
+    await recordIntelligenceExperience({
+      tenantId: input.tenantId,
+      missionId: input.missionId,
+      problem: mission.objective,
+      decision: report.summary.whyMissionSelected,
+      action: report.summary.whatActionItTook.join(", ").slice(0, 4000),
+      expectedOutcome: { predicted: report.outcome.predicted, kpi: mission.kpi },
+      actualOutcome: { actual: report.outcome.actual, delta: report.outcome.delta, deltaPct: report.outcome.deltaPct, quality: report.outcome.quality },
+      outcomeQuality: report.outcome.quality,
+      delta: report.outcome.delta ?? null,
+      deltaPct: report.outcome.deltaPct ?? null,
+      success: report.outcome.quality === "VERIFIED",
+      extractedLessons: [generatedLesson.lesson],
+      strategyCandidates: [report.summary.nextAction],
+      confidence: report.outcome.quality === "VERIFIED" ? 0.8 : 0.5
+    });
+  }
+  const experiences = await fetchExperiences(input.tenantId);
+  const effectiveLessons = lessons.length ? lessons : [generatedLesson.lesson];
+  if (!effectiveLessons.length) {
     return {
       version: "M10.7",
       mode: "DURABLE",
@@ -79,7 +106,7 @@ export async function runMissionLearningLoop(input: {
   }
 
   const results = [];
-  for (const lesson of lessons) {
+  for (const lesson of effectiveLessons) {
     const candidate = buildLessonCandidate({
       lesson,
       quality: report.outcome.quality,
