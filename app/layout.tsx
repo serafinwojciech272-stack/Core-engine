@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./job-agent-dark.css";
 
 export const metadata: Metadata = {
   title: "Core Engine | AI Decision & Execution Infrastructure",
