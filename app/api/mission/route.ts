@@ -12,6 +12,7 @@ import {authenticate} from "@/lib/auth";
 import {resolveTenant} from "@/lib/commercial-runtime";
 import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
 import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
+import {runMissionLearningLoop} from "@/lib/learning-loop";
 
 const numericOrNull=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?value:null;
 const directionOrUndefined=(value:unknown):"higher"|"lower"|undefined=>value==="lower"?"lower":value==="higher"?"higher":undefined;
@@ -85,6 +86,19 @@ export async function POST(request:Request){
       const rr=await transitionPersistedMission(id,next,policy.actor);
       if(action==="execute"||action==="retry")await recordPersistedMissionOutcome(id,"EXECUTION_RECORDED",outcome);
       if(action==="measure")await recordPersistedMissionOutcome(id,"MEASUREMENT_RECORDED",{...outcome,assessment});
+      let learningLoop=null;
+      if(action==="complete"){
+        learningLoop=await runMissionLearningLoop({tenantId:tenant.tenantId,missionId:id});
+        await recordPersistedMissionOutcome(id,"LEARNING_RECORDED",{
+          version:learningLoop.version,
+          promoted:learningLoop.promoted,
+          resultCount:learningLoop.results.length
+        });
+        const learned=await transitionPersistedMission(id,"LEARNED","system");
+        const updated={...current,state:learned.to_state,executionCount:learned.execution_count,updatedAt:new Date().toISOString()};
+        await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
+        return NextResponse.json({ok:true,mission:updated,action,assessment,learning,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
+      }
       const updated={...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()};
       await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
       return NextResponse.json({ok:true,mission:updated,action,assessment,learning,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
@@ -124,9 +138,15 @@ export async function POST(request:Request){
       }
     }
 
-    const updated=transitionMission(m,next);updated.executionCount=action==="execute"||action==="retry"?m.executionCount+1:m.executionCount;missions.set(id,updated);
+    let updated=transitionMission(m,next);updated.executionCount=action==="execute"||action==="retry"?m.executionCount+1:m.executionCount;missions.set(id,updated);
     const event=recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"STATE_CHANGED",fromState:m.state,toState:updated.state,actorType:policy.actor,metadata:{...outcome,...(assessment?{assessment}:{}),...(capabilityActionId?{capabilityActionId}:{})}});
+    let learningLoop=null;
+    if(action==="complete"){
+      learningLoop=await runMissionLearningLoop({tenantId:tenant.tenantId,missionId:id});
+      recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"LEARNING_RECORDED",actorType:"system",metadata:{version:learningLoop.version,promoted:learningLoop.promoted,resultCount:learningLoop.results.length}});
+      updated=transitionMission(updated,"LEARNED");missions.set(id,updated);
+    }
     await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
-    return NextResponse.json({ok:true,mission:updated,action,assessment,event,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode."});
+    return NextResponse.json({ok:true,mission:updated,action,assessment,event,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode."});
   }catch(error){console.error("[core-engine] mission operation failed",error);return NextResponse.json({ok:false,error:"MISSION_OPERATION_FAILED"},{status:503})}
 }
