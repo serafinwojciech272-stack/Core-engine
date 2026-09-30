@@ -63,7 +63,12 @@ export function validateLessonCandidate(input: {
   let contradictionCount = input.candidate.quality === "NEGATIVE" ? 1 : 0;
   const rationale: string[] = [];
 
+  const seenEvidence = new Set<string>();
   for (const experience of input.experiences) {
+    const evidenceKey = experience.mission_id || experience.id;
+    if (input.candidate.missionId && experience.mission_id === input.candidate.missionId) continue;
+    if (seenEvidence.has(evidenceKey)) continue;
+    seenEvidence.add(evidenceKey);
     const lessons = Array.isArray(experience.extracted_lessons) ? experience.extracted_lessons : [];
     const related = lessons.some(item => {
       if (typeof item !== "string") return false;
