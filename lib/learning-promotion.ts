@@ -139,8 +139,16 @@ export async function promoteValidatedLesson(input: {
   const experienceIds = [...new Set([...existingExperienceIds, ...(input.experienceIds ?? [])].map(String))];
   const missionIds = [...new Set([...existingMissionIds, ...(input.missionIds ?? [])].map(String))];
 
+  const governedStatus = governLessonStatus({
+    existingStatus: existing?.status as LessonStatus | undefined,
+    lastValidatedAt: typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null,
+    validationStatus: input.validation.status
+  });
+  const ageDays = lessonAgeDays(typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null);
+  const governedConfidence = applyLessonConfidenceDecay(input.validation.confidence, ageDays);
+
   let promotedMemoryId = typeof existing?.promoted_memory_id === "string" ? existing.promoted_memory_id : null;
-  if (input.validation.status === "PROMOTED" && !promotedMemoryId) {
+  if (governedStatus === "PROMOTED" && !promotedMemoryId) {
     const memory = await storeIntelligenceMemory({
       tenantId: input.tenantId,
       memoryType: "LESSON",
@@ -163,14 +171,6 @@ export async function promoteValidatedLesson(input: {
     promotedMemoryId = memory && typeof memory === "object" && "id" in memory ? String((memory as Record<string, unknown>).id) : null;
   }
 
-  const governedStatus = governLessonStatus({
-    existingStatus: existing?.status as LessonStatus | undefined,
-    lastValidatedAt: typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null,
-    validationStatus: input.validation.status
-  });
-  const ageDays = lessonAgeDays(typeof existing?.last_validated_at === "string" ? existing.last_validated_at : null);
-  const governedConfidence = applyLessonConfidenceDecay(input.validation.confidence, ageDays);
-
   const payload = {
     tenant_id: input.tenantId,
     candidate_key: input.candidate.candidateKey,
@@ -180,7 +180,7 @@ export async function promoteValidatedLesson(input: {
     evidence_count: input.validation.evidenceCount,
     support_count: input.validation.supportCount,
     contradiction_count: input.validation.contradictionCount,
-    confidence: input.validation.confidence,
+    confidence: governedConfidence,
     source_experience_ids: experienceIds,
     source_mission_ids: missionIds,
     provenance: { ...input.candidate.provenance, validation: input.validation.rationale },
