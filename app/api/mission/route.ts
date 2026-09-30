@@ -95,8 +95,7 @@ export async function POST(request:Request){
             promoted:learningLoop.promoted,
             resultCount:learningLoop.results.length
           });
-          const learned=await transitionPersistedMission(id,"LEARNED","system");
-          const updated={...current,state:learned.to_state,executionCount:learned.execution_count,updatedAt:new Date().toISOString()};
+          const updated={...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()};
           await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
           return NextResponse.json({ok:true,mission:updated,action,assessment,learning,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
         } catch {
@@ -149,7 +148,7 @@ export async function POST(request:Request){
       try {
         learningLoop=await runMissionLearningLoop({tenantId:tenant.tenantId,missionId:id});
         recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"LEARNING_RECORDED",actorType:"system",metadata:{version:learningLoop.version,promoted:learningLoop.promoted,resultCount:learningLoop.results.length}});
-        updated=transitionMission(updated,"LEARNED");missions.set(id,updated);
+        // Keep COMPLETED as the outcome boundary; explicit learn action closes the state transition.
       } catch {
         learningLoop={version:"M10.9",promoted:false,reason:"LEARNING_DEFERRED",results:[]};
       }
