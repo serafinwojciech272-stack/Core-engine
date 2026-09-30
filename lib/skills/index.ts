@@ -23,6 +23,8 @@ export { getTool, listTools, registerTool } from "./tool-registry";
 export { evaluateExecutionRequest, executionPlaneStages } from "./execution-plane";
 export { evaluatePolicy } from "./policy-engine";
 export { createPlannerOutput, runExecutionLifecycle } from "./execution-lifecycle";
+export { syncExecutionToCoreEngine } from "./core-engine-bridge";
+export type { CoreEngineExecutionBridgeInput, CoreEngineExecutionBridgeResult } from "./core-engine-bridge";
 export type { ExecutionLifecycleResult, ExecutionLifecycleRequest, PlannerOutput, ApprovalObject, ExecutionResult, VerificationResult, MemoryEvent, LearningEvent, ExecutionLifecycleState } from "./execution-lifecycle";
 export type {
   SkillCapability,
