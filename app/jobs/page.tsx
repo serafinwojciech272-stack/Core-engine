@@ -14,12 +14,12 @@ type Lang = "pl" | "en";
 
 const copy = {
   pl: {
-    brand:"CORE ENGINE / JOB AGENT", home:"Core Engine", eyebrow:"AI AGENT DO ANALIZY I WYSZUKIWANIA PRACY",
+    brand:"CORE ENGINE / JOB AGENT", home:"Core Engine", eyebrow:"SILNIK ANALIZY I WYSZUKIWANIA PRACY",
     title:"Znajdź właściwą pracę.", title2:"Niech silnik wykona analizę.",
     lead:"Core Engine łączy profil kandydata, ograniczenia, sygnały rynku i historię wyników w jeden proces decyzyjny. Wyszukuje, filtruje, ocenia i przygotowuje oferty do świadomej akceptacji.",
     input:"WEJŚCIE SILNIKA", policy:"Twoja polityka wyszukiwania", criteria:["Gliwice / Zabrze + 30 km","Niemiecki B2+","Angielski B2+","Doświadczenie menedżerskie / handlowe","Bez prawa jazdy — nie traktuj go jako warunku","Business Development / Operations / CX / Sales / Account"],
-    mode:"TRYB APLIKOWANIA", review:"REVIEW BEFORE SUBMIT", run:"Uruchom Core Engine", running:"Core Engine analizuje...", sync:"Odśwież oferty", syncing:"Synchronizacja...",
-    decision:"WARSTWA DECYZYJNA", waiting:"Oczekiwanie na dane", waitText:"Uruchom silnik, aby przekształcić profil i ograniczenia w jawną politykę wyszukiwania. Każda aplikacja pozostaje za bramką akceptacji.",
+    mode:"TRYB APLIKOWANIA", review:"REVIEW BEFORE SUBMIT", run:"Uruchom analizę", running:"Silnik analizuje dane...", sync:"Odśwież oferty", syncing:"Synchronizacja...",
+    decision:"STATUS SILNIKA", waiting:"Silnik analizuje dane", waitText:"Silnik analizuje profil, rynek, ograniczenia i dopasowanie ofert. Każda aplikacja pozostaje za bramką akceptacji.",
     generated:"POLITYKA WYGENEROWANA", confidence:"PEWNOŚĆ", priority:"PRIORYTET",
     sources:"ŹRÓDŁA DISCOVERY", coverage:"Pokrycie rynku na żywo", sourceText:"Google/Serper jest warstwą discovery; poniższe serwisy są wyszukiwane i klasyfikowane z wyników na żywo.",
     hourly:"AUTOMATYCZNE ODŚWIEŻANIE · CO 60 MIN", pipeline:"PIPELINE OKAZJI", relevant:"Oferty dopasowane do profilu",
@@ -30,12 +30,12 @@ const copy = {
     lang:"JĘZYK"
   },
   en: {
-    brand:"CORE ENGINE / JOB AGENT", home:"Core Engine", eyebrow:"AI JOB INTELLIGENCE & DISCOVERY AGENT",
+    brand:"CORE ENGINE / JOB AGENT", home:"Core Engine", eyebrow:"JOB DISCOVERY & MATCHING ENGINE",
     title:"Find the right work.", title2:"Let the engine reason.",
     lead:"Core Engine combines candidate profile, constraints, live market signals and outcome history into one decision process. It discovers, filters, scores and prepares opportunities for deliberate approval.",
     input:"ENGINE INPUT", policy:"Your search policy", criteria:["Gliwice / Zabrze + 30 km","German B2+","English B2+","Management / commercial experience","No driving licence — never treat it as a requirement","Business Development / Operations / CX / Sales / Account"],
-    mode:"APPLICATION MODE", review:"REVIEW BEFORE SUBMIT", run:"Run Core Engine", running:"Core Engine is reasoning...", sync:"Refresh opportunities", syncing:"Synchronizing...",
-    decision:"DECISION LAYER", waiting:"Waiting for evidence", waitText:"Run the engine to turn your profile and constraints into an explicit search policy. Every application remains behind an approval gate.",
+    mode:"APPLICATION MODE", review:"REVIEW BEFORE SUBMIT", run:"Run analysis", running:"Engine is analyzing data...", sync:"Refresh opportunities", syncing:"Synchronizing...",
+    decision:"ENGINE STATUS", waiting:"Engine is analyzing data", waitText:"The engine analyzes your profile, market signals, constraints and job matching. Every application remains behind an approval gate.",
     generated:"POLICY GENERATED", confidence:"CONFIDENCE", priority:"PRIORITY",
     sources:"DISCOVERY SOURCES", coverage:"Live market coverage", sourceText:"Google/Serper is the discovery layer; the providers below are searched and classified from live results.",
     hourly:"AUTOMATIC REFRESH · EVERY 60 MIN", pipeline:"LIVE OPPORTUNITY PIPELINE", relevant:"Profile-matched openings",
@@ -49,7 +49,7 @@ const copy = {
 
 const providers=["Pracuj.pl","Indeed","OLX","LinkedIn Jobs","No Fluff Jobs","Just Join IT","RocketJobs","Pracapolis","Adzuna","Jooble"];
 
-const kpis=[{label:"LIVE DISCOVERY",value:"ACTIVE",tone:"green"},{label:"GEO FILTER",value:"30 KM",tone:"violet"},{label:"PROFILE MATCH",value:"AI",tone:"violet"},{label:"APPLICATION",value:"HUMAN GATE",tone:"orange"}];
+const kpis=[{label:"LIVE DISCOVERY",value:"ACTIVE",tone:"green"},{label:"GEO FILTER",value:"30 KM",tone:"violet"},{label:"PROFILE MATCH",value:"SMART MATCH",tone:"violet"},{label:"APPLICATION",value:"HUMAN GATE",tone:"orange"}];
 
 export default function JobsPage() {
   const pathname=usePathname(); const standalone=pathname==="/job-agent";
@@ -98,7 +98,7 @@ export default function JobsPage() {
         <div className="mode-row"><div><div className="card-label">{t.mode}</div><b>{t.review}</b></div><span className="approval-pill"><ShieldCheck size={14}/> HUMAN GATE</span></div>
         <div className="jobs-actions"><button className="primary jobs-run" onClick={runCoreEngine} disabled={running}>{running?<Loader2 size={16} className="spin"/>:<Sparkles size={16}/>} {running?t.running:t.run}</button><button className="secondary jobs-run" onClick={syncJobs} disabled={running}>{running?<Loader2 size={16} className="spin"/>:<RefreshCw size={16}/>} {running?t.syncing:t.sync}</button></div>
         {status&&<div className="engine-status"><CircleDot size={13}/>{status}</div>}</section>
-        <section className="decision-card"><div className="card-label">{t.decision}</div>{decision?<><div className="decision-state">{t.generated}</div><h2>{decision.recommendation}</h2><p>{decision.diagnosis}</p><div className="decision-stats"><div><small>{t.confidence}</small><strong>{Math.round(decision.confidence*100)}%</strong></div><div><small>{t.priority}</small><strong>{decision.priority}</strong></div></div></>:<><div className="decision-orb"><BrainCircuit size={34}/></div><h2>{t.waiting}</h2><p>{t.waitText}</p></>}</section></div>
+        <section className="decision-card"><div className="card-label">{t.decision}</div>{decision?<><div className="decision-state">{t.generated}</div><h2>{decision.recommendation}</h2><p>{decision.diagnosis}</p><div className="decision-stats"><div><small>{t.confidence}</small><strong>{Math.round(decision.confidence*100)}%</strong></div><div><small>{t.priority}</small><strong>{decision.priority}</strong></div></div></>:<><div className="decision-orb"><BrainCircuit size={34}/></div><div className="status-live"><span/><b>{t.waiting}</b></div><h2>{lang==="pl"?"Analiza profilu i rynku":"Profile and market analysis"}</h2><p>{t.waitText}</p><div className="engine-progress" aria-label="Analysis progress"><i/></div><small className="progress-caption">{lang==="pl"?"Profil → rynek → matching → priorytet":"Profile → market → matching → priority"}</small></>}</section></div>
     </section>
     <section className="provider-strip"><div><div className="card-label">{t.sources}</div><h2>{t.coverage}</h2><p>{t.sourceText}</p></div><div className="provider-list">{providers.map(source=><span key={source}>{source}</span>)}</div><div className="refresh-badge"><RefreshCw size={14}/>{t.hourly}</div></section>
     <section className="jobs-results"><div className="results-head"><div><div className="card-label">{t.pipeline}</div><h2>{t.relevant}</h2></div><span className="results-live"><i/> LIVE · <Search size={14}/> {loadingJobs?t.loading:`${jobs.length} ${t.matches}`}</span></div>
