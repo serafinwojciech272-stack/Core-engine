@@ -141,7 +141,9 @@ test("real HTTP API enforces CREATE -> APPROVE -> EXECUTE -> MEASURE -> COMPLETE
   assert.equal(executed.json.skillLifecycle?.state, "VERIFIED");
   assert.equal(executed.json.skillLifecycle?.execution?.status, "EXECUTED");
   assert.equal(executed.json.skillLifecycle?.verification?.passed, true);
-  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTION_READY"));\n  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTED"));\n  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("VERIFIED"));
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTION_READY"));
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTED"));
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("VERIFIED"));
   assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, executed.json.capabilityReceipt?.executionId);
   assert.equal(executed.json.evidence?.metadata?.capabilityActionId, "page.generate");
   assert.equal(executed.json.outcome?.executionId, executed.json.capabilityReceipt?.executionId);
