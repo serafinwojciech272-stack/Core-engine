@@ -1,0 +1,31 @@
+/* CORE ENGINE UI ENHANCEMENT v3 */
+:root{--ce-violet:#9b6cff;--ce-cyan:#5ee7ff}
+body{background:radial-gradient(900px 500px at 82% 8%,rgba(124,58,237,.13),transparent 65%),radial-gradient(700px 420px at 8% 38%,rgba(34,211,238,.055),transparent 65%),#030305}
+.hero{isolation:isolate}
+.hero:after{height:2px;background:linear-gradient(90deg,transparent,rgba(155,108,255,.18),rgba(94,231,255,.8),rgba(155,108,255,.18),transparent);box-shadow:0 0 28px rgba(94,231,255,.22)}
+.hero:before{border-color:rgba(155,108,255,.18);box-shadow:0 0 140px rgba(124,58,237,.12),inset 0 0 110px rgba(94,231,255,.045)}
+.eyebrow{color:#c5adff;text-shadow:0 0 22px rgba(155,108,255,.22)}
+.pulse,.dot{background:var(--ce-cyan);box-shadow:0 0 8px var(--ce-cyan),0 0 24px rgba(94,231,255,.7);animation:cePulse 1.8s ease-in-out infinite}
+.brand .mark{border-color:#46345f;background:linear-gradient(145deg,#151020,#09080d);box-shadow:inset 0 0 20px rgba(155,108,255,.1),0 0 25px rgba(124,58,237,.1)}
+.navbtn,.primary,.nextaction{background:linear-gradient(135deg,#8b5cf6,#6d3ce8 55%,#5b35c8);border-color:#a77cff;box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 12px 38px rgba(124,58,237,.24)}
+.demo-bar,.decision{position:relative;overflow:hidden;border-color:#40335a;background:linear-gradient(135deg,rgba(18,13,29,.82),rgba(7,7,10,.76));box-shadow:0 25px 100px rgba(0,0,0,.4),0 0 55px rgba(124,58,237,.055)}
+.demo-bar:before,.decision:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.035) 45%,transparent 52%);transform:translateX(-110%);animation:ceSweep 8s ease-in-out infinite}
+.decision{border-top-color:rgba(94,231,255,.38)}
+.approved{color:#bff8ff;border-color:rgba(94,231,255,.35);background:rgba(94,231,255,.035);box-shadow:0 0 22px rgba(94,231,255,.08)}
+.decisiongrid div{background:rgba(255,255,255,.012);border-color:#332b3f;transition:.25s ease}
+.decisiongrid div:hover{border-color:#69508b;background:rgba(155,108,255,.055);transform:translateY(-2px)}
+.trace span.current{box-shadow:0 0 18px rgba(155,108,255,.11);background:rgba(155,108,255,.04)}
+.corecard{position:relative;overflow:hidden;background:radial-gradient(circle at 70% 18%,rgba(124,58,237,.22),transparent 32%),radial-gradient(circle at 10% 90%,rgba(94,231,255,.045),transparent 30%),#07070b}
+.corecard:after{content:"CORE AGENT ONLINE";position:absolute;right:28px;top:28px;font:800 8px/1 ui-monospace,monospace;letter-spacing:.18em;color:#73efff;border:1px solid rgba(94,231,255,.2);padding:8px 9px;border-radius:999px;background:rgba(94,231,255,.025);box-shadow:0 0 25px rgba(94,231,255,.06)}
+.orb{position:relative;border-color:#7452a0;background:radial-gradient(circle,#171025,#0a0810 65%);box-shadow:0 0 45px rgba(124,58,237,.2),0 0 100px rgba(94,231,255,.06)}
+.orb:before,.orb:after{content:"";position:absolute;inset:-12px;border:1px solid rgba(155,108,255,.16);border-radius:34px;transform:rotate(12deg);animation:ceOrbit 9s linear infinite}
+.orb:after{inset:-20px;border-color:rgba(94,231,255,.09);transform:rotate(-20deg);animation-duration:14s}
+.layer:hover{box-shadow:inset 3px 0 0 #9b6cff}
+.controlgrid article:hover{box-shadow:inset 0 2px 0 rgba(155,108,255,.45),0 20px 50px rgba(0,0,0,.18)}
+.sectionhead>span{color:#b79cff}
+.quality{background:radial-gradient(circle at 80% 45%,rgba(124,58,237,.09),transparent 34%)}
+footer{background:rgba(3,3,5,.55)}
+@keyframes cePulse{50%{opacity:.45;transform:scale(.72)}100%{opacity:1;transform:scale(1)}}
+@keyframes ceSweep{0%,45%{transform:translateX(-110%)}70%,100%{transform:translateX(110%)}}
+@keyframes ceOrbit{to{transform:rotate(372deg)}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
