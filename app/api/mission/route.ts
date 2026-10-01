@@ -27,7 +27,7 @@ export async function GET(request:Request){
     try{const ids=new Set(await tenantMissionIds(tenant.tenantId));const all=await listPersistedMissions(Math.max(limit,100));const m=all.filter(x=>ids.has(x.id)).slice(0,limit);const e=(await listPersistedEvents(Math.max(limit,100))).filter(x=>ids.has(x.missionId)).slice(0,limit);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,tenantId:tenant.tenantId,events:e})}
     catch{return NextResponse.json({ok:false,error:"PERSISTENCE_READ_FAILED"},{status:503})}
   }
-  const ids=new Set(await tenantMissionIds(tenant.tenantId));const m=Array.from(missions.values()).filter(x=>ids.has(x.id)).slice(-limit).reverse();const e=events.filter(x=>ids.has(x.missionId)).slice(-100).reverse();return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",events:e});
+  const ids=new Set(await tenantMissionIds(tenant.tenantId));const m=Array.from(missions.values()).filter(x=>ids.has(x.id)).slice(-limit).reverse();const e=events.filter(x=>ids.has(x.missionId)).slice(-100).reverse();return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",skillLifecycle,events:e});
 }
 
 export async function POST(request:Request){
@@ -59,7 +59,7 @@ export async function POST(request:Request){
         const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
         if(action==="approve"){
           await recordCapabilityLedgerEvent(id,"CAPABILITY_APPROVED",{capabilityActionId,actor:policy.actor,idempotencyKey:claimKey});
-      const rr=(action==="execute"||action==="retry")?{to_state:"EXECUTING" as const,execution_count:current.executionCount}:await transitionPersistedMission(id,next,policy.actor);
+          const rr=await transitionPersistedMission(id,next,policy.actor);
           return NextResponse.json({ok:true,mission:{...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()},action,capabilityActionId,capabilityApproval:{status:"APPROVED",persistence:"supabase"},persistence:"supabase",durable:true,capabilityLifecycle:"DURABLE"});
         }
         if((action==="execute"||action==="retry")&&capability.requiresApproval){
@@ -88,7 +88,7 @@ export async function POST(request:Request){
       }
 
       let learning=null;if(action==="learn"){if(!assessment||assessment.quality==="UNVERIFIED")return NextResponse.json({ok:false,error:"LEARNING_UNVERIFIED"},{status:422});learning=await recordPersistedLearning(id,buildLearningLesson(assessment,{missionObjective:current.objective,kpi:current.kpi}))}
-      const rr=await transitionPersistedMission(id,next,policy.actor);
+      const rr=(action==="execute"||action==="retry")?{to_state:"EXECUTING" as const,execution_count:current.executionCount}:await transitionPersistedMission(id,next,policy.actor);
       if(action==="execute"||action==="retry")await recordPersistedMissionOutcome(id,"EXECUTION_RECORDED",outcome);
       if(action==="measure")await recordPersistedMissionOutcome(id,"MEASUREMENT_RECORDED",{...outcome,assessment});
       let learningLoop=null;
@@ -109,7 +109,7 @@ export async function POST(request:Request){
       }
       const updated={...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()};
       await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
-      return NextResponse.json({ok:true,mission:updated,action,assessment,learning,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
+      return NextResponse.json({ok:true,mission:updated,action,assessment,learning,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD",skillLifecycle});
     }
 
     const m=missions.get(id);if(!m)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
