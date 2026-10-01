@@ -321,6 +321,9 @@ test("M9.2 signal to next decision end-to-end lifecycle is covered", async () =>
   assert.equal(receipt.status, "EXECUTED");
   assert.ok(receipt.adapterId, "adapter resolved");
   assert.equal(receipt.sideEffectStatus, "NONE");
+  assert.equal(executed.json.skillLifecycle?.state, "LEARNED");
+  assert.equal(executed.json.skillLifecycle?.execution.status, "EXECUTED");
+  assert.equal(executed.json.skillLifecycle?.verification?.passed, true);
 
   // RECEIPT -> EVIDENCE -> OUTCOME -> MEASUREMENT -> LEARNING
   assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, receipt.executionId);
