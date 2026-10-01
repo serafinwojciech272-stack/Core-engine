@@ -171,7 +171,7 @@ export async function executeSkillMissionCapability(
     return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: failure.event_id ? [failure.event_id] : [] };
   }
 
-  const executionGate = await recordExecutionAndEnterMeasurement(
+  const measurementGate = await recordExecutionAndEnterMeasurement(
     input.missionId,
     context.correlationId,
     input.action.id,
@@ -179,15 +179,15 @@ export async function executeSkillMissionCapability(
     evidenceIds
   );
 
-  if (!executionGate.advanced) {
-    throw new Error("MISSION_EXECUTION_COMPLETION_GATE_BLOCKED:" + executionGate.result_mode);
+  if (!measurementGate.advanced) {
+    throw new Error("MISSION_EXECUTION_COMPLETION_GATE_BLOCKED:" + measurementGate.result_mode);
   }
 
   return {
     lifecycle,
     receipt,
     missionState: "MEASURING",
-    persistedEventIds: executionGate.event_id ? [executionGate.event_id] : []
+    persistedEventIds: measurementGate.event_id ? [measurementGate.event_id] : []
   };
 }
 
