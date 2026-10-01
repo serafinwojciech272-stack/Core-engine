@@ -163,3 +163,33 @@ test("M11 rejects verification results with a mismatched correlation id", async 
   assert.equal(result.memory, undefined);
   assert.equal(result.learning, undefined);
 });
+
+
+test("M11 refuses an executed result without evidence", async () => {
+  const result = await runExecutionLifecycle({
+    skill: forexTradingSkill,
+    capabilityId: "trade.propose",
+    context: { ...context, correlationId: "m11-lifecycle-evidence-required" },
+    approved: true,
+    execute: () => ({
+      executionId: "exec-no-evidence",
+      correlationId: "m11-lifecycle-evidence-required",
+      status: "EXECUTED",
+      sideEffect: false,
+      evidenceIds: [],
+    }),
+    verify: () => ({
+      verificationId: "verify-should-not-run",
+      correlationId: "m11-lifecycle-evidence-required",
+      passed: true,
+      checks: ["fake"],
+      evidenceIds: ["e-verify"],
+    }),
+  });
+  assert.equal(result.state, "EXECUTED");
+  assert.equal(result.execution.status, "FAILED");
+  assert.equal(result.execution.sideEffect, false);
+  assert.equal(result.verification, undefined);
+  assert.equal(result.memory, undefined);
+  assert.equal(result.learning, undefined);
+});
