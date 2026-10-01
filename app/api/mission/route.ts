@@ -14,6 +14,7 @@ import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/comme
 import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
 import {runMissionLearningLoop} from "@/lib/learning-loop";
 import {executeSkillMissionCapability} from "@/lib/skills/mission-execution-bridge";
+import type {ExecutionLifecycleResult} from "@/lib/skills/execution-lifecycle";
 
 const numericOrNull=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?value:null;
 const directionOrUndefined=(value:unknown):"higher"|"lower"|undefined=>value==="lower"?"lower":value==="higher"?"higher":undefined;
@@ -45,7 +46,7 @@ export async function POST(request:Request){
     const assessment=["measure","complete","learn"].includes(action)?assessOutcome(outcome):null;
     if(action==="complete"&&assessment?.quality==="UNVERIFIED")return NextResponse.json({ok:false,error:"OUTCOME_UNVERIFIED",assessment},{status:422});
     let evidenceOutcome:null|{evidence:ReturnType<typeof buildExecutionEvidence>;outcome:ReturnType<typeof buildExecutionOutcome>}=null;
-    let skillLifecycle:null|import("@/lib/skills/execution-lifecycle").ExecutionLifecycleResult=null;
+    let skillLifecycle:ExecutionLifecycleResult|null=null;
 
     if(storageMode()==="supabase"){
       const current=(await listPersistedMissions(100)).find(m=>m.id===id);if(!current)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
@@ -143,7 +144,7 @@ export async function POST(request:Request){
         recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_EXECUTED",actorType:policy.actor,metadata:{capabilityActionId,receipt:capabilityReceipt,lifecycle:skillRun.lifecycle.auditTrail}});
         const evidence=buildExecutionEvidence(capabilityReceipt);
         const executionOutcome=buildExecutionOutcome({receipt:capabilityReceipt,metric:String(outcome.metric||capabilityActionId),direction:directionOrUndefined(outcome.direction),expected:numericOrNull(outcome.before),actual:numericOrNull(outcome.after)});
-        recordMissionEvent({missionId:m.decisionId,decisionId:m.decisionId,eventType:"CAPABILITY_OUTCOME_RECORDED",actorType:"system",metadata:{capabilityActionId,status:capabilityReceipt.status,sideEffect:capabilityReceipt.sideEffect,evidenceId:evidence?.id,outcome:executionOutcome,lifecycleState:skillRun.lifecycle.state}});
+        recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_OUTCOME_RECORDED",actorType:"system",metadata:{capabilityActionId,status:capabilityReceipt.status,sideEffect:capabilityReceipt.sideEffect,evidenceId:evidence?.id,outcome:executionOutcome,lifecycleState:skillRun.lifecycle.state}});
         evidenceOutcome={evidence,outcome:executionOutcome};
         m.state="EXECUTING";m.executionCount=executing.executionCount;
       }
