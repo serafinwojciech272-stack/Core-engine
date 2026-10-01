@@ -63,6 +63,51 @@ create trigger ce_events_audit_integrity
 before insert on public.ce_events
 for each row execute function public.ce_prepare_audit_event();
 
+
+do $
+declare
+  mission record;
+  ev record;
+  seq bigint;
+  prev text;
+  canonical text;
+  h text;
+begin
+  for mission in select distinct mission_id from public.ce_events where mission_id is not null loop
+    seq := 0;
+    prev := null;
+    for ev in
+      select *
+      from public.ce_events
+      where mission_id=mission.mission_id
+      order by created_at asc, id asc
+    loop
+      seq := seq + 1;
+      canonical := coalesce(ev.mission_id::text,'')||'|'||
+        coalesce(ev.decision_id::text,'')||'|'||
+        coalesce(ev.event_type,'')||'|'||
+        coalesce(ev.from_state,'')||'|'||
+        coalesce(ev.to_state,'')||'|'||
+        coalesce(ev.actor_type,'')||'|'||
+        coalesce(ev.actor_id,ev.metadata->>'actorId',ev.actor_type)||'|'||
+        coalesce(ev.correlation_id,'mission:'||ev.mission_id::text)||'|'||
+        seq::text||'|'||
+        coalesce(prev,'')||'|'||
+        coalesce(ev.metadata::text,'{}')||'|'||
+        coalesce(ev.created_at::text,'');
+      h := encode(digest(canonical,'sha256'),'hex');
+      update public.ce_events
+      set audit_seq=seq,
+          prev_event_hash=prev,
+          correlation_id=coalesce(correlation_id,nullif(metadata->>'correlationId',''),'mission:'||mission.mission_id::text),
+          actor_id=coalesce(actor_id,nullif(metadata->>'actorId',''),actor_type),
+          event_hash=h
+      where id=ev.id;
+      prev := h;
+    end loop;
+  end loop;
+end $;
+
 create or replace function public.ce_verify_audit_trail(p_mission_id uuid)
 returns jsonb
 language plpgsql
