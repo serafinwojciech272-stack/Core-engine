@@ -57,7 +57,7 @@ export async function executeSkillMissionCapability(
   };
 
   let receipt: CapabilityExecutionReceipt | undefined;
-  const lifecycle = runExecutionLifecycle({
+  const lifecycle = await runExecutionLifecycle({
     skill,
     capabilityId: input.action.id,
     context,
