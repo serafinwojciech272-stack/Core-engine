@@ -51,7 +51,7 @@ test("M11 bridge never persists an unverified lifecycle", async () => {
     })
   });
   assert.equal(result.persisted, false);
-  assert.equal(result.reason, "CORE_SYNC_REQUIRES_VERIFIED_LEARNED_LIFECYCLE");
+  assert.equal(result.reason, "CORE_SYNC_REQUIRES_VERIFIED_LIFECYCLE");
 });
 
 test("M11 bridge accepts only the governed verified lifecycle", async () => {
