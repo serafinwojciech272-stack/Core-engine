@@ -12,8 +12,8 @@ const context = {
   correlationId: "m11-lifecycle-1",
 };
 
-test("M11 lifecycle is fail-closed and non-side-effecting without an executor", () => {
-  const result = runExecutionLifecycle({
+test("M11 lifecycle is fail-closed and non-side-effecting without an executor", async () => {
+  const result = await runExecutionLifecycle({
     skill: forexTradingSkill,
     capabilityId: "trade.propose",
     context,
@@ -26,8 +26,8 @@ test("M11 lifecycle is fail-closed and non-side-effecting without an executor", 
   assert.equal(result.learning, undefined);
 });
 
-test("M11 high-risk lifecycle requires approval and does not execute", () => {
-  const result = runExecutionLifecycle({
+test("M11 high-risk lifecycle requires approval and does not execute", async () => {
+  const result = await runExecutionLifecycle({
     skill: forexTradingSkill,
     capabilityId: "trade.validate",
     context,
@@ -39,8 +39,8 @@ test("M11 high-risk lifecycle requires approval and does not execute", () => {
   assert.equal(result.execution.sideEffect, false);
 });
 
-test("M11 verified execution creates memory and learning events", () => {
-  const result = runExecutionLifecycle({
+test("M11 verified execution creates memory and learning events", async () => {
+  const result = await runExecutionLifecycle({
     skill: forexTradingSkill,
     capabilityId: "trade.propose",
     context: { ...context, correlationId: "m11-lifecycle-2" },
@@ -77,8 +77,8 @@ test("M11 verified execution creates memory and learning events", () => {
   assert.equal(result.learning?.eligible, true);
 });
 
-test("M11 failed verification cannot reach memory or learning", () => {
-  const result = runExecutionLifecycle({
+test("M11 failed verification cannot reach memory or learning", async () => {
+  const result = await runExecutionLifecycle({
     skill: forexTradingSkill,
     capabilityId: "trade.propose",
     context: { ...context, correlationId: "m11-lifecycle-3" },
