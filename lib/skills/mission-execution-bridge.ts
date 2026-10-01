@@ -4,7 +4,8 @@ import {
   getPersistedMissionSnapshot,
   claimAndStartPersistedMission,
   transitionPersistedMission,
-  recordPersistedMissionOutcome
+  recordPersistedMissionOutcome,
+  recordMeasurementAndCompletePersistedMission
 } from "@/lib/storage";
 import { runExecutionLifecycle, type ExecutionLifecycleResult } from "@/lib/skills/execution-lifecycle";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
@@ -186,22 +187,20 @@ export async function completeSkillMissionMeasurement(
     throw new Error("MEASUREMENT_VALUES_REQUIRED");
   }
 
-  const event = await recordPersistedMissionOutcome(
+  const result = await recordMeasurementAndCompletePersistedMission(
     input.missionId,
-    "MEASUREMENT_RECORDED",
-    {
-      correlationId: input.correlationId,
-      predicted: input.predicted,
-      actual: input.actual,
-      evidenceIds: input.evidenceIds ?? [],
-      source: "M11_MEASUREMENT_GATE"
-    }
+    input.correlationId,
+    input.predicted,
+    input.actual,
+    input.evidenceIds ?? []
   );
 
-  const eventIds = event && typeof event === "object" && "id" in event
-    ? [String((event as Record<string, unknown>).id)]
-    : [];
+  if (!result.completed) {
+    throw new Error("MISSION_MEASUREMENT_GATE_BLOCKED:" + result.result_mode);
+  }
 
-  await transitionPersistedMission(input.missionId, "COMPLETED", "system");
-  return { missionState: "COMPLETED", eventIds };
+  return {
+    missionState: "COMPLETED",
+    eventIds: result.event_id ? [result.event_id] : []
+  };
 }
