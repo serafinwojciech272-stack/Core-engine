@@ -7,7 +7,7 @@ import { initializeCoreTools } from "./tool-registry-init";
 let initialized = false;
 
 export function initializeCoreSkills(): void {
-  const coreSkillIds = ["forex-trading", "web-builder", "agent-builder"];
+  const coreSkillIds = ["trading.forex", "web.fullstack-builder", "agent.builder"];
   const registryHealthy = coreSkillIds.every((id) => Boolean(getSkill(id)));
   if (initialized && registryHealthy) return;
 
