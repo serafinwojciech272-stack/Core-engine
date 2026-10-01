@@ -1,6 +1,11 @@
 import type { ExecutionLifecycleResult } from "./execution-lifecycle";
 import { runMissionLearningLoop } from "@/lib/learning-loop";
-import { getPersistedMissionSnapshot, recordPersistedMissionOutcome } from "@/lib/storage";
+import {
+  getPersistedMissionSnapshot,
+  recordPersistedMissionOutcome,
+  transitionPersistedMission
+} from "@/lib/storage";
+import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
 
 export type CoreEngineExecutionBridgeInput = {
   tenantId: string;
@@ -30,19 +35,19 @@ function mergedEvidence(input: CoreEngineExecutionBridgeInput): string[] {
 }
 
 /**
- * Adapter only: the M11 lifecycle does not create a second mission/learning engine.
- * It projects a verified capability execution into the existing Core Engine trace,
- * then delegates learning to the existing M10 learning loop.
+ * Adapter only. The persisted Core Engine mission state is authoritative:
+ * EXECUTING -> MEASURING -> COMPLETED -> LEARNED.
+ * M11 verifies execution; M10 remains the sole learning engine.
  */
 export async function syncExecutionToCoreEngine(
   input: CoreEngineExecutionBridgeInput
 ): Promise<CoreEngineExecutionBridgeResult> {
-  if (input.lifecycle.state !== "LEARNED" || !input.lifecycle.verification?.passed) {
+  if (input.lifecycle.state !== "VERIFIED" || !input.lifecycle.verification?.passed) {
     return {
       persisted: false,
       learningRun: null,
       eventIds: [],
-      reason: "CORE_SYNC_REQUIRES_VERIFIED_LEARNED_LIFECYCLE"
+      reason: "CORE_SYNC_REQUIRES_VERIFIED_LIFECYCLE"
     };
   }
 
@@ -58,42 +63,10 @@ export async function syncExecutionToCoreEngine(
   const snapshot = await getPersistedMissionSnapshot(input.missionId);
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
 
+  assertGovernedMissionPhase(snapshot.mission.state, "LEARNING");
+
   const evidenceIds = mergedEvidence(input);
-  const executionEvent = await recordPersistedMissionOutcome(
-    input.missionId,
-    "EXECUTION_RECORDED",
-    {
-      correlationId: input.lifecycle.execution.correlationId,
-      actionId: input.actionId ?? input.lifecycle.plan.capabilityId,
-      capabilityId: input.lifecycle.plan.capabilityId,
-      skillId: input.lifecycle.plan.skillId,
-      mode: input.lifecycle.plan.mode,
-      executionId: input.lifecycle.execution.executionId,
-      evidenceIds,
-      source: "M11_EXECUTION_LIFECYCLE"
-    }
-  );
-
-  const eventIds = executionEvent && typeof executionEvent === "object" && "id" in executionEvent
-    ? [String((executionEvent as Record<string, unknown>).id)]
-    : [];
-
-  if (input.actual !== undefined || input.predicted !== undefined) {
-    const measurementEvent = await recordPersistedMissionOutcome(
-      input.missionId,
-      "MEASUREMENT_RECORDED",
-      {
-        correlationId: input.lifecycle.execution.correlationId,
-        predicted: input.predicted,
-        actual: input.actual,
-        evidenceIds,
-        source: "M11_VERIFICATION_RESULT"
-      }
-    );
-    if (measurementEvent && typeof measurementEvent === "object" && "id" in measurementEvent) {
-      eventIds.push(String((measurementEvent as Record<string, unknown>).id));
-    }
-  }
+  const eventIds: string[] = [];
 
   const learningRun = await runMissionLearningLoop({
     tenantId: input.tenantId,
@@ -106,16 +79,20 @@ export async function syncExecutionToCoreEngine(
     "LEARNING_RECORDED",
     {
       correlationId: input.lifecycle.execution.correlationId,
+      actionId: input.actionId ?? input.lifecycle.plan.capabilityId,
+      capabilityId: input.lifecycle.plan.capabilityId,
+      skillId: input.lifecycle.plan.skillId,
       source: "EXISTING_M10_LEARNING_LOOP",
       promoted: learningRun.promoted,
       resultCount: learningRun.results.length,
-      evidenceIds,
-      learningEventId: input.lifecycle.learning?.eventId
+      evidenceIds
     }
   );
+
   if (learningEvent && typeof learningEvent === "object" && "id" in learningEvent) {
     eventIds.push(String((learningEvent as Record<string, unknown>).id));
   }
 
+  await transitionPersistedMission(input.missionId, "LEARNED", "system");
   return { persisted: true, learningRun, eventIds };
 }
