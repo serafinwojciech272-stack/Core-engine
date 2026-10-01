@@ -89,8 +89,8 @@ begin
         coalesce(ev.from_state,'')||'|'||
         coalesce(ev.to_state,'')||'|'||
         coalesce(ev.actor_type,'')||'|'||
-        coalesce(ev.actor_id,ev.metadata->>'actorId',ev.actor_type)||'|'||
-        coalesce(ev.correlation_id,'mission:'||ev.mission_id::text)||'|'||
+        coalesce(ev.actor_id,nullif(ev.metadata->>'actorId',''),ev.actor_type)||'|'||
+        coalesce(ev.correlation_id,nullif(ev.metadata->>'correlationId',''),'mission:'||ev.mission_id::text)||'|'||
         seq::text||'|'||
         coalesce(prev,'')||'|'||
         coalesce(ev.metadata::text,'{}')||'|'||
