@@ -168,8 +168,9 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
   };
 
   const trail: ExecutionLifecycleState[] = ["PLANNED"];
+  const approvalIdentityMissing = policy.requiresApproval && request.approved && !request.approvedBy?.trim();
 
-  if (!baseDecision.allowed || !policy.allowed || !risk.allowed) {
+  if (!baseDecision.allowed || !policy.allowed || !risk.allowed || approvalIdentityMissing) {
     trail.push(
       "POLICY_CHECKED",
       ...(risk.allowed ? [] : ["RISK_CHECKED" as const]),
@@ -207,6 +208,24 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
         evidenceIds: plan.evidenceIds,
       };
 
+  if (execution.correlationId !== request.context.correlationId) {
+    return {
+      state: "EXECUTION_READY",
+      plan,
+      policy,
+      risk,
+      approval,
+      execution: {
+        ...execution,
+        status: "FAILED",
+        sideEffect: false,
+        evidenceIds: [...new Set([...plan.evidenceIds, ...execution.evidenceIds])],
+      },
+      decision: baseDecision,
+      auditTrail: [...trail, "REJECTED"],
+    };
+  }
+
   if (execution.status !== "EXECUTED") {
     return {
       state: "EXECUTION_READY",
@@ -232,6 +251,20 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
       execution,
       decision: baseDecision,
       auditTrail: trail,
+    };
+  }
+
+  if (verification.correlationId !== request.context.correlationId) {
+    return {
+      state: "EXECUTED",
+      plan,
+      policy,
+      risk,
+      approval,
+      execution,
+      verification: { ...verification, passed: false, checks: [...verification.checks, "CORRELATION_ID_MATCH"] },
+      decision: baseDecision,
+      auditTrail: [...trail, "REJECTED"],
     };
   }
 
