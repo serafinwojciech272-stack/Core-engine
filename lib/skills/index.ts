@@ -1,4 +1,4 @@
-import { registerSkill, listSkills } from "./registry";
+import { registerSkill, listSkills, getSkill } from "./registry";
 import { agentBuilderSkill } from "./agent-builder";
 import { forexTradingSkill } from "./trading-forex";
 import { webBuilderSkill } from "./web-builder";
@@ -7,9 +7,14 @@ import { initializeCoreTools } from "./tool-registry-init";
 let initialized = false;
 
 export function initializeCoreSkills(): void {
-  if (initialized) return;
+  const coreSkillIds = ["forex-trading", "web-builder", "agent-builder"];
+  const registryHealthy = coreSkillIds.every((id) => Boolean(getSkill(id)));
+  if (initialized && registryHealthy) return;
+
   initializeCoreTools();
-  for (const skill of [agentBuilderSkill, forexTradingSkill, webBuilderSkill]) registerSkill(skill);
+  for (const skill of [agentBuilderSkill, forexTradingSkill, webBuilderSkill]) {
+    if (!getSkill(skill.id)) registerSkill(skill);
+  }
   initialized = true;
 }
 
