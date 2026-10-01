@@ -13,6 +13,7 @@ import {resolveTenant} from "@/lib/commercial-runtime";
 import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
 import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
 import {runMissionLearningLoop} from "@/lib/learning-loop";
+import {executeSkillMissionCapability} from "@/lib/skills/mission-execution-bridge";
 
 const numericOrNull=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?value:null;
 const directionOrUndefined=(value:unknown):"higher"|"lower"|undefined=>value==="lower"?"lower":value==="higher"?"higher":undefined;
@@ -57,28 +58,34 @@ export async function POST(request:Request){
         const capability=getCapabilityAction(capabilityActionId);if(!capability)return NextResponse.json({ok:false,error:"CAPABILITY_ACTION_NOT_FOUND"},{status:404});
         if(action==="approve"){
           await recordCapabilityLedgerEvent(id,"CAPABILITY_APPROVED",{capabilityActionId,actor:policy.actor,idempotencyKey:claimKey});
-          const rr=await transitionPersistedMission(id,next,policy.actor);
+      const rr=(action==="execute"||action==="retry")?{to_state:"EXECUTING" as const,execution_count:current.executionCount}:await transitionPersistedMission(id,next,policy.actor);
           return NextResponse.json({ok:true,mission:{...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()},action,capabilityActionId,capabilityApproval:{status:"APPROVED",persistence:"supabase"},persistence:"supabase",durable:true,capabilityLifecycle:"DURABLE"});
         }
         if((action==="execute"||action==="retry")&&capability.requiresApproval){
           const approved=await isPersistedCapabilityApproved(id,capabilityActionId);
           if(!approved)return NextResponse.json({ok:false,error:"CAPABILITY_APPROVAL_REQUIRED",capabilityActionId},{status:403});
         }
-        if(action==="execute"||action==="retry"){
-          const receipt=await executeCapabilityAction({actionId:capabilityActionId,approved:true,missionId:id,idempotencyKey:claimKey,input:b.input});
-          const capabilityOutcome=classifyCapabilityReceipt(receipt);
-          if(!capabilityOutcome.ok){
-            await recordCapabilityLedgerEvent(id,capabilityOutcome.retryBlocked?"CAPABILITY_RETRY_BLOCKED":"CAPABILITY_EXECUTION_FAILED",{capabilityActionId,receipt});
-            if(!capabilityOutcome.attempted)return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt,retryBlocked:capabilityOutcome.retryBlocked,action,capabilityActionId,mission:current,persistence:"supabase",durable:true},{status:capabilityOutcome.httpStatus});
-            await transitionPersistedMission(id,"EXECUTING",policy.actor);
-            const failed=await transitionPersistedMission(id,"FAILED","system");
-            return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt,retryBlocked:capabilityOutcome.retryBlocked,action,capabilityActionId,mission:{...current,state:failed.to_state,executionCount:failed.execution_count,updatedAt:new Date().toISOString()},persistence:"supabase",durable:true},{status:capabilityOutcome.httpStatus});
-          }
-          await recordCapabilityLedgerEvent(id,"CAPABILITY_EXECUTED",{capabilityActionId,receipt});
-          const evidence=buildExecutionEvidence(receipt);
-          const executionOutcome=buildExecutionOutcome({receipt,metric:String(outcome.metric||capabilityActionId),direction:directionOrUndefined(outcome.direction),expected:numericOrNull(outcome.before),actual:numericOrNull(outcome.after)});
-          await recordCapabilityLedgerEvent(id,"CAPABILITY_OUTCOME_RECORDED",{capabilityActionId,status:receipt.status,sideEffect:receipt.sideEffect,evidenceId:evidence?.id,outcome:executionOutcome});
-          evidenceOutcome={evidence,outcome:executionOutcome};
+      if(action==="execute"||action==="retry"){
+        if(!claimCapabilityExecution(id,capabilityActionId,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId,persistence:"in-memory-runtime",durable:false});
+        const executing=transitionMission(m,"EXECUTING");executing.executionCount=m.executionCount+1;missions.set(id,executing);
+        const skillRun=await executeSkillMissionCapability({action:capability,missionId:id,tenantId:tenant.tenantId,idempotencyKey:memoryClaimKey,approved:true,approvedBy:actor.id,input:b.input});
+        capabilityReceipt=skillRun.receipt;
+        capabilityOutcome=classifyCapabilityReceipt(capabilityReceipt);
+        if(!capabilityOutcome.ok){
+          recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:capabilityOutcome.retryBlocked?"CAPABILITY_RETRY_BLOCKED":"CAPABILITY_EXECUTION_FAILED",actorType:"system",metadata:{capabilityActionId,receipt:capabilityReceipt,lifecycle:skillRun.lifecycle.auditTrail}});
+          const failed=transitionMission(executing,"FAILED");missions.set(id,failed);
+          return NextResponse.json({ok:false,error:capabilityOutcome.error,receipt:capabilityReceipt,retryBlocked:capabilityOutcome.retryBlocked,mission:failed,action,capabilityActionId,lifecycle:skillRun.lifecycle,persistence:"in-memory-runtime",durable:false},{status:capabilityOutcome.httpStatus});
+        }
+        recordMissionEvent({missionId:id,decisionId:m.decisionId,eventType:"CAPABILITY_EXECUTED",actorType:policy.actor,metadata:{capabilityActionId,receipt:capabilityReceipt,lifecycle:skillRun.lifecycle.auditTrail}});
+        const evidence=buildExecutionEvidence(capabilityReceipt);
+        const executionOutcome=buildExecutionOutcome({receipt:capabilityReceipt,metric:String(outcome.metric||capabilityActionId),direction:directionOrUndefined(outcome.direction),expected:numericOrNull(outcome.before),actual:numericOrNull(outcome.after)});
+        recordMissionEvent({missionId:m.decisionId,decisionId:m.decisionId,eventType:"CAPABILITY_OUTCOME_RECORDED",actorType:"system",metadata:{capabilityActionId,status:capabilityReceipt.status,sideEffect:capabilityReceipt.sideEffect,evidenceId:evidence?.id,outcome:executionOutcome,lifecycleState:skillRun.lifecycle.state}});
+        evidenceOutcome={evidence,outcome:executionOutcome};
+        m.state="EXECUTING";m.executionCount=executing.executionCount;
+      }
+          current.state=executing.to_state;
+          current.executionCount=executing.execution_count;
+        }
         }
       }
 
@@ -141,7 +148,7 @@ export async function POST(request:Request){
       }
     }
 
-    let updated=transitionMission(m,next);updated.executionCount=action==="execute"||action==="retry"?m.executionCount+1:m.executionCount;missions.set(id,updated);
+    let updated=(action==="execute"||action==="retry")?m:transitionMission(m,next);updated.executionCount=m.executionCount;missions.set(id,updated);
     const event=recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"STATE_CHANGED",fromState:m.state,toState:updated.state,actorType:policy.actor,metadata:{...outcome,...(assessment?{assessment}:{}),...(capabilityActionId?{capabilityActionId}:{})}});
     let learningLoop=null;
     if(action==="complete"){
