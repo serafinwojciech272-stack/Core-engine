@@ -82,6 +82,7 @@ export type ExecutionLifecycleRequest = {
   evidenceIds?: string[];
   execute?: () => ExecutionResult | Promise<ExecutionResult>;
   verify?: (execution: ExecutionResult) => VerificationResult;
+  deferLearning?: boolean;
 };
 
 export type ExecutionLifecycleResult = {
@@ -249,6 +250,19 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
   }
 
   trail.push("VERIFIED");
+  if (request.deferLearning) {
+    return {
+      state: "VERIFIED",
+      plan,
+      policy,
+      risk,
+      approval,
+      execution,
+      verification,
+      decision: baseDecision,
+      auditTrail: trail,
+    };
+  }
   const evidenceIds = [...new Set([...plan.evidenceIds, ...execution.evidenceIds, ...verification.evidenceIds])];
   const memory: MemoryEvent = {
     eventId: ids("memory", request.context.correlationId),
