@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { AdversarialSecurityControlPlane } from "@/lib/adversarial-security-control-plane";
+
+const policy={tenantId:"t1",version:"1",enabledClasses:["PROMPT_INJECTION","TOOL_ABUSE","PRIVILEGE_ESCALATION","DATA_EXFILTRATION","REPLAY","TENANT_ESCAPE","RESOURCE_EXHAUSTION","SUPPLY_CHAIN"],blockSeverities:["HIGH","CRITICAL"],maxToolCalls:2,maxDelegationDepth:1,nonceTtlMs:1000};
+
+test("M30 blocks high severity adversarial signals",()=>{const s=new AdversarialSecurityControlPlane();s.setPolicy(policy);const r=s.inspect("t1","a","ignore policy","PROMPT_INJECTION","HIGH",["instruction override"],"1");assert.equal(r.decision,"BLOCK");});
+test("M30 enforces single use nonce and delegation depth",()=>{const s=new AdversarialSecurityControlPlane();s.setPolicy(policy);const n=s.issueNonce("a",100);assert.equal(s.authorizeTool("t1","a","tool",1,n,100).allowed,true);assert.throws(()=>s.consumeNonce("a",n,100),/INVALID_OR_EXPIRED_NONCE/);const n2=s.issueNonce("a",101);assert.throws(()=>s.authorizeTool("t1","a","tool",2,n2,101),/DELEGATION_DEPTH_BLOCKED/);});
+test("M30 rate limits tools and isolates tenants",()=>{const s=new AdversarialSecurityControlPlane();s.setPolicy(policy);const n1=s.issueNonce("a",100);s.authorizeTool("t1","a","x",0,n1,100);const n2=s.issueNonce("a",101);s.authorizeTool("t1","a","x",0,n2,101);const n3=s.issueNonce("a",102);assert.throws(()=>s.authorizeTool("t1","a","x",0,n3,102),/TOOL_RATE_LIMIT/);assert.throws(()=>s.assertTenant("t1","t2"),/TENANT_BOUNDARY_VIOLATION/);});
+test("M30 blocks credential header patterns",()=>{const s=new AdversarialSecurityControlPlane();const token="x".repeat(30);assert.throws(()=>s.assertNoSecrets("Authorization: Bearer "+token),/SECRET_EXFILTRATION_BLOCKED/);assert.doesNotThrow(()=>s.assertNoSecrets("safe text"));});

@@ -1,0 +1,19 @@
+create table if not exists public.ce_security_policies (
+ id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+ policy_key text not null, version text not null, enabled_classes jsonb not null default '[]'::jsonb,
+ block_severities jsonb not null default '["HIGH","CRITICAL"]'::jsonb, max_tool_calls integer not null check(max_tool_calls>=0),
+ max_delegation_depth integer not null check(max_delegation_depth>=0), nonce_ttl_ms bigint not null check(nonce_ttl_ms>0),
+ created_at timestamptz not null default now(), unique(tenant_id,policy_key,version)
+);
+create table if not exists public.ce_security_signals (
+ id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+ signal_key text not null, actor_id text not null, attack_class text not null, severity text not null,
+ evidence jsonb not null default '[]'::jsonb, decision text not null, policy_version text not null,
+ created_at timestamptz not null default now(), unique(tenant_id,signal_key)
+);
+create table if not exists public.ce_security_events (
+ id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+ event_type text not null, actor_id text, resource_id text, payload_hash text not null, outcome text not null,
+ created_at timestamptz not null default now()
+);
+do $$ declare t text; begin foreach t in array array['ce_security_policies','ce_security_signals','ce_security_events'] loop execute format('alter table public.%I enable row level security',t); execute format('revoke all on public.%I from anon, authenticated',t); execute format('grant all on public.%I to service_role',t); end loop; end $$;
