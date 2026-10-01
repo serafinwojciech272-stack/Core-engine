@@ -4,6 +4,7 @@ import {
   getPersistedMissionSnapshot,
   claimAndStartPersistedMission,
   transitionPersistedMission,
+  failPersistedMission,
   recordPersistedMissionOutcome,
   recordExecutionAndEnterMeasurement,
   recordMeasurementAndCompletePersistedMission
@@ -150,8 +151,24 @@ export async function executeSkillMissionCapability(
     lifecycle.execution.status !== "EXECUTED" ||
     receipt.status !== "EXECUTED"
   ) {
-    await transitionPersistedMission(input.missionId, "FAILED", "system");
-    return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: [] };
+    const failureCode =
+      receipt.status !== "EXECUTED"
+        ? "CAPABILITY_EXECUTION_FAILED"
+        : lifecycle.verification?.passed === false
+          ? "VERIFICATION_FAILED"
+          : "EXECUTION_LIFECYCLE_REJECTED";
+    const failure = await failPersistedMission(
+      input.missionId,
+      failureCode,
+      failureCode === "CAPABILITY_EXECUTION_FAILED",
+      {
+        correlationId: context.correlationId,
+        actionId: input.action.id,
+        executionId: receipt.executionId,
+        evidenceIds
+      }
+    );
+    return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: failure.event_id ? [failure.event_id] : [] };
   }
 
   const executionGate = await recordExecutionAndEnterMeasurement(
