@@ -4,7 +4,7 @@ import {evaluateMissionAction} from "@/lib/policy";
 import {assessOutcome} from "@/lib/outcome-quality";
 import {buildLearningLesson} from "@/lib/learning-engine";
 import {claimPersistedAction,listPersistedEvents,listPersistedMissions,recordPersistedLearning,recordPersistedMissionOutcome,storageMode,transitionPersistedMission} from "@/lib/storage";
-import {classifyCapabilityReceipt,executeCapabilityAction,getCapabilityAction} from "@/lib/capability-action-registry";
+import {classifyCapabilityReceipt,getCapabilityAction} from "@/lib/capability-action-registry";
 import {isPersistedCapabilityApproved,recordCapabilityLedgerEvent} from "@/lib/capability-ledger";
 import {buildExecutionEvidence,buildExecutionOutcome} from "@/lib/capability-evidence";
 import {guardMutation} from "@/lib/http";
