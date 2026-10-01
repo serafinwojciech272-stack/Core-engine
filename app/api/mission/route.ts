@@ -150,8 +150,26 @@ export async function POST(request:Request){
       }
     }
 
-    let updated=(action==="execute"||action==="retry")?m:transitionMission(m,next);updated.executionCount=m.executionCount;missions.set(id,updated);
+    let updated;
+    if(action==="execute"||action==="retry"){
+      updated=missions.get(id)??m;
+      if(updated.state!=="EXECUTING"){
+        updated=transitionMission(updated,"EXECUTING");
+        updated.executionCount=m.executionCount+1;
+        missions.set(id,updated);
+      }
+    } else {
+      updated=transitionMission(m,next);
+      updated.executionCount=m.executionCount;
+      missions.set(id,updated);
+    }
     const event=recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"STATE_CHANGED",fromState:m.state,toState:updated.state,actorType:policy.actor,metadata:{...outcome,...(assessment?{assessment}:{}),...(capabilityActionId?{capabilityActionId}:{})}});
+    if(action==="execute"||action==="retry") {
+      recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"EXECUTION_RECORDED",actorType:policy.actor,metadata:{...outcome,...(capabilityActionId?{capabilityActionId}:{})}});
+    }
+    if(action==="measure") {
+      recordMissionEvent({missionId:id,decisionId:updated.decisionId,eventType:"MEASUREMENT_RECORDED",actorType:policy.actor,metadata:{...outcome,...(assessment?{assessment}:{})}});
+    }
     let learningLoop=null;
     if(action==="complete"){
       try {
