@@ -137,7 +137,7 @@ create table if not exists public.ce_context_packages (
   retrieval_id text not null,
   context_version integer not null default 1,
   context_hash text not null,
-  references jsonb not null default '[]'::jsonb,
+  reference_json jsonb not null default '[]'::jsonb,
   content text not null,
   created_at timestamptz not null default now()
 );
