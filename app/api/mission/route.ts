@@ -27,7 +27,7 @@ export async function GET(request:Request){
     try{const ids=new Set(await tenantMissionIds(tenant.tenantId));const all=await listPersistedMissions(Math.max(limit,100));const m=all.filter(x=>ids.has(x.id)).slice(0,limit);const e=(await listPersistedEvents(Math.max(limit,100))).filter(x=>ids.has(x.missionId)).slice(0,limit);return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"supabase",durable:true,tenantId:tenant.tenantId,events:e})}
     catch{return NextResponse.json({ok:false,error:"PERSISTENCE_READ_FAILED"},{status:503})}
   }
-  const ids=new Set(await tenantMissionIds(tenant.tenantId));const m=Array.from(missions.values()).filter(x=>ids.has(x.id)).slice(-limit).reverse();const e=events.filter(x=>ids.has(x.missionId)).slice(-100).reverse();return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",skillLifecycle,events:e});
+  const ids=new Set(await tenantMissionIds(tenant.tenantId));const m=Array.from(missions.values()).filter(x=>ids.has(x.id)).slice(-limit).reverse();const e=events.filter(x=>ids.has(x.missionId)).slice(-100).reverse();return NextResponse.json({ok:true,missions:m,count:m.length,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",events:e});
 }
 
 export async function POST(request:Request){
