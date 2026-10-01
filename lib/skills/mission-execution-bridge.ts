@@ -64,6 +64,7 @@ export async function executeSkillMissionCapability(
     approved: input.approved,
     approvedBy: input.approvedBy,
     evidenceIds: input.evidenceIds,
+    deferLearning: true,
     execute: async () => {
       receipt = await executeCapabilityAction({
         actionId: input.action.id,
