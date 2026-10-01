@@ -67,6 +67,9 @@ export async function syncExecutionToCoreEngine(
   assertGovernedMissionPhase(snapshot.mission.state, "LEARNING");
 
   const evidenceIds = mergedEvidence(input);
+  if (evidenceIds.length === 0) {
+    return { persisted: false, learningRun: null, eventIds: [], reason: "CORE_LEARNING_EVIDENCE_REQUIRED" };
+  }
   const eventIds: string[] = [];
   const learningKey = `learning:${input.lifecycle.execution.correlationId}`;
   const claim = await claimPersistedMissionLearning(input.missionId, learningKey);
