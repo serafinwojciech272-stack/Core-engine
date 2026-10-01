@@ -48,7 +48,7 @@ function riskFor(decision: Awaited<ReturnType<typeof buildDecision>>) {
   const reasons: string[] = [];
   if (decision.riskGate === "BLOCK") return { level: "HIGH" as const, score: 1, reasons: ["Core decision risk gate returned BLOCK"] };
   if (decision.confidence < 0.55) reasons.push("decision confidence below governed threshold");
-  if (decision.signalConflict?.conflicted) reasons.push("signal conflict detected");
+  if (decision.signalConflict?.status === "DETECTED") reasons.push("signal conflict detected");
   if (decision.priority === "HIGH") reasons.push("high priority mission");
   if (reasons.length >= 2) return { level: "HIGH" as const, score: 0.8, reasons };
   if (reasons.length === 1) return { level: "MEDIUM" as const, score: 0.5, reasons };
