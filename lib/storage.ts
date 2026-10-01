@@ -43,7 +43,7 @@ export async function getPersistedTenderCase(caseId:string){
 
 export type AuditTrailVerification={missionId:string;ok:boolean;eventsChecked:number;violations:Array<Record<string,unknown>>};
 export async function verifyPersistedAuditTrail(missionId:string){return rpc<AuditTrailVerification>("ce_verify_audit_trail",{p_mission_id:missionId})}
-\nexport async function getPersistedMissionSnapshot(missionId:string){
+export async function getPersistedMissionSnapshot(missionId:string){
  const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
  const [mr,er,lr]=await Promise.all([
   sf(c.url+"/rest/v1/ce_missions?id=eq."+encodeURIComponent(missionId)+"&select=id,decision_id,objective,state,kpi,created_at,updated_at,execution_count&limit=1",{headers:{apikey:c.key,Authorization:"Bearer "+c.key}}),
