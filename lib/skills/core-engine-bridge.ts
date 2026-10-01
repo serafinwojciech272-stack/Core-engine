@@ -3,7 +3,8 @@ import { runMissionLearningLoop } from "@/lib/learning-loop";
 import {
   getPersistedMissionSnapshot,
   recordPersistedMissionOutcome,
-  transitionPersistedMission
+  transitionPersistedMission,
+  claimPersistedMissionLearning
 } from "@/lib/storage";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
 
@@ -67,6 +68,17 @@ export async function syncExecutionToCoreEngine(
 
   const evidenceIds = mergedEvidence(input);
   const eventIds: string[] = [];
+  const learningKey = `learning:${input.lifecycle.execution.correlationId}`;
+  const claim = await claimPersistedMissionLearning(input.missionId, learningKey);
+
+  if (!claim.claimed) {
+    return {
+      persisted: false,
+      learningRun: null,
+      eventIds: [],
+      reason: `CORE_LEARNING_GATE_BLOCKED:${claim.claim_mode}`
+    };
+  }
 
   const learningRun = await runMissionLearningLoop({
     tenantId: input.tenantId,
