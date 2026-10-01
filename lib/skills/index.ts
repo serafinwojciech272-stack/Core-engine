@@ -29,9 +29,10 @@ export { evaluateExecutionRequest, executionPlaneStages } from "./execution-plan
 export { evaluatePolicy } from "./policy-engine";
 export { createPlannerOutput, runExecutionLifecycle } from "./execution-lifecycle";
 export { syncExecutionToCoreEngine } from "./core-engine-bridge";
-export { executeSkillMissionCapability } from "./mission-execution-bridge";
+export { assertGovernedMissionPhase, canEnterGovernedMissionPhase, requiredMissionStateForPhase } from "./mission-state-gate";
+export { executeSkillMissionCapability, completeSkillMissionMeasurement } from "./mission-execution-bridge";
 export type { CoreEngineExecutionBridgeInput, CoreEngineExecutionBridgeResult } from "./core-engine-bridge";
-export type { SkillMissionExecutionInput, SkillMissionExecutionResult } from "./mission-execution-bridge";
+export type { SkillMissionExecutionInput, SkillMissionExecutionResult, SkillMissionMeasurementInput, SkillMissionMeasurementResult } from "./mission-execution-bridge";
 export type { ExecutionLifecycleResult, ExecutionLifecycleRequest, PlannerOutput, ApprovalObject, ExecutionResult, VerificationResult, MemoryEvent, LearningEvent, ExecutionLifecycleState } from "./execution-lifecycle";
 export type {
   SkillCapability,
