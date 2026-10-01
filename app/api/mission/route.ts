@@ -45,6 +45,7 @@ export async function POST(request:Request){
     const assessment=["measure","complete","learn"].includes(action)?assessOutcome(outcome):null;
     if(action==="complete"&&assessment?.quality==="UNVERIFIED")return NextResponse.json({ok:false,error:"OUTCOME_UNVERIFIED",assessment},{status:422});
     let evidenceOutcome:null|{evidence:ReturnType<typeof buildExecutionEvidence>;outcome:ReturnType<typeof buildExecutionOutcome>}=null;
+    let skillLifecycle:null|import("@/lib/skills/execution-lifecycle").ExecutionLifecycleResult=null;
 
     if(storageMode()==="supabase"){
       const current=(await listPersistedMissions(100)).find(m=>m.id===id);if(!current)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
@@ -68,6 +69,7 @@ export async function POST(request:Request){
         if(action==="execute"||action==="retry"){
           const executing=await transitionPersistedMission(id,"EXECUTING",policy.actor);
           const skillRun=await executeSkillMissionCapability({action:capability,missionId:id,tenantId:tenant.tenantId,idempotencyKey:claimKey,approved:true,approvedBy:actor.id,input:b.input});
+          skillLifecycle=skillRun.lifecycle;
           const receipt=skillRun.receipt;
           const capabilityOutcome=classifyCapabilityReceipt(receipt);
           if(!capabilityOutcome.ok){
@@ -100,7 +102,7 @@ export async function POST(request:Request){
           });
           const updated={...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()};
           await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
-          return NextResponse.json({ok:true,mission:updated,action,assessment,learning,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD"});
+          return NextResponse.json({ok:true,mission:updated,action,assessment,learning,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,persistence:"supabase",durable:true,tenantId:tenant.tenantId,capabilityLifecycle:capabilityActionId?"DURABLE":"STANDARD",skillLifecycle});
         } catch {
           return NextResponse.json({ok:true,mission:{...current,state:rr.to_state,executionCount:rr.execution_count,updatedAt:new Date().toISOString()},action,assessment,learningLoop:{version:"M10.9",promoted:false,reason:"LEARNING_DEFERRED"},persistence:"supabase",durable:true,tenantId:tenant.tenantId});
         }
@@ -130,6 +132,7 @@ export async function POST(request:Request){
         if(!claimCapabilityExecution(id,capabilityActionId,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId,persistence:"in-memory-runtime",durable:false});
         const executing=transitionMission(m,"EXECUTING");executing.executionCount=m.executionCount+1;missions.set(id,executing);
         const skillRun=await executeSkillMissionCapability({action:capability,missionId:id,tenantId:tenant.tenantId,idempotencyKey:memoryClaimKey,approved:true,approvedBy:actor.id,input:b.input});
+        skillLifecycle=skillRun.lifecycle;
         capabilityReceipt=skillRun.receipt;
         capabilityOutcome=classifyCapabilityReceipt(capabilityReceipt);
         if(!capabilityOutcome.ok){
@@ -159,6 +162,6 @@ export async function POST(request:Request){
       }
     }
     await recordUsage(tenant.tenantId,actor.id,"MISSION_ACTION",id,1,{action,capabilityActionId:capabilityActionId||null});
-    return NextResponse.json({ok:true,mission:updated,action,assessment,event,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode."});
+    return NextResponse.json({ok:true,mission:updated,action,assessment,event,learningLoop,evidence:evidenceOutcome?.evidence??null,outcome:evidenceOutcome?.outcome??null,capabilityActionId:capabilityActionId||undefined,capabilityApproval,capabilityReceipt,persistence:"in-memory-runtime",durable:false,tenantId:tenant.tenantId,warning:"Non-durable demo mode.",skillLifecycle});
   }catch(error){console.error("[core-engine] mission operation failed",error);return NextResponse.json({ok:false,error:"MISSION_OPERATION_FAILED"},{status:503})}
 }
