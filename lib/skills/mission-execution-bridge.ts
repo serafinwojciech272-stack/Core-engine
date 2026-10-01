@@ -5,6 +5,7 @@ import {
   claimAndStartPersistedMission,
   transitionPersistedMission,
   recordPersistedMissionOutcome,
+  recordExecutionAndEnterMeasurement,
   recordMeasurementAndCompletePersistedMission
 } from "@/lib/storage";
 import { runExecutionLifecycle, type ExecutionLifecycleResult } from "@/lib/skills/execution-lifecycle";
@@ -153,27 +154,24 @@ export async function executeSkillMissionCapability(
     return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: [] };
   }
 
-  const executionEvent = await recordPersistedMissionOutcome(
+  const executionGate = await recordExecutionAndEnterMeasurement(
     input.missionId,
-    "EXECUTION_RECORDED",
-    {
-      correlationId: context.correlationId,
-      actionId: input.action.id,
-      capabilityId: input.action.id,
-      skillId: skill.id,
-      mode: context.mode,
-      executionId: receipt.executionId,
-      evidenceIds,
-      source: "M11_EXECUTION_LIFECYCLE"
-    }
+    context.correlationId,
+    input.action.id,
+    receipt.executionId,
+    evidenceIds
   );
 
-  const eventIds = executionEvent && typeof executionEvent === "object" && "id" in executionEvent
-    ? [String((executionEvent as Record<string, unknown>).id)]
-    : [];
+  if (!executionGate.advanced) {
+    throw new Error("MISSION_EXECUTION_COMPLETION_GATE_BLOCKED:" + executionGate.result_mode);
+  }
 
-  await transitionPersistedMission(input.missionId, "MEASURING", "system");
-  return { lifecycle, receipt, missionState: "MEASURING", persistedEventIds: eventIds };
+  return {
+    lifecycle,
+    receipt,
+    missionState: "MEASURING",
+    persistedEventIds: executionGate.event_id ? [executionGate.event_id] : []
+  };
 }
 
 export async function completeSkillMissionMeasurement(
