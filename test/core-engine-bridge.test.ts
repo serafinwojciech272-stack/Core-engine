@@ -37,7 +37,7 @@ test("M11 bridge never persists an unverified lifecycle", async () => {
   const result = await syncExecutionToCoreEngine({
     tenantId: "test",
     missionId: "missing",
-    lifecycle: runExecutionLifecycle({
+    lifecycle: await runExecutionLifecycle({
       skill: forexTradingSkill,
       capabilityId: "trade.propose",
       context: {
