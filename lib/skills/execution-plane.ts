@@ -1,6 +1,7 @@
 import type { SkillCapability, SkillDefinition, SkillExecutionContext, SkillMode } from "./types";
 import { evaluateSkillRiskGate } from "./risk-gate";
 import { getTool } from "./tool-registry";
+import { initializeCoreTools } from "./tool-registry-init";
 import { evaluateRisk, type RiskLimits, type RiskSnapshot } from "./risk-engine";
 
 export type ExecutionStage =
@@ -40,6 +41,8 @@ function missingTools(capability: SkillCapability): string[] {
 }
 
 export function evaluateExecutionRequest(request: ExecutionRequest): ExecutionDecision {
+  initializeCoreTools();
+
   const { skill, capabilityId, context } = request;
   const capability = findCapability(skill, capabilityId);
 
