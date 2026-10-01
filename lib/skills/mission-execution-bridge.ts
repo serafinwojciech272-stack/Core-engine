@@ -2,7 +2,7 @@ import type { CapabilityAction } from "@/lib/capability-contracts";
 import { executeCapabilityAction, type CapabilityExecutionReceipt } from "@/lib/capability-action-registry";
 import {
   getPersistedMissionSnapshot,
-  claimPersistedAction,
+  claimAndStartPersistedMission,
   transitionPersistedMission,
   recordPersistedMissionOutcome
 } from "@/lib/storage";
@@ -72,14 +72,17 @@ export async function executeSkillMissionCapability(
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
   assertGovernedMissionPhase(snapshot.mission.state, "EXECUTION");
 
-  const actionClaim = await claimPersistedAction(
+  const executionGate = await claimAndStartPersistedMission(
     input.missionId,
     "capability-execute:" + input.action.id,
     input.idempotencyKey
   );
-  if (!actionClaim.claimed) throw new Error("CAPABILITY_EXECUTION_IDEMPOTENCY_CLAIMED");
-
-  await transitionPersistedMission(input.missionId, "EXECUTING", "system");
+  if (!executionGate.started) {
+    if (executionGate.claim_mode === "IDEMPOTENCY_REPLAY") {
+      throw new Error("CAPABILITY_EXECUTION_IDEMPOTENCY_CLAIMED");
+    }
+    throw new Error("MISSION_EXECUTION_GATE_BLOCKED:" + executionGate.claim_mode);
+  }
 
   const skill = skillForCapability(input.action);
   const context: SkillExecutionContext = {
