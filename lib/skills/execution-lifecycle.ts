@@ -210,7 +210,7 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
 
   if (execution.correlationId !== request.context.correlationId) {
     return {
-      state: "EXECUTION_READY",
+      state: "REJECTED",
       plan,
       policy,
       risk,
