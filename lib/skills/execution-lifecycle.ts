@@ -80,7 +80,7 @@ export type ExecutionLifecycleRequest = {
   riskSnapshot?: RiskSnapshot;
   riskLimits?: RiskLimits;
   evidenceIds?: string[];
-  execute?: () => ExecutionResult;
+  execute?: () => ExecutionResult | Promise<ExecutionResult>;
   verify?: (execution: ExecutionResult) => VerificationResult;
 };
 
@@ -130,7 +130,7 @@ export function createPlannerOutput(request: ExecutionLifecycleRequest): Planner
   };
 }
 
-export function runExecutionLifecycle(request: ExecutionLifecycleRequest): ExecutionLifecycleResult {
+export async function runExecutionLifecycle(request: ExecutionLifecycleRequest): Promise<ExecutionLifecycleResult> {
   const plan = createPlannerOutput(request);
   const capability = findCapability(request.skill, request.capabilityId);
   const baseDecision = evaluateExecutionRequest({
@@ -197,7 +197,7 @@ export function runExecutionLifecycle(request: ExecutionLifecycleRequest): Execu
   trail.push("EXECUTION_READY");
 
   const execution = request.execute
-    ? request.execute()
+    ? await request.execute()
     : {
         executionId: ids("execution", request.context.correlationId),
         correlationId: request.context.correlationId,
