@@ -239,6 +239,14 @@ export async function runExecutionLifecycle(request: ExecutionLifecycleRequest):
     };
   }
 
+  if (execution.evidenceIds.length === 0) {
+    return {
+      state: "EXECUTED", plan, policy, risk, approval,
+      execution: { ...execution, status: "FAILED", sideEffect: false },
+      decision: baseDecision, auditTrail: [...trail, "REJECTED"],
+    };
+  }
+
   trail.push("EXECUTED");
   const verification = request.verify?.(execution);
   if (!verification) {
