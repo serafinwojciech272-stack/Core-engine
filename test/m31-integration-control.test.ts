@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { IntegrationControlPlane } from "@/lib/integration-control-plane";
+
+const def={integrationId:"i1",tenantId:"t1",provider:"provider-x",version:"1",contractVersion:"1",status:"ENABLED" as const,allowedActions:["READ"],riskLevel:"MEDIUM" as const,rateLimitPerMinute:2,timeoutMs:1000,retryLimit:2};
+
+test("M31 authorizes registered tenant-scoped integration",()=>{const c=new IntegrationControlPlane();c.register(def);const r=c.authorize({invocationId:"v1",integrationId:"i1",tenantId:"t1",actorId:"a",action:"READ",requestHash:"",idempotencyKey:"k1",startedAt:1000});assert.equal(r.integrationId,"i1")});
+test("M31 blocks unknown action and cross-tenant use",()=>{const c=new IntegrationControlPlane();c.register(def);assert.throws(()=>c.authorize({invocationId:"v1",integrationId:"i1",tenantId:"t2",actorId:"a",action:"READ",requestHash:"x",idempotencyKey:"k",startedAt:1}),/INTEGRATION_TENANT_MISMATCH/);assert.throws(()=>c.authorize({invocationId:"v2",integrationId:"i1",tenantId:"t1",actorId:"a",action:"WRITE",requestHash:"x",idempotencyKey:"k2",startedAt:2}),/ACTION_NOT_ALLOWED/)});
+test("M31 enforces provider rate limit and result hashing",()=>{const c=new IntegrationControlPlane();c.register(def);for(let n=1;n<=2;n++)c.authorize({invocationId:"v"+n,integrationId:"i1",tenantId:"t1",actorId:"a",action:"READ",requestHash:"x",idempotencyKey:"k"+n,startedAt:1000+n});assert.throws(()=>c.authorize({invocationId:"v3",integrationId:"i1",tenantId:"t1",actorId:"a",action:"READ",requestHash:"x",idempotencyKey:"k3",startedAt:1003}),/INTEGRATION_RATE_LIMIT/);assert.throws(()=>c.recordResult({invocationId:"v1",status:"COMPLETED",retryable:false}),/RESPONSE_HASH_REQUIRED/)});
+test("M31 never exposes credential secret references",()=>{const c=new IntegrationControlPlane();c.register(def);c.bindCredential({credentialId:"c1",integrationId:"i1",tenantId:"t1",secretRef:"vault://secret",expiresAt:Date.now()+10000});assert.equal((c.snapshot().credentials[0] as any).secretRef,"[REDACTED]")});
