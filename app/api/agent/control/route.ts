@@ -16,11 +16,15 @@ export async function POST(request: Request) {
 
   try {
     const runtime = await resolveSaaSContext(request);
-    const tenant = runtime.identity ? { tenantId: runtime.identity.tenantId } : runtime.legacyTenant;
+    const trustedTenantId = runtime.identity?.tenantId || runtime.legacyTenant?.tenantId || "";
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MAX) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
     const body = raw ? JSON.parse(raw) as Record<string, unknown> : {};
-    const tenantId = String(body.tenantId || tenant?.tenantId || "");
+    const requestedTenantId = typeof body.tenantId === "string" ? body.tenantId : "";
+    if (requestedTenantId && trustedTenantId && requestedTenantId !== trustedTenantId) {
+      return NextResponse.json({ ok: false, error: "TENANT_SCOPE_MISMATCH" }, { status: 403 });
+    }
+    const tenantId = trustedTenantId || requestedTenantId;
     if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_ID_REQUIRED" }, { status: 400 });
     const action = String(body.action || "compose");
 
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
       const actorId = runtime.identity?.userId || authenticate(request, true).id;
       if (!compositionId || !reason) return NextResponse.json({ ok: false, error: "COMPOSITION_ID_AND_REASON_REQUIRED" }, { status: 400 });
       const decision = await decideAgentApproval(compositionId, action === "approve" ? "APPROVED" : "REJECTED", actorId, reason);
-      return NextResponse.json({ ok: true, version: "M12.2", approval: decision, persistent: true });
+      return NextResponse.json({ ok: true, version: "M12.3", approval: decision, persistent: true });
     }
 
     if (action === "authorize") {
@@ -38,9 +42,16 @@ export async function POST(request: Request) {
       const missionId = String(body.missionId || "");
       const capabilityId = String(body.capability || "");
       const correlationId = String(body.correlationId || "");
-      if (!compositionId || !missionId || !capabilityId || !correlationId) return NextResponse.json({ ok: false, error: "AUTHORIZATION_CONTEXT_REQUIRED" }, { status: 400 });
-      const authorization = await enforcePersistentAgentExecution({ compositionId, tenantId, missionId, capabilityId, correlationId });
-      return NextResponse.json({ ok: authorization.allowed, version: "M12.2", authorization, executionPermission: authorization.allowed }, { status: authorization.allowed ? 200 : 403 });
+      const skillId = String(body.skillId || "");
+      const skillVersion = String(body.skillVersion || "");
+      const mode = String(body.mode || "");
+      if (!compositionId || !missionId || !capabilityId || !correlationId || !skillId || !skillVersion || !mode) {
+        return NextResponse.json({ ok: false, error: "EXECUTOR_SCOPE_REQUIRED" }, { status: 400 });
+      }
+      const authorization = await enforcePersistentAgentExecution({
+        compositionId, tenantId, missionId, capabilityId, correlationId, skillId, skillVersion, mode,
+      });
+      return NextResponse.json({ ok: authorization.allowed, version: "M12.3", authorization, executionPermission: authorization.allowed }, { status: authorization.allowed ? 200 : 403 });
     }
 
     const signals = Array.isArray(body.signals)
@@ -65,7 +76,7 @@ export async function POST(request: Request) {
       persistence = { persistent: true, ...persisted };
     }
 
-    return NextResponse.json({ ok: true, version: "M12.2", composition, control, persistence, executionPermission: false, executionGate: "PERSISTENT_APPROVAL_AUTHORIZATION_REQUIRED" });
+    return NextResponse.json({ ok: true, version: "M12.3", composition, control, persistence, executionPermission: false, executionGate: "PERSISTENT_APPROVAL_AUTHORIZATION_REQUIRED" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "AGENT_CONTROL_FAILED";
     const status = code.startsWith("NO_COMPATIBLE_") ? 422 : 503;
