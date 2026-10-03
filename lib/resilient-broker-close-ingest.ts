@@ -1,5 +1,6 @@
 import {
   atomicRecoveryCommit,
+  createSupabaseAtomicRecoveryCommit,
   type AtomicCommitPort,
   type AtomicRecoveryCommitInput,
   type AtomicRecoveryCommitResult,
@@ -17,7 +18,7 @@ export type BrokerCloseIngest = {
 
 export async function resilientBrokerCloseIngest(
   input: BrokerCloseIngest,
-  recoveryCommit: AtomicCommitPort,
+  recoveryCommit: AtomicCommitPort = createSupabaseAtomicRecoveryCommit(),
 ): Promise<AtomicRecoveryCommitResult> {
   return atomicRecoveryCommit({
     tenantId: input.tenantId,
