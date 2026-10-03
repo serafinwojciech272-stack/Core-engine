@@ -31,6 +31,8 @@ export { createPlannerOutput, runExecutionLifecycle } from "./execution-lifecycl
 export { syncExecutionToCoreEngine } from "./core-engine-bridge";
 export { assertGovernedMissionPhase, canEnterGovernedMissionPhase, requiredMissionStateForPhase } from "./mission-state-gate";
 export { executeSkillMissionCapability, completeSkillMissionMeasurement } from "./mission-execution-bridge";
+export { composeAgent, composeAgentForMission } from "./agent-composition";
+export type { AgentCompositionRequest, AgentComposition, AgentPlanStep } from "./agent-composition";
 export type { CoreEngineExecutionBridgeInput, CoreEngineExecutionBridgeResult } from "./core-engine-bridge";
 export type { SkillMissionExecutionInput, SkillMissionExecutionResult, SkillMissionMeasurementInput, SkillMissionMeasurementResult } from "./mission-execution-bridge";
 export type { ExecutionLifecycleResult, ExecutionLifecycleRequest, PlannerOutput, ApprovalObject, ExecutionResult, VerificationResult, MemoryEvent, LearningEvent, ExecutionLifecycleState } from "./execution-lifecycle";
