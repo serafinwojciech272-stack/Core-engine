@@ -3,12 +3,11 @@ import { executeCapabilityAction, type CapabilityExecutionReceipt } from "@/lib/
 import {
   getPersistedMissionSnapshot,
   claimAndStartPersistedMission,
-  transitionPersistedMission,
   failPersistedMission,
-  recordPersistedMissionOutcome,
   recordExecutionAndEnterMeasurement,
   recordMeasurementAndCompletePersistedMission
 } from "@/lib/storage";
+import { enforcePersistentAgentExecution, closePersistentAgentExecution } from "@/lib/skills/agent-execution-enforcement";
 import { runExecutionLifecycle, type ExecutionLifecycleResult } from "@/lib/skills/execution-lifecycle";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
 import type { SkillDefinition, SkillExecutionContext } from "@/lib/skills/types";
@@ -23,6 +22,7 @@ export type SkillMissionExecutionInput = {
   approvedBy?: string;
   input?: Record<string, unknown>;
   evidenceIds?: string[];
+  compositionId?: string;
 };
 
 export type SkillMissionExecutionResult = {
@@ -60,11 +60,11 @@ function skillForCapability(action: SkillMissionExecutionInput["action"]): Skill
       requiredTools: ["tool-registry"]
     }],
     policies: [
-      "Capability execution is governed by the persisted Core Engine mission state.",
-      "Execution requires the mission to be APPROVED before the side-effect boundary.",
+      "Capability execution is governed by persistent agent authorization and mission state.",
+      "Execution requires an exact approved capability scope before the side-effect boundary.",
       "Existing capability adapter permissions and idempotency remain authoritative."
     ],
-    verification: ["adapter-receipt", "persisted-mission-state"],
+    verification: ["adapter-receipt", "persistent-authorization", "persisted-mission-state"],
     learningPolicy: "Measurement and learning are completed by the existing Core Engine lifecycle."
   };
 }
@@ -75,6 +75,28 @@ export async function executeSkillMissionCapability(
   const snapshot = await getPersistedMissionSnapshot(input.missionId);
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
   assertGovernedMissionPhase(snapshot.mission.state as MissionState, "EXECUTION");
+
+  const skill = skillForCapability(input.action);
+  const correlationId = "mission:" + input.missionId + ":capability:" + input.action.id + ":" + input.idempotencyKey;
+
+  if (!input.compositionId) {
+    throw new Error("PERSISTENT_COMPOSITION_REQUIRED");
+  }
+
+  const authorization = await enforcePersistentAgentExecution({
+    compositionId: input.compositionId,
+    tenantId: input.tenantId,
+    missionId: input.missionId,
+    capabilityId: input.action.id,
+    correlationId,
+    skillId: skill.id,
+    skillVersion: skill.version,
+    mode: "LIVE"
+  });
+
+  if (!authorization.allowed || !authorization.authorizationId) {
+    throw new Error("EXECUTOR_AUTHORIZATION_BLOCKED:" + authorization.reason);
+  }
 
   const executionGate = await claimAndStartPersistedMission(
     input.missionId,
@@ -88,13 +110,12 @@ export async function executeSkillMissionCapability(
     throw new Error("MISSION_EXECUTION_GATE_BLOCKED:" + executionGate.claim_mode);
   }
 
-  const skill = skillForCapability(input.action);
   const context: SkillExecutionContext = {
     tenantId: input.tenantId,
     missionId: input.missionId,
     mode: "LIVE",
     approvalRequired: input.action.requiresApproval,
-    correlationId: "mission:" + input.missionId + ":capability:" + input.action.id + ":" + input.idempotencyKey
+    correlationId
   };
 
   let receipt: CapabilityExecutionReceipt | undefined;
@@ -131,6 +152,7 @@ export async function executeSkillMissionCapability(
         "CAPABILITY_RECEIPT_PRESENT",
         "CAPABILITY_EXECUTION_STATUS_EXECUTED",
         "CAPABILITY_ADAPTER_BOUNDARY_ACCEPTED",
+        "PERSISTENT_AUTHORIZATION_ACTIVE",
         "PERSISTED_MISSION_STATE_EXECUTING"
       ],
       evidenceIds: input.evidenceIds ?? []
@@ -158,6 +180,14 @@ export async function executeSkillMissionCapability(
         : lifecycle.verification?.passed === false
           ? "VERIFICATION_FAILED"
           : "EXECUTION_LIFECYCLE_REJECTED";
+
+    await closePersistentAgentExecution({
+      compositionId: input.compositionId,
+      authorizationId: authorization.authorizationId,
+      success: false,
+      reason: failureCode
+    });
+
     const failure = await failPersistedMission(
       input.missionId,
       failureCode,
@@ -166,11 +196,19 @@ export async function executeSkillMissionCapability(
         correlationId: context.correlationId,
         actionId: input.action.id,
         executionId: receipt.executionId,
+        authorizationId: authorization.authorizationId,
         evidenceIds
       }
     );
     return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: failure.event_id ? [failure.event_id] : [] };
   }
+
+  await closePersistentAgentExecution({
+    compositionId: input.compositionId,
+    authorizationId: authorization.authorizationId,
+    success: true,
+    reason: "VERIFIED_EXECUTION"
+  });
 
   const measurementGate = await recordExecutionAndEnterMeasurement(
     input.missionId,
