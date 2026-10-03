@@ -3,6 +3,8 @@ import { guardMutation } from "@/lib/http";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { composeAgent } from "@/lib/skills/agent-composition";
 import { runAgentControl } from "@/lib/agent-control-plane";
+import { decideAgentApproval, persistAgentComposition, storageMode } from "@/lib/storage";
+import { authenticate } from "@/lib/auth";
 import type { EngineSignal } from "@/lib/engine";
 
 const MAX = 16000;
@@ -38,6 +40,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "TENANT_ID_REQUIRED" }, { status: 400 });
     }
 
+    const action = String(body.action || "compose");
+    if ((action === "approve" || action === "reject") && storageMode() === "supabase") {
+      const compositionId = String(body.compositionId || "");
+      const reason = String(body.reason || "").trim();
+      const actorId = runtime.identity?.userId || authenticate(request, true).id;
+      if (!compositionId || !reason) return NextResponse.json({ ok: false, error: "COMPOSITION_ID_AND_REASON_REQUIRED" }, { status: 400 });
+      const decision = await decideAgentApproval(compositionId, action === "approve" ? "APPROVED" : "REJECTED", actorId, reason);
+      return NextResponse.json({ ok: true, version: "M12.1", approval: decision, persistent: true });
+    }
+
     const requestedCapability = String(body.capability || "");
     const domain = String(body.domain || "business");
     const mode = String(body.mode || "OBSERVATIONAL") as import("@/lib/skills/types").SkillMode;
@@ -62,12 +74,30 @@ export async function POST(request: Request) {
       actor: { id: "agent-control", kind: "system" },
     });
 
+    let persistence: Record<string, unknown> = { persistent: false, reason: "SUPABASE_NOT_CONFIGURED" };
+    if (storageMode() === "supabase") {
+      const persisted = await persistAgentComposition({
+        tenantId,
+        agentId: composition.agentId,
+        skillId: composition.skill.id,
+        skillVersion: composition.skill.version,
+        capabilityId: composition.capability,
+        mode: composition.mode,
+        correlationId: `agent:${tenantId}:${composition.missionBinding?.missionId ?? "composition"}:${composition.capability}:${composition.compositionId}`,
+        missionId: composition.missionBinding?.missionId,
+        composition: composition as unknown as Record<string, unknown>,
+        approvalScope: composition.approval.scope,
+      });
+      persistence = { persistent: true, ...persisted };
+    }
+
     return NextResponse.json({
       ok: true,
-      version: "M12.0",
+      version: "M12.1",
       composition,
       control,
-      executionPermission: composition.execution.allowed && control.policy.status !== "BLOCK",
+      persistence,
+      executionPermission: composition.execution.allowed && control.policy.status !== "BLOCK" && composition.approval.approved,
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "AGENT_CONTROL_FAILED";
