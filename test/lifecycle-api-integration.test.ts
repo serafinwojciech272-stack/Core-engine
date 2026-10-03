@@ -73,84 +73,166 @@ after(async () => {
   clearTimeout(timer);
 });
 
-test("real HTTP API executes the complete mission lifecycle", async () => {
+test("real HTTP API enforces CREATE -> APPROVE -> EXECUTE -> MEASURE -> COMPLETE -> LEARN contract", async () => {
   const signals = [
     { name: "qualified_leads", value: "84", source: "crm" },
     { name: "response_latency_minutes", value: "47", source: "crm" },
     { name: "conversion_rate", value: "2.8%", source: "analytics" }
   ];
+  const evidence = [
+    { claim: "Qualified leads are 84", source: "crm", supports: true, reliability: 0.9 },
+    { claim: "Response latency is 47 minutes", source: "crm", supports: true, reliability: 0.9 },
+    { claim: "Conversion rate is 2.8%", source: "analytics", supports: true, reliability: 0.95 }
+  ];
 
-  const context = await api("/api/context", {
-    domain: "business",
-    signals,
-    evidence: [
-      { claim: "Qualified leads are 84", source: "crm", supports: true, reliability: 0.9 },
-      { claim: "Response latency is 47 minutes", source: "crm", supports: true, reliability: 0.9 },
-      { claim: "Conversion rate is 2.8%", source: "analytics", supports: true, reliability: 0.95 }
-    ]
-  });
+  // CREATE: real /api/engine creates the mission in AWAITING_APPROVAL.
+  const created = await api("/api/engine", { domain: "business", signals, evidence });
+  assert.equal(created.response.status, 200);
+  assert.equal(created.json.ok, true);
+  assert.equal(created.json.state, "AWAITING_APPROVAL");
+  assert.ok(created.json.mission?.id);
+  assert.ok(created.json.decision?.id);
+  assert.equal(created.json.evidence?.length, 3);
+  assert.ok(created.json.audit?.chainLength >= 4);
 
-  assert.equal(context.response.status, 200);
-  assert.equal(context.json.ok, true);
-  assert.equal(context.json.stage, "CONTEXT_EVIDENCE");
-  assert.equal(context.json.evidenceCount, 3);
-  assert.ok(context.json.evidenceGraph?.nodes?.length === 3);
-  assert.ok(typeof context.json.evidenceQuality?.score === "number");
+  const missionId = String(created.json.mission.id);
+  const metricOutcome = { metric: "conversion_rate", before: 2.8, after: 3.36, direction: "higher" };
 
-  const engine = await api("/api/engine", {
-    domain: "business",
-    signals,
-    evidence: [
-      { claim: "Qualified leads are 84", source: "crm", supports: true, reliability: 0.9 },
-      { claim: "Response latency is 47 minutes", source: "crm", supports: true, reliability: 0.9 },
-      { claim: "Conversion rate is 2.8%", source: "analytics", supports: true, reliability: 0.95 }
-    ]
-  });
-
-  assert.equal(engine.response.status, 200);
-  assert.equal(engine.json.ok, true);
-  assert.equal(engine.json.state, "AWAITING_APPROVAL");
-  assert.ok(engine.json.mission?.id);
-  assert.ok(engine.json.decision?.id);
-  assert.ok(engine.json.evidence?.length === 3);
-  assert.ok(engine.json.evidenceGraph?.nodes?.length === 3);
-  assert.ok(typeof engine.json.evidenceQuality?.score === "number");
-  assert.ok(engine.json.audit?.chainLength >= 4);
-
-  const missionId = String(engine.json.mission.id);
-
-  const actions = [
-    ["approve", {}],
-    ["execute", { execution: "simulation" }],
-    ["measure", { before: 2.8, after: 3.36, direction: "higher" }],
-    ["complete", { before: 2.8, after: 3.36, direction: "higher" }],
-    ["learn", { before: 2.8, after: 3.36, direction: "higher" }]
-  ] as const;
-
-  let last: Record<string, any> = engine.json.mission;
-
-  for (const [action, outcome] of actions) {
-    const result = await api("/api/mission", {
-      id: missionId,
-      action,
-      idempotencyKey: `lifecycle-api-${missionId}-${action}`,
-      outcome
-    });
-
-    assert.equal(result.response.status, 200, `${action}: ${JSON.stringify(result.json)}`);
-    assert.equal(result.json.ok, true, `${action}: ${JSON.stringify(result.json)}`);
+  async function action(
+    actionName: string,
+    body: Record<string, unknown>,
+    expectedState: string
+  ) {
+    const result = await api("/api/mission", body);
+    assert.equal(result.response.status, 200, `${actionName}: ${JSON.stringify(result.json)}`);
+    assert.equal(result.json.ok, true);
     assert.equal(result.json.mission?.id, missionId);
-    last = result.json.mission;
+    assert.equal(result.json.mission?.state, expectedState);
+    return result;
   }
 
-  assert.equal(last.state, "LEARNED");
-  assert.equal(last.executionCount, 1);
+  // APPROVE: this is the human/capability approval boundary.
+  const approveBody = {
+    id: missionId,
+    action: "approve",
+    capabilityActionId: "page.generate",
+    idempotencyKey: `contract-${missionId}-approve`
+  };
+  const approved = await action("approve", approveBody, "APPROVED");
+  assert.equal(approved.json.capabilityApproval?.status, "APPROVED");
 
+  // Same idempotency key must not execute the action a second time.
+  const approveDuplicate = await api("/api/mission", approveBody);
+  assert.equal(approveDuplicate.response.status, 200);
+  assert.equal(approveDuplicate.json.duplicate, true);
+  assert.equal(approveDuplicate.json.mission?.state, "APPROVED");
+
+  // EXECUTE: the mission calls the Skill lifecycle, with no real external side effect.
+  const executeBody = {
+    id: missionId,
+    action: "execute",
+    capabilityActionId: "page.generate",
+    idempotencyKey: `contract-${missionId}-execute`,
+    outcome: metricOutcome
+  };
+  const executed = await action("execute", executeBody, "EXECUTING");
+  assert.equal(executed.json.capabilityReceipt?.status, "EXECUTED");
+  assert.equal(executed.json.capabilityReceipt?.sideEffectStatus, "NONE");
+  assert.equal(executed.json.skillLifecycle?.state, "VERIFIED");
+  assert.equal(executed.json.skillLifecycle?.execution?.status, "EXECUTED");
+  assert.equal(executed.json.skillLifecycle?.verification?.passed, true);
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTION_READY"));
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("EXECUTED"));
+  assert.ok(executed.json.skillLifecycle?.auditTrail?.includes("VERIFIED"));
+  assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, executed.json.capabilityReceipt?.executionId);
+  assert.equal(executed.json.evidence?.metadata?.capabilityActionId, "page.generate");
+  assert.equal(executed.json.outcome?.executionId, executed.json.capabilityReceipt?.executionId);
+  assert.equal(executed.json.outcome?.assessment?.quality, "VERIFIED");
+
+  const executeDuplicate = await api("/api/mission", executeBody);
+  assert.equal(executeDuplicate.response.status, 200);
+  assert.equal(executeDuplicate.json.duplicate, true);
+  assert.equal(executeDuplicate.json.mission?.executionCount, 1);
+
+  // MEASURE: outcome is verified and the existing Mission state machine advances.
+  const measureBody = {
+    id: missionId,
+    action: "measure",
+    idempotencyKey: `contract-${missionId}-measure`,
+    outcome: metricOutcome
+  };
+  const measured = await action("measure", measureBody, "MEASURING");
+  assert.equal(measured.json.assessment?.quality, "VERIFIED");
+  assert.ok(measured.json.event || measured.json.persistence === "supabase");
+
+  const measureDuplicate = await api("/api/mission", measureBody);
+  assert.equal(measureDuplicate.response.status, 200);
+  assert.equal(measureDuplicate.json.duplicate, true);
+  assert.equal(measureDuplicate.json.mission?.state, "MEASURING");
+
+  // COMPLETE: learning loop runs at the existing M10 boundary, but the state
+  // remains COMPLETED until the explicit LEARN transition.
+  const completeBody = {
+    id: missionId,
+    action: "complete",
+    idempotencyKey: `contract-${missionId}-complete`,
+    outcome: metricOutcome
+  };
+  const completed = await action("complete", completeBody, "COMPLETED");
+  assert.equal(completed.json.assessment?.quality, "VERIFIED");
+  assert.ok(completed.json.learningLoop);
+
+  const completeDuplicate = await api("/api/mission", completeBody);
+  assert.equal(completeDuplicate.response.status, 200);
+  assert.equal(completeDuplicate.json.duplicate, true);
+  assert.equal(completeDuplicate.json.mission?.state, "COMPLETED");
+
+  // LEARN: explicit terminal transition.
+  const learnBody = {
+    id: missionId,
+    action: "learn",
+    idempotencyKey: `contract-${missionId}-learn`,
+    outcome: metricOutcome
+  };
+  const learned = await action("learn", learnBody, "LEARNED");
+  assert.equal(learned.json.assessment?.quality, "VERIFIED");
+
+  const learnDuplicate = await api("/api/mission", learnBody);
+  assert.equal(learnDuplicate.response.status, 200);
+  assert.equal(learnDuplicate.json.duplicate, true);
+  assert.equal(learnDuplicate.json.mission?.state, "LEARNED");
+
+  // Durable/observable contract: every lifecycle boundary must be represented
+  // in the real mission/event API, regardless of the active persistence backend.
   const missions = await fetch(base + "/api/mission?limit=100");
   assert.equal(missions.status, 200);
-  const missionPayload = await missions.json() as Record<string, any>;
-  assert.equal(missionPayload.ok, true);
-  assert.ok(missionPayload.missions.some((m: Record<string, any>) => m.id === missionId));
+  const payload = await missions.json() as Record<string, any>;
+  assert.equal(payload.ok, true);
+
+  const persistedMission = (payload.missions || []).find(
+    (m: Record<string, any>) => m.id === missionId
+  );
+  assert.equal(persistedMission?.state, "LEARNED");
+  assert.equal(persistedMission?.executionCount, 1);
+
+  const missionEvents = (payload.events || []).filter(
+    (event: Record<string, any>) => event.missionId === missionId
+  );
+  const eventTypes = new Set(missionEvents.map((event: Record<string, any>) => event.eventType));
+
+  assert.ok(eventTypes.has("STATE_CHANGED"), "STATE_CHANGED event missing");
+  assert.ok(eventTypes.has("EXECUTION_RECORDED"), "EXECUTION_RECORDED event missing");
+  assert.ok(eventTypes.has("MEASUREMENT_RECORDED"), "MEASUREMENT_RECORDED event missing");
+  assert.ok(eventTypes.has("LEARNING_RECORDED"), "LEARNING_RECORDED event missing");
+  assert.ok(missionEvents.length >= 5, "expected lifecycle event trail");
+
+  // The execution evidence must be traceable back to the exact receipt.
+  const executionId = String(executed.json.capabilityReceipt.executionId);
+  assert.ok(executionId.length > 0);
+  assert.equal(
+    String(executed.json.evidence.metadata.sourceExecutionId),
+    executionId
+  );
 });
 
 test("real HTTP API blocks completion when KPI outcome is unverifiable", async () => {
@@ -321,6 +403,9 @@ test("M9.2 signal to next decision end-to-end lifecycle is covered", async () =>
   assert.equal(receipt.status, "EXECUTED");
   assert.ok(receipt.adapterId, "adapter resolved");
   assert.equal(receipt.sideEffectStatus, "NONE");
+  assert.equal(executed.json.skillLifecycle?.state, "VERIFIED");
+  assert.equal(executed.json.skillLifecycle?.execution.status, "EXECUTED");
+  assert.equal(executed.json.skillLifecycle?.verification?.passed, true);
 
   // RECEIPT -> EVIDENCE -> OUTCOME -> MEASUREMENT -> LEARNING
   assert.equal(executed.json.evidence?.metadata?.sourceExecutionId, receipt.executionId);
