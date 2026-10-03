@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardMutation } from "@/lib/security";
+import { guardMutation } from "@/lib/http";
 import { resolveSaaSTenant } from "@/lib/saas-tenant";
 import { promoteAndPersistRecoveryLearning } from "@/lib/m24-26-learning-promotion-engine";
 import { createSupabaseRecoveryLearningPromotionPersistence } from "@/lib/m24-26-learning-promotion-persistence";
@@ -7,7 +7,8 @@ import { SupabaseRecoveryVerificationPersistence } from "@/lib/m24-25-verificati
 
 export async function POST(request: Request) {
   try {
-    await guardMutation(request);
+    const guard = guardMutation(request, "recovery-learning-promote");
+    if (guard) return guard;
     const tenant = await resolveSaaSTenant(request);
     const body = await request.json() as { recoveryKey?: string; executionId?: string };
 
