@@ -5,6 +5,7 @@ import {
   readRecovery,
   type RecoveryReadResult,
 } from "@/lib/recovery-read";
+import { readLatestBrokerRecovery } from "@/lib/resilient-broker-close-ingest";
 
 function record(
   overrides: Partial<RecoveryReadResult> = {},
@@ -72,6 +73,15 @@ test("M24.20 reads an exact idempotency record when requested", async () => {
   }, port);
 
   assert.equal(result?.commitId, "commit-1");
+});
+
+test("M24.20 broker read-path resolves the latest close state", async () => {
+  const port = new InMemoryRecoveryRead([record()]);
+  const result = await readLatestBrokerRecovery("tenant-1", "broker-1", port);
+
+  assert.equal(result?.recoveryKey, "broker-1");
+  assert.equal(result?.checkpoint.cursor, "100");
+  assert.equal(result?.learning?.quality, "VERIFIED");
 });
 
 test("M24.20 never crosses tenant boundaries", async () => {
