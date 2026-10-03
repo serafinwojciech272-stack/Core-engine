@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
-import { resolveSaaSContext } from "@/lib/saas-runtime";
+import { resolveSaaSTenant } from "@/lib/saas-tenant";
 import { createPolicyAwareRecoveryDecisionEngine } from "@/lib/m24-28-policy-aware-decision-engine";
 
 export async function POST(request: Request) {
