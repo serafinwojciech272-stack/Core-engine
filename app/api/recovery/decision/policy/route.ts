@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
-import { resolveSaaSTenant } from "@/lib/saas-tenant";
+import { resolveTenant } from "@/lib/commercial-runtime";
 import { createPolicyAwareRecoveryDecisionEngine } from "@/lib/m24-28-policy-aware-decision-engine";
 
 export async function POST(request: Request) {
   const guard = guardMutation(request, "recovery-decision-policy");
   if (guard) return guard;
-  const tenant = await resolveSaaSTenant(request);
+  const tenant = resolveTenant(request);
   const tenantId = tenant.id;
   const rl = rateLimit("recovery-decision-policy:" + tenantId);
   if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
