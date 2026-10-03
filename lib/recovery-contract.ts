@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type RecoveryCheckpoint = {
   streamKey: string;
   cursor: string;
@@ -40,4 +42,14 @@ export class RecoveryConflictError extends Error {
     super("RECOVERY_IDEMPOTENCY_CONFLICT");
     this.name = "RecoveryConflictError";
   }
+}
+
+export function getRecoveryPayloadHash(input: AtomicRecoveryCommitInput) {
+  return createHash("sha256").update(JSON.stringify({
+    tenantId: input.tenantId,
+    recoveryKey: input.recoveryKey,
+    checkpoint: input.checkpoint,
+    learning: input.learning ?? null,
+    metadata: input.metadata ?? {},
+  })).digest("hex");
 }
