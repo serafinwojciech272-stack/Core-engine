@@ -33,7 +33,7 @@ export type AtomicRecoveryCommitResult = {
   payloadHash: string;
 };
 
-type AtomicCommitPort = {
+export type AtomicCommitPort = {
   commit(input: AtomicRecoveryCommitInput): Promise<AtomicRecoveryCommitResult>;
 };
 
@@ -117,4 +117,20 @@ export async function atomicRecoveryCommit(
     throw new Error("RECOVERY_CHECKPOINT_INVALID");
   }
   return port.commit(input);
+}
+
+export function createSupabaseAtomicRecoveryCommit(): AtomicCommitPort {
+  return new SupabaseAtomicRecoveryCommit(async (name, body) => {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+    const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
+    return response.json();
+  });
 }
