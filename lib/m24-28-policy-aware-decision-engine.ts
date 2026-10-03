@@ -1,12 +1,14 @@
 import {
   decideRecovery,
+  createSupabaseRecoveryDecisionEngine,
   type RecoveryDecisionEnginePort,
   type RecoveryDecisionResult,
 } from "@/lib/recovery-decision-engine";
-import type { RecoveryLearningPolicy } from "@/lib/m24-27-learning-policy-contract";
 import {
-  type PolicyAwareRecoveryDecisionResult,
-} from "@/lib/m24-28-policy-aware-decision-contract";
+  createSupabaseRecoveryLearningPolicyPersistence,
+} from "@/lib/m24-27-learning-policy-persistence";
+import type { RecoveryLearningPolicy } from "@/lib/m24-27-learning-policy-contract";
+import type { PolicyAwareRecoveryDecisionResult } from "@/lib/m24-28-policy-aware-decision-contract";
 
 export type RecoveryLearningPolicyReader = {
   read(tenantId: string, recoveryKey: string): Promise<RecoveryLearningPolicy[]>;
@@ -54,10 +56,10 @@ function buildResult(
   };
 }
 
-export async function evaluatePolicyAwareRecoveryDecision(
+export function evaluatePolicyAwareRecoveryDecision(
   base: RecoveryDecisionResult,
   policies: RecoveryLearningPolicy[],
-): Promise<PolicyAwareRecoveryDecisionResult> {
+): PolicyAwareRecoveryDecisionResult {
   const ranked = rankPolicies(policies);
   const actionable = ranked.filter(
     (policy) => policy.netWeight >= 0 && policy.confidenceBps >= 5000,
@@ -71,7 +73,9 @@ export async function evaluatePolicyAwareRecoveryDecision(
       ranked,
       best,
       false,
-      best ? "Stable policy confirms no recovery action is required." : "No actionable learning policy is available.",
+      best
+        ? "Stable policy confirms no recovery action is required."
+        : "No actionable learning policy is available.",
     );
   }
 
@@ -117,8 +121,6 @@ export class PolicyAwareRecoveryDecisionEngine {
 }
 
 export function createPolicyAwareRecoveryDecisionEngine(): PolicyAwareRecoveryDecisionEngine {
-  const { createSupabaseRecoveryLearningPolicyPersistence } = require("@/lib/m24-27-learning-policy-persistence") as typeof import("@/lib/m24-27-learning-policy-persistence");
-  const { createSupabaseRecoveryDecisionEngine } = require("@/lib/recovery-decision-engine") as typeof import("@/lib/recovery-decision-engine");
   return new PolicyAwareRecoveryDecisionEngine(
     createSupabaseRecoveryLearningPolicyPersistence(),
     createSupabaseRecoveryDecisionEngine(),
