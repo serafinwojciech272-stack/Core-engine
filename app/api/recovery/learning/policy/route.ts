@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { guardMutation } from "@/lib/security";
+import { guardMutation } from "@/lib/http";
 import { resolveSaaSTenant } from "@/lib/saas-tenant";
 import { createSupabaseRecoveryLearningPolicyPersistence } from "@/lib/m24-27-learning-policy-persistence";
 
 export async function POST(request: Request) {
   try {
-    await guardMutation(request);
+    const guard = guardMutation(request, "recovery-learning-policy");
+    if (guard) return guard;
     const tenant = await resolveSaaSTenant(request);
     const body = await request.json() as { recoveryKey?: string };
     if (!body.recoveryKey) return NextResponse.json({error:"RECOVERY_LEARNING_POLICY_INPUT_INVALID"},{status:400});
