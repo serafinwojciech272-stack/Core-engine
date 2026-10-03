@@ -54,3 +54,8 @@ export async function getPersistedMissionSnapshot(missionId:string){
  const missions=await mr.json() as Record<string,unknown>[];
  return {mission:missions[0]||null,events:await er.json(),learning:await lr.json()};
 }
+
+export type PersistentAgentCompositionResult={compositionId:string;approvalId:string;status:string;correlationId:string};
+export async function persistAgentComposition(input:{tenantId:string;agentId:string;skillId:string;skillVersion:string;capabilityId:string;mode:string;correlationId:string;missionId?:string;composition:Record<string,unknown>;approvalScope:string[]}):Promise<PersistentAgentCompositionResult>{return rpc("ce_create_agent_composition",{p_tenant_id:input.tenantId,p_agent_id:input.agentId,p_skill_id:input.skillId,p_skill_version:input.skillVersion,p_capability_id:input.capabilityId,p_mode:input.mode,p_correlation_id:input.correlationId,p_mission_id:input.missionId??null,p_composition:input.composition,p_approval_scope:input.approvalScope});}
+export type AgentApprovalDecisionResult={compositionId:string;approvalId:string;approvalStatus:string;compositionStatus:string;decidedBy:string};
+export async function decideAgentApproval(compositionId:string,status:"APPROVED"|"REJECTED",actorId:string,reason:string):Promise<AgentApprovalDecisionResult>{return rpc("ce_decide_agent_approval",{p_composition_id:compositionId,p_status:status,p_actor_id:actorId,p_reason:reason});}
