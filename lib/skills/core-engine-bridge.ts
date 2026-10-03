@@ -7,6 +7,7 @@ import {
   claimPersistedMissionLearning
 } from "@/lib/storage";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
+import type { MissionState } from "@/lib/engine";
 
 export type CoreEngineExecutionBridgeInput = {
   tenantId: string;
@@ -64,7 +65,7 @@ export async function syncExecutionToCoreEngine(
   const snapshot = await getPersistedMissionSnapshot(input.missionId);
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
 
-  assertGovernedMissionPhase(snapshot.mission.state, "LEARNING");
+  assertGovernedMissionPhase(snapshot.mission.state as MissionState, "LEARNING");
 
   const evidenceIds = mergedEvidence(input);
   if (evidenceIds.length === 0) {
