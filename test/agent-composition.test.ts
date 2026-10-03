@@ -5,15 +5,15 @@ import { composeAgent } from "@/lib/skills/agent-composition";
 test("M12 composes a known skill and capability deterministically", () => {
   const result = composeAgent({
     tenantId: "tenant-demo",
-    domain: "web",
-    capability: "site.audit",
+    domain: "software",
+    capability: "requirements.analyze",
     signals: [],
     mode: "OBSERVATIONAL",
   });
 
   assert.equal(result.version, "M12.0");
   assert.equal(result.skill.id, "web.fullstack-builder");
-  assert.equal(result.capability, "site.audit");
+  assert.equal(result.capability, "requirements.analyze");
   assert.equal(result.execution.allowed, true);
   assert.equal(result.approval.required, true);
   assert.equal(result.learningBoundary.eligible, false);
