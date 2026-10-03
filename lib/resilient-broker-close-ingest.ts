@@ -11,6 +11,12 @@ import {
   type RecoveryReadPort,
   type RecoveryReadResult,
 } from "@/lib/recovery-read";
+import {
+  reconstructRecoveryState,
+  createSupabaseRecoveryStateReconstructor,
+  type RecoveryStateReconstructionPort,
+  type ReconstructedRecoveryState,
+} from "@/lib/recovery-state-reconstruction";
 
 export type BrokerCloseIngest = {
   tenantId: string;
@@ -52,4 +58,12 @@ export async function readLatestBrokerRecovery(
     tenantId,
     recoveryKey: brokerKey,
   }, recoveryRead);
+}
+
+export async function recoverBrokerState(
+  tenantId: string,
+  brokerKey: string,
+  reconstruction: RecoveryStateReconstructionPort = createSupabaseRecoveryStateReconstructor(),
+): Promise<ReconstructedRecoveryState | null> {
+  return reconstructRecoveryState(tenantId, brokerKey, reconstruction);
 }
