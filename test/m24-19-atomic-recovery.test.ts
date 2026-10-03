@@ -29,10 +29,8 @@ test("M24.19 checkpoint failure commits nothing", async () => {
     () => atomicRecoveryCommit({ ...input(), failureInjection: "CHECKPOINT" }, port),
     /RECOVERY_CHECKPOINT_FAILURE/,
   );
-  await assert.rejects(
-    () => atomicRecoveryCommit(input(), port),
-    /RECOVERY_IDEMPOTENCY_CONFLICT|undefined/,
-  );
+  const retry = await atomicRecoveryCommit(input(), port);
+  assert.equal(retry.status, "COMMITTED");
 });
 
 test("M24.19 learning failure commits nothing", async () => {
