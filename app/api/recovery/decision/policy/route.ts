@@ -7,9 +7,8 @@ import { createPolicyAwareRecoveryDecisionEngine } from "@/lib/m24-28-policy-awa
 export async function POST(request: Request) {
   const guard = guardMutation(request, "recovery-decision-policy");
   if (guard) return guard;
-  const runtime = await resolveSaaSContext(request);
-  const tenantId = runtime.identity?.tenantId ?? runtime.legacyTenant?.tenantId;
-  if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_REQUIRED" }, { status: 401 });
+  const tenant = await resolveSaaSTenant(request);
+  const tenantId = tenant.id;
   const rl = rateLimit("recovery-decision-policy:" + tenantId);
   if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
   const body = await request.json().catch(() => null) as { recoveryKey?: string } | null;
