@@ -8,7 +8,7 @@ import {
 export type RecoveryDecision = "NO_ACTION" | "RESUME" | "REPLAY" | "RECONCILE";
 
 export type RecoveryCheck = {
-  name: "CHECKPOINT" | "STATE" | "LEARNING" | "CONSISTENCY";
+  name: "CHECKPOINT" | "STATE" | "LEARNING" | "CONSISTENCY" | "POLICY";
   passed: boolean;
   reason: string;
 };
