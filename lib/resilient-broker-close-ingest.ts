@@ -5,6 +5,12 @@ import {
   type AtomicRecoveryCommitInput,
   type AtomicRecoveryCommitResult,
 } from "@/lib/recovery-atomic-commit";
+import {
+  readRecovery,
+  createSupabaseRecoveryRead,
+  type RecoveryReadPort,
+  type RecoveryReadResult,
+} from "@/lib/recovery-read";
 
 export type BrokerCloseIngest = {
   tenantId: string;
@@ -35,4 +41,15 @@ export async function resilientBrokerCloseIngest(
       ...(input.metadata ?? {}),
     },
   }, recoveryCommit);
+}
+
+export async function readLatestBrokerRecovery(
+  tenantId: string,
+  brokerKey: string,
+  recoveryRead: RecoveryReadPort = createSupabaseRecoveryRead(),
+): Promise<RecoveryReadResult | null> {
+  return readRecovery({
+    tenantId,
+    recoveryKey: brokerKey,
+  }, recoveryRead);
 }
