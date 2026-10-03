@@ -1,8 +1,4 @@
-import type {
-  AtomicCommitPort,
-  AtomicRecoveryCommitInput,
-  AtomicRecoveryCommitResult,
-} from "@/lib/recovery-contract";
+import { getRecoveryPayloadHash, type AtomicCommitPort, type AtomicRecoveryCommitInput, type AtomicRecoveryCommitResult } from "@/lib/recovery-contract";
 
 type Rpc = (name: string, body: Record<string, unknown>) => Promise<unknown>;
 
@@ -14,23 +10,12 @@ export class SupabaseAtomicRecoveryCommit implements AtomicCommitPort {
       p_tenant_id: input.tenantId,
       p_idempotency_key: input.idempotencyKey,
       p_recovery_key: input.recoveryKey,
-      p_payload_hash: inputHash(input),
+      p_payload_hash: getRecoveryPayloadHash(input),
       p_checkpoint: input.checkpoint,
       p_learning: input.learning ?? null,
       p_metadata: input.metadata ?? {},
     }) as AtomicRecoveryCommitResult;
   }
-}
-
-function inputHash(input: AtomicRecoveryCommitInput) {
-  const crypto = require("node:crypto") as typeof import("node:crypto");
-  return crypto.createHash("sha256").update(JSON.stringify({
-    tenantId: input.tenantId,
-    recoveryKey: input.recoveryKey,
-    checkpoint: input.checkpoint,
-    learning: input.learning ?? null,
-    metadata: input.metadata ?? {},
-  })).digest("hex");
 }
 
 export function createSupabaseAtomicRecoveryCommit(): AtomicCommitPort {
