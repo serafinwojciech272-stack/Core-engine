@@ -1,0 +1,16 @@
+"use client";
+import {useEffect,useState} from "react";
+import {AlertTriangle,ArrowRight,CircleDollarSign,Clock3,FileCheck2,RefreshCw,ShieldAlert,UserRoundCheck} from "lucide-react";
+import "./fcc-erp-queue.css";
+type Row={queue_type:string;entity_id:string;priority:string;status:string;title:string;due_at:string;module:string};
+type Bill={invoice_id:string;invoice_number:string;invoice_status:string;gross_amount:number;due_date:string;ksef_status:string;control_state:string;failed_checks:number;open_anomalies:number;pending_approvals:number;paid_amount:number};
+export default function Page(){
+ const[d,setD]=useState<{source:string;queue:Row[];billing:Bill[]}|null>(null),[loading,setLoading]=useState(true);
+ async function load(){setLoading(true);try{setD(await (await fetch("/api/fcc-erp/queue",{cache:"no-store"})).json())}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]);
+ return <main className="q-shell"><header><div><span>FCC ERP / CONTROL PLANE</span><h1>Operational Queue</h1><p>Najpierw wyjątki. Potem automatyzacja.</p></div><button onClick={load}><RefreshCw size={14} className={loading?"spin":""}/>SYNC</button></header>
+ <section className="q-stats"><div><AlertTriangle/><b>{d?.queue?.filter(x=>x.queue_type==="INVOICE_ANOMALY").length||0}</b><span>ANOMALIES</span></div><div><UserRoundCheck/><b>{d?.queue?.filter(x=>x.queue_type==="APPROVAL").length||0}</b><span>APPROVALS</span></div><div><Clock3/><b>{d?.queue?.filter(x=>x.queue_type==="BOK_CASE").length||0}</b><span>BOK OPEN</span></div><div><CircleDollarSign/><b>{d?.billing?.length||0}</b><span>BILLING ITEMS</span></div></section>
+ <section><div className="sec"><span>01 / HUMAN EXCEPTIONS</span><h2>Action queue</h2></div><div className="queue">{(d?.queue||[]).map(x=><article key={x.entity_id}><div className="qicon">{x.queue_type==="INVOICE_ANOMALY"?<ShieldAlert/>:<UserRoundCheck/>}</div><div className="qmain"><b>{x.title}</b><span>{x.module} · {x.status} · priority {x.priority}</span></div><ArrowRight/><small>{x.due_at?new Date(x.due_at).toLocaleDateString("pl-PL"):"NOW"}</small></article>)}{!loading&&!d?.queue?.length&&<div className="empty">Brak aktywnych wyjątków. System nie ma jeszcze danych operacyjnych FCC.</div>}</div></section>
+ <section><div className="sec"><span>02 / BILLING STATE MACHINE</span><h2>Invoice control</h2></div><div className="table"><div className="thead"><span>INVOICE</span><span>AMOUNT</span><span>STATE</span><span>CHECKS</span><span>KSeF</span></div>{(d?.billing||[]).map(x=><div className="tr" key={x.invoice_id}><b>{x.invoice_number||x.invoice_id.slice(0,8)}</b><span>{new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN"}).format(x.gross_amount||0)}</span><strong className={x.control_state==="ANOMALY_HOLD"?"bad":x.control_state==="APPROVAL_REQUIRED"?"warn":"ok"}>{x.control_state}</strong><span>{x.failed_checks+x.open_anomalies+x.pending_approvals}</span><span>{x.ksef_status||"PENDING"}</span></div>)}{!loading&&!d?.billing?.length&&<div className="empty">Brak faktur w kolejce billingowej.</div>}</div></section>
+ <footer><FileCheck2/> Deterministic billing core · AI observes, flags and recommends · human approves exceptions · source: {d?.source||"control"}</footer>
+ </main>}
