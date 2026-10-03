@@ -12,6 +12,7 @@ import {
 import { runExecutionLifecycle, type ExecutionLifecycleResult } from "@/lib/skills/execution-lifecycle";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
 import type { SkillDefinition, SkillExecutionContext } from "@/lib/skills/types";
+import type { MissionState } from "@/lib/engine";
 
 export type SkillMissionExecutionInput = {
   action: CapabilityAction & { packId?: string };
@@ -73,7 +74,7 @@ export async function executeSkillMissionCapability(
 ): Promise<SkillMissionExecutionResult> {
   const snapshot = await getPersistedMissionSnapshot(input.missionId);
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
-  assertGovernedMissionPhase(snapshot.mission.state, "EXECUTION");
+  assertGovernedMissionPhase(snapshot.mission.state as MissionState, "EXECUTION");
 
   const executionGate = await claimAndStartPersistedMission(
     input.missionId,
@@ -196,7 +197,7 @@ export async function completeSkillMissionMeasurement(
 ): Promise<SkillMissionMeasurementResult> {
   const snapshot = await getPersistedMissionSnapshot(input.missionId);
   if (!snapshot.mission) throw new Error("MISSION_NOT_FOUND");
-  assertGovernedMissionPhase(snapshot.mission.state, "MEASUREMENT");
+  assertGovernedMissionPhase(snapshot.mission.state as MissionState, "MEASUREMENT");
 
   if (!Number.isFinite(input.predicted) || !Number.isFinite(input.actual)) {
     throw new Error("MEASUREMENT_VALUES_REQUIRED");
