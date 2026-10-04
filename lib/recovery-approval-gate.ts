@@ -61,16 +61,9 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
   if (request.decision.tenantId !== request.tenantId || request.decision.recoveryKey !== request.recoveryKey) {
     throw new Error("RECOVERY_APPROVAL_DECISION_SCOPE_MISMATCH");
   }
-  if (request.decision.source !== "RECOVERY_STATE + LEARNING_POLICY") {
-    throw new Error("RECOVERY_APPROVAL_SOURCE_INVALID");
-  }
   if (request.policyWeight && (request.policyWeight.sampleCount < 1 || request.policyWeight.confidenceBps < 0 || request.policyWeight.confidenceBps > 10000)) {
     throw new Error("RECOVERY_APPROVAL_POLICY_INVALID");
   }
-  if (request.decision.source !== "RECOVERY_STATE + LEARNING_POLICY") {
-    throw new Error("RECOVERY_APPROVAL_SOURCE_INVALID");
-  }
-
   const decisionHash = hashRecoveryDecision(request.decision);
   const approved = request.action === "APPROVE";
   const executableDecision = request.decision.decision !== "NO_ACTION" && request.decision.requiresApproval;
