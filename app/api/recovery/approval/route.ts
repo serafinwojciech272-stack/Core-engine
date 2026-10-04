@@ -7,6 +7,8 @@ import { createPolicyAwareRecoveryDecisionEngine } from "@/lib/m24-28-policy-awa
 import { createSupabaseRecoveryApprovalGate } from "@/lib/recovery-approval-supabase";
 import { createSupabaseRecoveryEscalationEvidencePersistence } from "@/lib/m24-32-escalation-evidence-persistence";
 import { hashRecoveryDecision, verifyPolicyEscalation } from "@/lib/recovery-approval-gate";
+import { verifyPersistedEscalationEvidence } from "@/lib/m24-33-escalation-evidence-integrity";
+import { reconcileEscalationControl } from "@/lib/m24-34-escalation-reconciliation";
 import type { ApprovalAction } from "@/lib/recovery-approval-gate";
 
 function isBody(value: unknown): value is { recoveryKey: string; action: ApprovalAction; idempotencyKey: string; reason?: string | null } {
@@ -50,13 +52,24 @@ export async function POST(request: Request) {
     } : null;
 
     const verification = verifyPolicyEscalation(policyWeight, decision);
+    const decisionHash = hashRecoveryDecision(decision);
     const persistedEvidence = await createSupabaseRecoveryEscalationEvidencePersistence().commit({
       tenantId,
       recoveryKey: body.recoveryKey,
       idempotencyKey: body.idempotencyKey,
-      decisionHash: hashRecoveryDecision(decision),
+      decisionHash,
       verification,
     });
+
+    const integrity = verifyPersistedEscalationEvidence(persistedEvidence, decisionHash);
+    if (!integrity.valid) {
+      return NextResponse.json({
+        ok: false,
+        error: "RECOVERY_ESCALATION_EVIDENCE_INTEGRITY_FAILED",
+        decision, verification, persistedEvidence, integrity,
+        executionPermission: "DENIED",
+      }, { status: 409 });
+    }
 
     const approval = await createSupabaseRecoveryApprovalGate().approve({
       tenantId, recoveryKey: body.recoveryKey, decision, action: body.action,
@@ -64,12 +77,24 @@ export async function POST(request: Request) {
       reason: body.reason ?? null, policyWeight,
     });
 
-    const executionPermission = approval.executionPermission === "GRANTED" && verification.approvalAllowed ? "GRANTED" : "DENIED";
+    const executionPermission = approval.executionPermission === "GRANTED" && integrity.approvalAllowed ? "GRANTED" : "DENIED";
+    const reconciliation = body.action === "APPROVE"
+      ? reconcileEscalationControl(persistedEvidence, integrity, executionPermission)
+      : { reconciled: true, executionPermission: "DENIED" as const, status: "BLOCKED" as const, failures: ["APPROVAL_REJECTED"] };
+
+    if (body.action === "APPROVE" && !reconciliation.reconciled) {
+      return NextResponse.json({
+        ok: false,
+        error: "RECOVERY_ESCALATION_RECONCILIATION_FAILED",
+        decision, verification, persistedEvidence, integrity, approval, reconciliation,
+        executionPermission: "DENIED",
+      }, { status: 409 });
+    }
 
     return NextResponse.json({
       ok: true,
-      flow: "POLICY ESCALATION → VERIFICATION → EVIDENCE → APPROVAL GATE → EXECUTION PERMISSION",
-      decision, verification, persistedEvidence, approval, executionPermission,
+      flow: "POLICY ESCALATION → VERIFICATION → EVIDENCE → INTEGRITY → APPROVAL GATE → RECONCILIATION → EXECUTION PERMISSION",
+      decision, verification, persistedEvidence, integrity, approval, reconciliation, executionPermission,
     }, { status: approval.status === "IDEMPOTENT" ? 200 : 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "RECOVERY_APPROVAL_FAILED";
