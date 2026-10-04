@@ -1,5 +1,6 @@
 name: core-engine-ci
 # production-quality gate
+# CI hardening checkpoint
 on:
   push:
     branches: [main]
