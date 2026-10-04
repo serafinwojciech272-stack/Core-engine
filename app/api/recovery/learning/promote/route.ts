@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
         return response.json();
       },
-    ).read(tenant.tenantId, body.recoveryKey);
+    ).read(tenant.tenantId, body.recoveryKey) as Awaited<ReturnType<SupabaseRecoveryVerificationPersistence["read"]>> & { executionId?: string; tenantId?: string; recoveryKey?: string; action?: string; outcome?: string; learningSignal?: string; };
 
     if (!verification || verification.executionId !== body.executionId) {
       return NextResponse.json({ error: "RECOVERY_VERIFICATION_NOT_FOUND" }, { status: 404 });
