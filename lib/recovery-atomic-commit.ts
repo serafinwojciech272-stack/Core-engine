@@ -83,9 +83,11 @@ export class InMemoryAtomicRecoveryCommit implements AtomicCommitPort {
 }
 
 export class SupabaseAtomicRecoveryCommit implements AtomicCommitPort {
-  constructor(
-    private readonly rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>,
-  ) {}
+  private readonly rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>;
+
+  constructor(rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>) {
+    this.rpc = rpc;
+  }
 
   async commit(input: AtomicRecoveryCommitInput): Promise<AtomicRecoveryCommitResult> {
     const hash = payloadHash(input);
