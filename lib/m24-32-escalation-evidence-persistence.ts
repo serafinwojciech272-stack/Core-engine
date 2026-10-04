@@ -1,0 +1,68 @@
+import type { PolicyEscalationEvidence, PolicyEscalationVerificationResult, PolicyConfidenceEscalation } from "@/lib/recovery-approval-gate";
+
+export type PersistedEscalationEvidence = {
+  evidenceId: string;
+  tenantId: string;
+  recoveryKey: string;
+  idempotencyKey: string;
+  decisionHash: string;
+  level: PolicyConfidenceEscalation;
+  verified: boolean;
+  approvalAllowed: boolean;
+  evidence: PolicyEscalationEvidence;
+  createdAt: string;
+};
+
+type Rpc = (name: string, body: Record<string, unknown>) => Promise<unknown>;
+
+export class SupabaseRecoveryEscalationEvidencePersistence {
+  constructor(private readonly rpc: Rpc) {}
+
+  async commit(input: {
+    tenantId: string;
+    recoveryKey: string;
+    idempotencyKey: string;
+    decisionHash: string;
+    verification: PolicyEscalationVerificationResult;
+  }): Promise<PersistedEscalationEvidence> {
+    return await this.rpc("ce_recovery_escalation_evidence_commit", {
+      p_tenant_id: input.tenantId,
+      p_recovery_key: input.recoveryKey,
+      p_idempotency_key: input.idempotencyKey,
+      p_decision_hash: input.decisionHash,
+      p_level: input.verification.level,
+      p_verified: input.verification.verified,
+      p_approval_allowed: input.verification.approvalAllowed,
+      p_evidence_hash: input.verification.evidence.evidenceHash,
+      p_verified_at: input.verification.evidence.verifiedAt,
+      p_checks: input.verification.evidence.checks,
+      p_failures: input.verification.evidence.failures,
+    }) as PersistedEscalationEvidence;
+  }
+
+  async read(tenantId: string, recoveryKey: string) {
+    return await this.rpc("ce_recovery_escalation_evidence_read", {
+      p_tenant_id: tenantId,
+      p_recovery_key: recoveryKey,
+    }) as PersistedEscalationEvidence[];
+  }
+}
+
+export function createSupabaseRecoveryEscalationEvidencePersistence() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+
+  const rpc: Rpc = async (name, body) => {
+    const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
+    return response.json();
+  };
+
+  return new SupabaseRecoveryEscalationEvidencePersistence(rpc);
+}
