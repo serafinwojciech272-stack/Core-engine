@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { verifyPersistedEscalationEvidence } from "@/lib/m24-33-escalation-evidence-integrity";
 import { reconcileEscalationControl } from "@/lib/m24-34-escalation-reconciliation";
 import { evaluateRecoveryClosure } from "@/lib/m24-35-recovery-closure";
+import { finalizeRecoveryTerminalControl } from "@/lib/m24-36-terminal-control-plane";
 
 const evidence = {
   evidenceId:"e1", tenantId:"t1", recoveryKey:"r1", idempotencyKey:"i1", decisionHash:"d1",
@@ -56,4 +57,27 @@ test("M24.36 terminal control-plane contract blocks any unsafe transition",()=>{
  });
  assert.equal(reconciliation.reconciled,true);
  assert.equal(closure.closable,true);
+ const terminal=finalizeRecoveryTerminalControl({evidenceVerified:true,reconciliationPassed:true,closure,requestedTransition:"CLOSE"});
+ assert.equal(terminal.transitionAllowed,true);
+ assert.equal(terminal.terminal,true);
+ assert.equal(terminal.state,"CLOSED");
+ assert.deepEqual(terminal.failures,[]);
+});
+
+
+test("M24.36 blocks terminal close when evidence is not verified",()=>{
+ const closure=evaluateRecoveryClosure({approvalPermission:"GRANTED",executionPermission:"GRANTED",verificationPassed:true,learningPromoted:true});
+ const result=finalizeRecoveryTerminalControl({evidenceVerified:false,reconciliationPassed:true,closure,requestedTransition:"CLOSE"});
+ assert.equal(result.transitionAllowed,false);
+ assert.equal(result.terminal,false);
+ assert.equal(result.state,"BLOCKED");
+ assert.deepEqual(result.failures,["EVIDENCE_NOT_VERIFIED"]);
+});
+
+test("M24.36 blocks terminal close when reconciliation fails",()=>{
+ const closure=evaluateRecoveryClosure({approvalPermission:"GRANTED",executionPermission:"GRANTED",verificationPassed:true,learningPromoted:true});
+ const result=finalizeRecoveryTerminalControl({evidenceVerified:true,reconciliationPassed:false,closure,requestedTransition:"CLOSE"});
+ assert.equal(result.transitionAllowed,false);
+ assert.equal(result.state,"BLOCKED");
+ assert.deepEqual(result.failures,["RECONCILIATION_FAILED"]);
 });
