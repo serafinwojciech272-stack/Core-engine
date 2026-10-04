@@ -7,7 +7,8 @@ export class SupabaseRecoveryExecutor implements RecoveryExecutorPort {
  constructor(private readonly rpc:Rpc){}
  async execute(input:RecoveryExecutorInput):Promise<RecoveryExecutionEvent>{
   const p=input.permission;
-  if(p.tenantId!==input.tenantId||p.recoveryKey!==input.recoveryKey||p.executionPermission!=="GRANTED"||p.action!=="APPROVE"||![ "RESUME","REPLAY","RECONCILE" ].includes(p.decision)) throw new ExecutionPermissionDeniedError();
+  const executableDecision = p.decision === "RESUME" || p.decision === "REPLAY" || p.decision === "RECONCILE";
+  if(p.tenantId!==input.tenantId||p.recoveryKey!==input.recoveryKey||p.executionPermission!=="GRANTED"||p.action!=="APPROVE"||!executableDecision) throw new ExecutionPermissionDeniedError();
   const executionHash=await this.hash(input); const executionId=crypto.randomUUID(); const executedAt=new Date().toISOString();
   const result=await this.rpc("ce_recovery_execution_commit",{p_execution_id:executionId,p_tenant_id:input.tenantId,p_recovery_key:input.recoveryKey,p_idempotency_key:input.idempotencyKey,p_approval_id:p.approvalId,p_decision_hash:p.decisionHash,p_execution_hash:executionHash,p_action:p.decision,p_status:"EXECUTED",p_executed_by:p.approvedBy,p_executed_at:executedAt,p_state:input.checkpoint});
   return {executionId:result.executionId,tenantId:input.tenantId,recoveryKey:input.recoveryKey,action:p.decision,status:"EXECUTED",approvalId:p.approvalId,decisionHash:p.decisionHash,executionHash:result.executionHash??executionHash,executedBy:p.approvedBy,executedAt};
