@@ -1,1 +1,1 @@
-{"framework":"nextjs","buildCommand":"npm run build","installCommand":"npm install","regions":["fra1"]}
+{"framework":"nextjs","buildCommand":"npm run build","installCommand":"npm ci --ignore-scripts --no-audit --no-fund --progress=false --legacy-peer-deps","regions":["fra1"]}
