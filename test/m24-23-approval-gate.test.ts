@@ -69,3 +69,9 @@ test("M24.23 scope mismatch is rejected", () => {
     recoveryKey: "other",
   }), /RECOVERY_APPROVAL_DECISION_SCOPE_MISMATCH/);
 });
+
+test("M24.23 baseline recovery decisions remain executable only after approval",()=>{
+ const result=evaluateApprovalRequest(request("APPROVE"));
+ assert.equal(result.executionPermission,"GRANTED");
+ assert.equal(result.escalationVerification.approvalAllowed,true);
+});
