@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
-import { resolveSaaSTenant } from "@/lib/saas-tenant";
+import { resolveTenant } from "@/lib/commercial-runtime";
 import { promoteAndPersistRecoveryLearning } from "@/lib/m24-26-learning-promotion-engine";
 import { createSupabaseRecoveryLearningPromotionPersistence } from "@/lib/m24-26-learning-promotion-persistence";
 import { SupabaseRecoveryVerificationPersistence } from "@/lib/m24-25-verification-persistence";
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const guard = guardMutation(request, "recovery-learning-promote");
     if (guard) return guard;
-    const tenant = await resolveSaaSTenant(request);
+    const tenant = resolveTenant(request);
     const body = await request.json() as { recoveryKey?: string; executionId?: string };
 
     if (!body.recoveryKey || !body.executionId) {
@@ -30,12 +30,12 @@ export async function POST(request: Request) {
         if (!response.ok) throw new Error(`SUPABASE_RPC_${response.status}`);
         return response.json();
       },
-    ).read(tenant.id, body.recoveryKey);
+    ).read(tenant.tenantId, body.recoveryKey);
 
     if (!verification || verification.executionId !== body.executionId) {
       return NextResponse.json({ error: "RECOVERY_VERIFICATION_NOT_FOUND" }, { status: 404 });
     }
-    if (verification.tenantId !== tenant.id || verification.recoveryKey !== body.recoveryKey) {
+    if (verification.tenantId !== tenant.tenantId || verification.recoveryKey !== body.recoveryKey) {
       return NextResponse.json({ error: "RECOVERY_VERIFICATION_SCOPE_MISMATCH" }, { status: 403 });
     }
 
