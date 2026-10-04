@@ -57,3 +57,8 @@ test("M24.36 terminal control-plane contract blocks any unsafe transition",()=>{
  assert.equal(reconciliation.reconciled,true);
  assert.equal(closure.closable,true);
 });
+
+test("M24.36 fails closed when any terminal control condition is missing",()=>{
+ const result=evaluateRecoveryClosure({approvalPermission:"GRANTED",executionPermission:"GRANTED",verificationPassed:false,learningPromoted:true});
+ assert.equal(result.closable,false); assert.equal(result.state,"CLOSE_BLOCKED"); assert.deepEqual(result.failures,["POST_EXECUTION_VERIFICATION_FAILED"]);
+});
