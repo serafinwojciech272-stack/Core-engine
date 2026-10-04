@@ -24,7 +24,11 @@ export type RecoveryStateReconstructionPort = {
 };
 
 export class RecoveryStateReconstructor implements RecoveryStateReconstructionPort {
-  constructor(private readonly readPort: RecoveryReadPort) {}
+  private readonly readPort: RecoveryReadPort;
+
+  constructor(readPort: RecoveryReadPort) {
+    this.readPort = readPort;
+  }
 
   async reconstruct(
     tenantId: string,
