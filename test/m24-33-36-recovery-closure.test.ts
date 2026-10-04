@@ -4,6 +4,7 @@ import { verifyPersistedEscalationEvidence } from "@/lib/m24-33-escalation-evide
 import { reconcileEscalationControl } from "@/lib/m24-34-escalation-reconciliation";
 import { evaluateRecoveryClosure } from "@/lib/m24-35-recovery-closure";
 import { finalizeRecoveryTerminalControl } from "@/lib/m24-36-terminal-control-plane";
+import { certifyRecoveryClosure } from "@/lib/m24-37-recovery-certification";
 
 const evidence = {
   evidenceId:"e1", tenantId:"t1", recoveryKey:"r1", idempotencyKey:"i1", decisionHash:"d1",
@@ -80,4 +81,25 @@ test("M24.36 blocks terminal close when reconciliation fails",()=>{
  assert.equal(result.transitionAllowed,false);
  assert.equal(result.state,"BLOCKED");
  assert.deepEqual(result.failures,["RECONCILIATION_FAILED"]);
+});
+
+
+test("M24.37 certifies only a confirmed terminal close",()=>{
+ const integrity=verifyPersistedEscalationEvidence(evidence,"d1");
+ const reconciliation=reconcileEscalationControl(evidence,integrity,"GRANTED");
+ const closure=evaluateRecoveryClosure({approvalPermission:"GRANTED",executionPermission:"GRANTED",verificationPassed:true,learningPromoted:true});
+ const terminal=finalizeRecoveryTerminalControl({evidenceVerified:true,reconciliationPassed:true,closure,requestedTransition:"CLOSE"});
+ const result=certifyRecoveryClosure({tenantId:"t1",recoveryKey:"r1",idempotencyKey:"i1",terminal,verifiedAt:"2026-10-04T00:00:00.000Z"});
+ assert.equal(result.certified,true);
+ assert.equal(result.state,"CERTIFIED");
+ assert.equal(result.failures.length,0);
+ assert.equal(result.certificationHash?.length,64);
+});
+
+test("M24.37 blocks certification without terminal close confirmation",()=>{
+ const result=certifyRecoveryClosure({tenantId:"t1",recoveryKey:"r1",idempotencyKey:"i1",terminal:{transitionAllowed:false,terminal:false,state:"BLOCKED",failures:[]},verifiedAt:"2026-10-04T00:00:00.000Z"});
+ assert.equal(result.certified,false);
+ assert.equal(result.state,"BLOCKED");
+ assert.equal(result.certificationHash,null);
+ assert.deepEqual(result.failures,["TERMINAL_CLOSE_NOT_CONFIRMED"]);
 });
