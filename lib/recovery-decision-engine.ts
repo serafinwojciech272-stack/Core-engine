@@ -161,7 +161,11 @@ export type RecoveryDecisionEnginePort = {
 };
 
 export class RecoveryDecisionEngine implements RecoveryDecisionEnginePort {
-  constructor(private readonly reconstruction: RecoveryStateReconstructionPort) {}
+  private readonly reconstruction: RecoveryStateReconstructionPort;
+
+  constructor(reconstruction: RecoveryStateReconstructionPort) {
+    this.reconstruction = reconstruction;
+  }
 
   async decide(
     tenantId: string,
