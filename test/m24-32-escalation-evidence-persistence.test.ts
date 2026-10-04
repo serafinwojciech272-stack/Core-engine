@@ -26,5 +26,5 @@ test("M24.32 preserves a failed/manual escalation as durable evidence", async ()
   const decision = {tenantId:"tenant-1",recoveryKey:"recovery-1",decision:"RESUME",requiresApproval:true,source:"RECOVERY_STATE + LEARNING_POLICY" as const} as any;
   const verification = verifyPolicyEscalation(null,decision);
   await persistence.commit({tenantId:"tenant-1",recoveryKey:"recovery-1",idempotencyKey:"idem-2",decisionHash:"hash",policyWeight:null,verification});
-  assert.equal(calls[0].body.p_verified,true); assert.equal(calls[0].body.p_approval_allowed,false); assert.deepEqual(calls[0].body.p_failures,["POLICY_MISSING"]);
+  assert.equal(calls[0].body.p_verified,false); assert.equal(calls[0].body.p_approval_allowed,false); assert.deepEqual(calls[0].body.p_failures,["POLICY_MISSING"]);
 });
