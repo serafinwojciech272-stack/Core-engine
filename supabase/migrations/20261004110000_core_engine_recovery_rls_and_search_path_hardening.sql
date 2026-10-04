@@ -16,3 +16,5 @@ create policy "deny_all_authenticated" on public.ce_recovery_verifications for a
 create policy "deny_all_anon" on public.ce_recovery_verifications for all to anon using (false) with check (false);
 alter function public.ce_recovery_escalation_evidence_commit(uuid,text,text,text,text,boolean,boolean,text,timestamptz,jsonb,jsonb) set search_path = pg_catalog, public;
 alter function public.ce_recovery_escalation_evidence_read(uuid,text) set search_path = pg_catalog, public;
+alter function public.ce_recovery_escalation_evidence_commit(uuid,text,text,text,jsonb,text,boolean,boolean,text,timestamptz,jsonb,jsonb) set search_path = pg_catalog, public;
+alter function public.ce_recovery_escalation_evidence_replay_verify(uuid,text,uuid,text) set search_path = pg_catalog, public;
