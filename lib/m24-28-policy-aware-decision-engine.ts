@@ -104,10 +104,16 @@ export function evaluatePolicyAwareRecoveryDecision(
 }
 
 export class PolicyAwareRecoveryDecisionEngine {
+  private readonly policyReader: RecoveryLearningPolicyReader;
+  private readonly baseEngine: RecoveryDecisionEnginePort;
+
   constructor(
-    private readonly policyReader: RecoveryLearningPolicyReader,
-    private readonly baseEngine: RecoveryDecisionEnginePort,
-  ) {}
+    policyReader: RecoveryLearningPolicyReader,
+    baseEngine: RecoveryDecisionEnginePort,
+  ) {
+    this.policyReader = policyReader;
+    this.baseEngine = baseEngine;
+  }
 
   async decide(
     tenantId: string,
