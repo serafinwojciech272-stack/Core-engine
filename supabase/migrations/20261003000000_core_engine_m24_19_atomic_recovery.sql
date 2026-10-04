@@ -1,6 +1,6 @@
 create table if not exists public.ce_recovery_commits (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+  tenant_id uuid not null,
   idempotency_key text not null,
   recovery_key text not null,
   payload_hash text not null,
@@ -11,7 +11,7 @@ create table if not exists public.ce_recovery_commits (
 create table if not exists public.ce_recovery_checkpoints (
   id uuid primary key default gen_random_uuid(),
   commit_id uuid not null references public.ce_recovery_commits(id) on delete cascade,
-  tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+  tenant_id uuid not null,
   stream_key text not null,
   cursor text not null,
   state jsonb not null default '{}'::jsonb,
@@ -22,7 +22,7 @@ create table if not exists public.ce_recovery_checkpoints (
 create table if not exists public.ce_recovery_learning (
   id uuid primary key default gen_random_uuid(),
   commit_id uuid not null references public.ce_recovery_commits(id) on delete cascade,
-  tenant_id uuid not null references public.ce_tenants(id) on delete cascade,
+  tenant_id uuid not null,
   lesson_type text not null,
   quality text not null,
   delta numeric,
