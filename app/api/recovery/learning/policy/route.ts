@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const tenant = await resolveSaaSTenant(request);
+    const tenant = resolveTenant(request);
     const recoveryKey = new URL(request.url).searchParams.get("recoveryKey");
     if (!recoveryKey) return NextResponse.json({error:"RECOVERY_LEARNING_POLICY_INPUT_INVALID"},{status:400});
     const policies=await createSupabaseRecoveryLearningPolicyPersistence().read(tenant.tenantId,recoveryKey);
