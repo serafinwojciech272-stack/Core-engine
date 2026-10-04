@@ -50,7 +50,7 @@ begin
     from public.ce_agent_execution_authorizations a
     join public.ce_agent_compositions c on c.id=a.composition_id
     join public.ce_missions m on m.id=a.mission_id
-    where a.status='AUTHORIZED'
+    where a.status in ('AUTHORIZED','EXPIRED')
       and a.expires_at <= now()
       and not exists (
         select 1 from public.ce_agent_execution_recoveries r
@@ -74,7 +74,8 @@ begin
             'orphan_detected_at',now(),
             'classification',recovery_class
           )
-      where id=x.id;
+      where id=x.id
+        and status='AUTHORIZED';
 
     insert into public.ce_agent_execution_recoveries(
       authorization_id,composition_id,tenant_id,mission_id,correlation_id,classification,metadata
