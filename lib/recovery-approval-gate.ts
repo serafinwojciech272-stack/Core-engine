@@ -4,6 +4,13 @@ import type { RecoveryDecisionResult } from "@/lib/recovery-decision-engine";
 export type ApprovalAction = "APPROVE" | "REJECT";
 export type ExecutionPermission = "GRANTED" | "DENIED";
 
+export type RecoveryApprovalWeight = {
+  netWeight: number;
+  confidenceBps: number;
+  sampleCount: number;
+  policyVersion: number;
+};
+
 export type RecoveryApprovalRequest = {
   tenantId: string;
   recoveryKey: string;
@@ -13,6 +20,7 @@ export type RecoveryApprovalRequest = {
   actorKind: "human" | "system" | "agent" | "anonymous";
   idempotencyKey: string;
   reason?: string | null;
+  policyWeight?: RecoveryApprovalWeight | null;
 };
 
 export type RecoveryApprovalResult = {
@@ -27,6 +35,8 @@ export type RecoveryApprovalResult = {
   approvedBy: string;
   approvedAt: string;
   reason: string | null;
+  policyWeight: RecoveryApprovalWeight | null;
+  approvalTier: "POLICY_SUPPORTED" | "POLICY_UNSUPPORTED";
 };
 
 export type RecoveryApprovalPort = {
@@ -51,7 +61,13 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
   if (request.decision.tenantId !== request.tenantId || request.decision.recoveryKey !== request.recoveryKey) {
     throw new Error("RECOVERY_APPROVAL_DECISION_SCOPE_MISMATCH");
   }
-  if (request.decision.source !== "RECOVERY_STATE") {
+  if (request.decision.source !== "RECOVERY_STATE + LEARNING_POLICY") {
+    throw new Error("RECOVERY_APPROVAL_SOURCE_INVALID");
+  }
+  if (request.policyWeight && (request.policyWeight.sampleCount < 1 || request.policyWeight.confidenceBps < 0 || request.policyWeight.confidenceBps > 10000)) {
+    throw new Error("RECOVERY_APPROVAL_POLICY_INVALID");
+  }
+  if (request.decision.source !== "RECOVERY_STATE + LEARNING_POLICY") {
     throw new Error("RECOVERY_APPROVAL_SOURCE_INVALID");
   }
 
@@ -71,6 +87,8 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
     approvedBy: request.actorId,
     approvedAt: new Date().toISOString(),
     reason: request.reason ?? null,
+    policyWeight: request.policyWeight ?? null,
+    approvalTier: request.policyWeight && request.policyWeight.netWeight >= 0 && request.policyWeight.confidenceBps >= 5000 ? "POLICY_SUPPORTED" : "POLICY_UNSUPPORTED",
   };
 }
 
