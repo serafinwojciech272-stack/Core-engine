@@ -16,7 +16,7 @@ export type RecoveryCertificationResult = {
   failures: string[];
 };
 
-function hashCertification(input: RecoveryCertificationInput): string {
+export function hashRecoveryCertification(input: RecoveryCertificationInput): string {
   return createHash("sha256")
     .update(JSON.stringify({
       tenantId: input.tenantId,
@@ -44,7 +44,7 @@ export function certifyRecoveryClosure(input: RecoveryCertificationInput): Recov
 
   return {
     certified,
-    certificationHash: certified ? hashCertification(input) : null,
+    certificationHash: certified ? hashRecoveryCertification(input) : null,
     state: certified ? "CERTIFIED" : "BLOCKED",
     failures: uniqueFailures,
   };
