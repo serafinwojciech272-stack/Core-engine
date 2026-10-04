@@ -7,7 +7,7 @@ import {
   recordExecutionAndEnterMeasurement,
   recordMeasurementAndCompletePersistedMission
 } from "@/lib/storage";
-import { enforcePersistentAgentExecution, closePersistentAgentExecution } from "@/lib/skills/agent-execution-enforcement";
+import { enforcePersistentAgentExecution, closePersistentAgentExecution, verifyPersistentAgentExecutionConsumption } from "@/lib/skills/agent-execution-enforcement";
 import { runExecutionLifecycle, type ExecutionLifecycleResult } from "@/lib/skills/execution-lifecycle";
 import { assertGovernedMissionPhase } from "@/lib/skills/mission-state-gate";
 import type { SkillDefinition, SkillExecutionContext } from "@/lib/skills/types";
@@ -200,6 +200,21 @@ export async function executeSkillMissionCapability(
         evidenceIds
       }
     );
+
+    const consumption = await verifyPersistentAgentExecutionConsumption({
+      compositionId: input.compositionId,
+      authorizationId: authorization.authorizationId,
+      tenantId: input.tenantId,
+      missionId: input.missionId,
+      capabilityId: input.action.id,
+      correlationId,
+      skillId: skill.id,
+      skillVersion: skill.version,
+      mode: "LIVE",
+      expectedResult: "FAILURE"
+    });
+    if (!consumption.verified) throw new Error("EXECUTOR_CONSUMPTION_VERIFICATION_FAILED:" + consumption.reason);
+
     return { lifecycle, receipt, missionState: "FAILED", persistedEventIds: failure.event_id ? [failure.event_id] : [] };
   }
 
@@ -209,6 +224,20 @@ export async function executeSkillMissionCapability(
     success: true,
     reason: "VERIFIED_EXECUTION"
   });
+
+  const consumption = await verifyPersistentAgentExecutionConsumption({
+    compositionId: input.compositionId,
+    authorizationId: authorization.authorizationId,
+    tenantId: input.tenantId,
+    missionId: input.missionId,
+    capabilityId: input.action.id,
+    correlationId,
+    skillId: skill.id,
+    skillVersion: skill.version,
+    mode: "LIVE",
+    expectedResult: "SUCCESS"
+  });
+  if (!consumption.verified) throw new Error("EXECUTOR_CONSUMPTION_VERIFICATION_FAILED:" + consumption.reason);
 
   const measurementGate = await recordExecutionAndEnterMeasurement(
     input.missionId,
