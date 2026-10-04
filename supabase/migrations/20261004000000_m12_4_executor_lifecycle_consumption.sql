@@ -78,12 +78,12 @@ begin
     return;
   end if;
 
-  if a.skill_id <> p_skill_id
-     or a.skill_version <> p_skill_version
-     or a.mode <> p_mode
-     or c.skill_id <> p_skill_id
-     or c.skill_version <> p_skill_version
-     or c.mode <> p_mode then
+  if a.skill_id is distinct from p_skill_id
+     or a.skill_version is distinct from p_skill_version
+     or a.mode is distinct from p_mode
+     or c.skill_id is distinct from p_skill_id
+     or c.skill_version is distinct from p_skill_version
+     or c.mode is distinct from p_mode then
     return query select false,'SKILL_SCOPE_MISMATCH',a.status,c.status,m.state;
     return;
   end if;
