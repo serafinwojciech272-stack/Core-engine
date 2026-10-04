@@ -15,6 +15,12 @@ export async function closePersistentAgentExecution(input:{compositionId:string;
 
 export type PersistentExecutorScope={compositionId:string;authorizationId:string;tenantId:string;missionId:string;capabilityId:string;correlationId:string;skillId:string;skillVersion:string;mode:string};
 
+export async function revokePersistentAgentExecution(input:{compositionId:string;authorizationId:string;reason:string}):Promise<{revoked:boolean;reason:string;status:string|null}>{
+ if(!input.compositionId||!input.authorizationId||!input.reason.trim())return{revoked:false,reason:"EXECUTOR_REVOCATION_SCOPE_REQUIRED",status:null};
+ if(!cfg())return{revoked:false,reason:"PERSISTENT_STATE_REQUIRED",status:null};
+ return rpc("ce_revoke_agent_execution",{p_composition_id:input.compositionId,p_authorization_id:input.authorizationId,p_reason:input.reason.trim()});
+}
+
 export async function verifyPersistentAgentExecutionConsumption(input:PersistentExecutorScope&{expectedResult:"SUCCESS"|"FAILURE"}):Promise<ConsumptionVerificationResult>{
  const required=[input.compositionId,input.authorizationId,input.tenantId,input.missionId,input.capabilityId,input.correlationId,input.skillId,input.skillVersion,input.mode];
  if(required.some((value)=>!value))return{verified:false,reason:"EXECUTOR_CONSUMPTION_SCOPE_REQUIRED",authorizationStatus:null,compositionStatus:null,missionState:null};
