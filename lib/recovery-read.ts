@@ -22,7 +22,11 @@ export type RecoveryReadPort = {
 };
 
 export class InMemoryRecoveryRead implements RecoveryReadPort {
-  constructor(private readonly records: RecoveryReadResult[] = []) {}
+  private readonly records: RecoveryReadResult[];
+
+  constructor(records: RecoveryReadResult[] = []) {
+    this.records = records;
+  }
 
   async read(query: RecoveryReadQuery): Promise<RecoveryReadResult | null> {
     return this.records
@@ -36,9 +40,11 @@ export class InMemoryRecoveryRead implements RecoveryReadPort {
 }
 
 export class SupabaseRecoveryRead implements RecoveryReadPort {
-  constructor(
-    private readonly rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>,
-  ) {}
+  private readonly rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>;
+
+  constructor(rpc: (name: string, body: Record<string, unknown>) => Promise<unknown>) {
+    this.rpc = rpc;
+  }
 
   async read(query: RecoveryReadQuery): Promise<RecoveryReadResult | null> {
     const result = await this.rpc("ce_recovery_read", {
