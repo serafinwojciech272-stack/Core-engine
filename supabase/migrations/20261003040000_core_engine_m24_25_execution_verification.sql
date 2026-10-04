@@ -92,8 +92,8 @@ begin
   if v.verification_hash<>p_verification_hash then raise exception using errcode='P0001',message='RECOVERY_VERIFICATION_IDEMPOTENCY_CONFLICT'; end if;
   return jsonb_build_object('verificationId',v.id,'outcome',v.outcome,'learningSignal',v.learning_signal,'verificationHash',v.verification_hash);
  end if;
- insert into public.ce_recovery_verifications(tenant_id,recovery_key,execution_id,action,outcome,learning_signal,matched_keys,mismatched_keys,verification_hash,verified_at,reason,observed_state) values(p_tenant_id,p_recovery_key,p_execution_id,p_action,p_outcome,p_learning_signal,coalesce(p_matched_keys,'[]'::jsonb),coalesce(p_mismatched_keys,'[]'::jsonb),p_verification_hash,p_verified_at,p_reason,coalesce(p_observed_state,'{}'::jsonb));
- return jsonb_build_object('verificationId',gen_random_uuid(),'outcome',p_outcome,'learningSignal',p_learning_signal,'verificationHash',p_verification_hash);
+ insert into public.ce_recovery_verifications(tenant_id,recovery_key,execution_id,action,outcome,learning_signal,matched_keys,mismatched_keys,verification_hash,verified_at,reason,observed_state) values(p_tenant_id,p_recovery_key,p_execution_id,p_action,p_outcome,p_learning_signal,coalesce(p_matched_keys,'[]'::jsonb),coalesce(p_mismatched_keys,'[]'::jsonb),p_verification_hash,p_verified_at,p_reason,coalesce(p_observed_state,'{}'::jsonb)) returning * into v;
+ return jsonb_build_object('verificationId',v.id,'outcome',v.outcome,'learningSignal',v.learning_signal,'verificationHash',v.verification_hash);
 end; $$;
 revoke all on function public.ce_recovery_verification_commit(uuid,text,uuid,text,text,text,jsonb,jsonb,text,timestamptz,text,jsonb) from public,anon,authenticated;
 grant execute on function public.ce_recovery_verification_commit(uuid,text,uuid,text,text,text,jsonb,jsonb,text,timestamptz,text,jsonb) to service_role;
