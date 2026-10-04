@@ -1,28 +1,6 @@
+import { createHash } from "node:crypto";
 import type { PersistedEscalationEvidence } from "@/lib/m24-32-escalation-evidence-persistence";
-
-export type EscalationEvidenceIntegrityResult = {
-  valid: boolean;
-  approvalAllowed: boolean;
-  checks: string[];
-  failures: string[];
-};
-
-export function verifyPersistedEscalationEvidence(
-  evidence: PersistedEscalationEvidence | null | undefined,
-  expectedDecisionHash: string,
-): EscalationEvidenceIntegrityResult {
-  const checks: string[] = [];
-  const failures: string[] = [];
-  if (!evidence) failures.push("EVIDENCE_MISSING");
-  else {
-    if (evidence.decisionHash === expectedDecisionHash) checks.push("DECISION_HASH_MATCH");
-    else failures.push("DECISION_HASH_MISMATCH");
-    if (evidence.verified) checks.push("EVIDENCE_VERIFIED");
-    else failures.push("EVIDENCE_NOT_VERIFIED");
-    if (evidence.evidence?.evidenceHash) checks.push("EVIDENCE_HASH_PRESENT");
-    else failures.push("EVIDENCE_HASH_MISSING");
-    if (evidence.approvalAllowed && evidence.verified && failures.length === 0) checks.push("APPROVAL_SAFE");
-    else if (evidence.approvalAllowed) failures.push("APPROVAL_FLAG_INCONSISTENT");
-  }
-  return { valid: failures.length === 0, approvalAllowed: failures.length === 0 && Boolean(evidence?.approvalAllowed), checks, failures };
-}
+import type { RecoveryApprovalWeight } from "@/lib/recovery-approval-gate";
+export type EscalationEvidenceIntegrityResult={evidenceId:string;tenantId:string;recoveryKey:string;replayable:boolean;valid:boolean;approvalAllowed:boolean;integrity:"VALID"|"TAMPERED"|"INVALID";storedEvidenceHash:string;replayedEvidenceHash:string;decisionHash:string;checks:string[];failures:string[];reason:string};
+export function escalationEvidenceHash(input:{level:PersistedEscalationEvidence["level"];policy:RecoveryApprovalWeight|null;decisionHash:string;checks:string[];failures:string[]}):string{const canonical=[input.level,input.policy?String(input.policy.netWeight):"null",input.policy?String(input.policy.confidenceBps):"null",input.policy?String(input.policy.sampleCount):"null",input.policy?String(input.policy.policyVersion):"null",input.decisionHash,JSON.stringify(input.checks),JSON.stringify(input.failures)].join("|");return createHash("sha256").update(canonical).digest("hex")}
+export function verifyPersistedEscalationEvidence(record:(PersistedEscalationEvidence&{policyWeight?:RecoveryApprovalWeight|null})|null|undefined,expectedDecisionHash?:string):EscalationEvidenceIntegrityResult{const checks:string[]=[];const failures:string[]=[];if(!record)return{evidenceId:"",tenantId:"",recoveryKey:"",replayable:false,valid:false,approvalAllowed:false,integrity:"INVALID",storedEvidenceHash:"",replayedEvidenceHash:"",decisionHash:expectedDecisionHash??"",checks,failures:["EVIDENCE_MISSING"],reason:"Persisted escalation evidence is missing."};if(expectedDecisionHash){if(record.decisionHash===expectedDecisionHash)checks.push("DECISION_HASH_MATCH");else failures.push("DECISION_HASH_MISMATCH")}if(record.verified)checks.push("EVIDENCE_VERIFIED");else failures.push("EVIDENCE_NOT_VERIFIED");if(record.evidence?.evidenceHash)checks.push("EVIDENCE_HASH_PRESENT");else failures.push("EVIDENCE_HASH_MISSING");const replayed=record.evidence?.evidenceHash?escalationEvidenceHash({level:record.level,policy:record.policyWeight??null,decisionHash:record.decisionHash,checks:record.evidence.checks,failures:record.evidence.failures}):"";if(replayed&&replayed===record.evidence.evidenceHash)checks.push("EVIDENCE_HASH_REPLAY_MATCH");else if(record.evidence?.evidenceHash)failures.push("EVIDENCE_HASH_REPLAY_MISMATCH");const valid=failures.length===0;const approvalAllowed=valid&&record.approvalAllowed;return{evidenceId:record.evidenceId,tenantId:record.tenantId,recoveryKey:record.recoveryKey,replayable:Boolean(replayed)&&valid,valid,approvalAllowed,integrity:valid?"VALID":replayed?"TAMPERED":"INVALID",storedEvidenceHash:record.evidence?.evidenceHash??"",replayedEvidenceHash:replayed,decisionHash:record.decisionHash,checks,failures,reason:valid?"Persisted escalation evidence passed deterministic replay integrity verification.":"Persisted escalation evidence failed replay integrity verification."}}
