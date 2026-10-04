@@ -13,6 +13,10 @@ export type RecoveryPostExecutionState = {
   updatedAt: string;
 };
 
+export type PersistedRecoveryExecution = RecoveryExecutionEvent & {
+  checkpoint: Record<string, unknown>;
+};
+
 export class SupabaseRecoveryExecutionPersistence {
   constructor(private readonly rpc: Rpc) {}
 
@@ -37,6 +41,14 @@ export class SupabaseRecoveryExecutionPersistence {
       p_tenant_id: tenantId,
       p_recovery_key: recoveryKey,
     }) as RecoveryPostExecutionState | null;
+  }
+
+  async readExecution(tenantId: string, recoveryKey: string, executionId: string): Promise<PersistedRecoveryExecution | null> {
+    return await this.rpc("ce_recovery_execution_read", {
+      p_tenant_id: tenantId,
+      p_recovery_key: recoveryKey,
+      p_execution_id: executionId,
+    }) as PersistedRecoveryExecution | null;
   }
 }
 
