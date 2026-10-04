@@ -11,6 +11,21 @@ export type RecoveryApprovalWeight = {
   policyVersion: number;
 };
 
+export type PolicyConfidenceEscalation =
+  | "STANDARD_APPROVAL"
+  | "ENHANCED_REVIEW"
+  | "MANUAL_ESCALATION";
+
+export type PolicyConfidenceEscalationResult = {
+  level: PolicyConfidenceEscalation;
+  confidenceBps: number;
+  sampleCount: number;
+  netWeight: number;
+  requiresEnhancedReview: boolean;
+  requiresManualEscalation: boolean;
+  reason: string;
+};
+
 export type RecoveryApprovalRequest = {
   tenantId: string;
   recoveryKey: string;
@@ -37,6 +52,7 @@ export type RecoveryApprovalResult = {
   reason: string | null;
   policyWeight: RecoveryApprovalWeight | null;
   approvalTier: "POLICY_SUPPORTED" | "POLICY_UNSUPPORTED";
+  confidenceEscalation: PolicyConfidenceEscalationResult;
 };
 
 export type RecoveryApprovalPort = {
@@ -48,6 +64,70 @@ export class ApprovalConflictError extends Error {
     super("RECOVERY_APPROVAL_IDEMPOTENCY_CONFLICT");
     this.name = "ApprovalConflictError";
   }
+}
+
+export function evaluatePolicyConfidenceEscalation(
+  policy: RecoveryApprovalWeight | null,
+): PolicyConfidenceEscalationResult {
+  if (!policy) {
+    return {
+      level: "MANUAL_ESCALATION",
+      confidenceBps: 0,
+      sampleCount: 0,
+      netWeight: 0,
+      requiresEnhancedReview: true,
+      requiresManualEscalation: true,
+      reason: "No selected learning policy is available; manual escalation is required before execution approval.",
+    };
+  }
+
+  const { confidenceBps, sampleCount, netWeight } = policy;
+
+  if (netWeight < 0) {
+    return {
+      level: "MANUAL_ESCALATION",
+      confidenceBps,
+      sampleCount,
+      netWeight,
+      requiresEnhancedReview: true,
+      requiresManualEscalation: true,
+      reason: "Policy has negative net weight; confidence cannot reduce the need for manual escalation.",
+    };
+  }
+
+  if (confidenceBps >= 8000 && sampleCount >= 5) {
+    return {
+      level: "STANDARD_APPROVAL",
+      confidenceBps,
+      sampleCount,
+      netWeight,
+      requiresEnhancedReview: false,
+      requiresManualEscalation: false,
+      reason: "Policy has high confidence, sufficient sample size, and non-negative weight; standard human approval applies.",
+    };
+  }
+
+  if (confidenceBps >= 5000 && sampleCount >= 2) {
+    return {
+      level: "ENHANCED_REVIEW",
+      confidenceBps,
+      sampleCount,
+      netWeight,
+      requiresEnhancedReview: true,
+      requiresManualEscalation: false,
+      reason: "Policy confidence is usable but below the standard threshold; enhanced human review is required.",
+    };
+  }
+
+  return {
+    level: "MANUAL_ESCALATION",
+    confidenceBps,
+    sampleCount,
+    netWeight,
+    requiresEnhancedReview: true,
+    requiresManualEscalation: true,
+    reason: "Policy confidence or sample size is too low for standard approval; manual escalation is required.",
+  };
 }
 
 export function hashRecoveryDecision(decision: RecoveryApprovalRequest["decision"]): string {
@@ -64,9 +144,11 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
   if (request.policyWeight && (request.policyWeight.sampleCount < 1 || request.policyWeight.confidenceBps < 0 || request.policyWeight.confidenceBps > 10000)) {
     throw new Error("RECOVERY_APPROVAL_POLICY_INVALID");
   }
+
   const decisionHash = hashRecoveryDecision(request.decision);
   const approved = request.action === "APPROVE";
   const executableDecision = request.decision.decision !== "NO_ACTION" && request.decision.requiresApproval;
+  const confidenceEscalation = evaluatePolicyConfidenceEscalation(request.policyWeight);
 
   return {
     status: approved ? "APPROVED" : "REJECTED",
@@ -82,6 +164,7 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
     reason: request.reason ?? null,
     policyWeight: request.policyWeight ?? null,
     approvalTier: request.policyWeight && request.policyWeight.netWeight >= 0 && request.policyWeight.confidenceBps >= 5000 ? "POLICY_SUPPORTED" : "POLICY_UNSUPPORTED",
+    confidenceEscalation,
   };
 }
 
