@@ -4,7 +4,8 @@ create or replace function public.ce_recovery_execution_permission_read(
   p_approval_id uuid default null
 ) returns jsonb
 language plpgsql
-as $$
+set search_path = pg_catalog, public
+as $
 declare
   v_row public.ce_recovery_approvals%rowtype;
 begin
