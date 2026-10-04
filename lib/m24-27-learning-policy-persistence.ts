@@ -4,7 +4,11 @@ import type { RecoveryLearningPolicy } from "@/lib/m24-27-learning-policy-contra
 type Rpc = (name: string, body: Record<string, unknown>) => Promise<unknown>;
 
 export class SupabaseRecoveryLearningPolicyPersistence {
-  constructor(private readonly rpc: Rpc) {}
+  private readonly rpc: Rpc;
+
+  constructor(rpc: Rpc) {
+    this.rpc = rpc;
+  }
   async aggregate(tenantId: string, recoveryKey: string) {
     return await this.rpc("ce_recovery_learning_policy_aggregate", {
       p_tenant_id: tenantId, p_recovery_key: recoveryKey,
