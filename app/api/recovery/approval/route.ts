@@ -3,7 +3,7 @@ import { authenticate } from "@/lib/auth";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
-import { decideRecovery } from "@/lib/recovery-decision-engine";
+import { createPolicyAwareRecoveryDecisionEngine } from "@/lib/m24-28-policy-aware-decision-engine";
 import { createSupabaseRecoveryApprovalGate } from "@/lib/recovery-approval-supabase";
 import type { ApprovalAction } from "@/lib/recovery-approval-gate";
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const decision = await decideRecovery(tenantId, body.recoveryKey);
+    const decision = await createPolicyAwareRecoveryDecisionEngine().decide(tenantId, body.recoveryKey);
     if (!decision) {
       return NextResponse.json({ ok: false, error: "RECOVERY_NOT_FOUND" }, { status: 404 });
     }
@@ -79,6 +79,12 @@ export async function POST(request: Request) {
       actorKind: actor.kind,
       idempotencyKey: body.idempotencyKey,
       reason: body.reason ?? null,
+      policyWeight: decision.selectedPolicy ? {
+        netWeight: decision.selectedPolicy.netWeight,
+        confidenceBps: decision.selectedPolicy.confidenceBps,
+        sampleCount: decision.selectedPolicy.sampleCount,
+        policyVersion: decision.selectedPolicy.policyVersion,
+      } : null,
     });
 
     return NextResponse.json({
