@@ -21,7 +21,37 @@ export async function revokePersistentAgentExecution(input:{compositionId:string
  return rpc("ce_revoke_agent_execution",{p_composition_id:input.compositionId,p_authorization_id:input.authorizationId,p_reason:input.reason.trim()});
 }
 
-export async function verifyPersistentAgentExecutionConsumption(input:PersistentExecutorScope&{expectedResult:"SUCCESS"|"FAILURE"}):Promise<ConsumptionVerificationResult>{
+
+export type OrphanedExecutionRecovery = {
+  recoveryId:string;
+  authorizationId:string;
+  compositionId:string;
+  tenantId:string;
+  missionId:string;
+  correlationId:string;
+  classification:"EXPIRED_BEFORE_EXECUTION"|"UNKNOWN_SIDE_EFFECT";
+  recoveryStatus:"PENDING_RECOVERY"|"RETRY_ALLOWED"|"SIDE_EFFECT_CONFIRMED"|"CLOSED";
+};
+
+export async function detectOrphanedAgentExecutions(limit=100):Promise<OrphanedExecutionRecovery[]>{
+ if(!Number.isInteger(limit)||limit<1)return[];
+ if(!cfg())throw new Error("PERSISTENT_STATE_REQUIRED");
+ const value=await rpc<OrphanedExecutionRecovery[]>("ce_detect_orphaned_agent_executions",{p_limit:Math.min(500,limit)});
+ return Array.isArray(value)?value:[];
+}
+
+export async function reconcileOrphanedAgentExecution(input:{
+ recoveryId:string;
+ resolution:"NO_SIDE_EFFECT"|"SIDE_EFFECT_CONFIRMED";
+ actorId:string;
+ reason:string;
+ evidenceIds?:string[];
+}):Promise<{resolved:boolean;result:string;classification:string|null;recoveryStatus:string|null;missionState:string|null;authorizationStatus:string|null}>{
+ if(!input.recoveryId||!input.actorId||!input.reason.trim())return{resolved:false,result:"RECOVERY_RECONCILIATION_SCOPE_REQUIRED",classification:null,recoveryStatus:null,missionState:null,authorizationStatus:null};
+ if(!cfg())return{resolved:false,result:"PERSISTENT_STATE_REQUIRED",classification:null,recoveryStatus:null,missionState:null,authorizationStatus:null};
+ return rpc("ce_reconcile_orphaned_agent_execution",{p_recovery_id:input.recoveryId,p_resolution:input.resolution,p_actor_id:input.actorId,p_reason:input.reason.trim(),p_evidence_ids:input.evidenceIds??[]});
+}
+\nexport async function verifyPersistentAgentExecutionConsumption(input:PersistentExecutorScope&{expectedResult:"SUCCESS"|"FAILURE"}):Promise<ConsumptionVerificationResult>{
  const required=[input.compositionId,input.authorizationId,input.tenantId,input.missionId,input.capabilityId,input.correlationId,input.skillId,input.skillVersion,input.mode];
  if(required.some((value)=>!value))return{verified:false,reason:"EXECUTOR_CONSUMPTION_SCOPE_REQUIRED",authorizationStatus:null,compositionStatus:null,missionState:null};
  if(!cfg())return{verified:false,reason:"PERSISTENT_STATE_REQUIRED",authorizationStatus:null,compositionStatus:null,missionState:null};
