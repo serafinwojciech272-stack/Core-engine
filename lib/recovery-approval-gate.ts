@@ -3,7 +3,7 @@ import type { RecoveryDecisionResult } from "@/lib/recovery-decision-engine";
 export type ApprovalAction="APPROVE"|"REJECT"; export type ExecutionPermission="GRANTED"|"DENIED";
 export type RecoveryApprovalWeight={netWeight:number;confidenceBps:number;sampleCount:number;policyVersion:number};
 export type PolicyConfidenceEscalation="STANDARD_APPROVAL"|"ENHANCED_REVIEW"|"MANUAL_ESCALATION";
-export type PolicyConfidenceEscalationResult={level:PolicyConfidenceEscation;confidenceBps:number;sampleCount:number;netWeight:number;requiresEnhancedReview:boolean;requiresManualEscalation:boolean;reason:string};
+export type PolicyConfidenceEscalationResult={level:PolicyConfidenceEscalation;confidenceBps:number;sampleCount:number;netWeight:number;requiresEnhancedReview:boolean;requiresManualEscalation:boolean;reason:string};
 export type PolicyEscalationEvidence={evidenceHash:string;verifiedAt:string;checks:string[];failures:string[]};
 export type PolicyEscalationVerificationResult={level:PolicyConfidenceEscalation;verified:boolean;approvalAllowed:boolean;evidence:PolicyEscalationEvidence;reason:string};
 export type RecoveryApprovalRequest={tenantId:string;recoveryKey:string;decision:Omit<RecoveryDecisionResult,"source">&{source:"RECOVERY_STATE"|"RECOVERY_STATE + LEARNING_POLICY"};action:ApprovalAction;actorId:string;actorKind:"human"|"system"|"agent"|"anonymous";idempotencyKey:string;reason?:string|null;policyWeight?:RecoveryApprovalWeight|null};
