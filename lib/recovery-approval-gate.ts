@@ -57,17 +57,18 @@ export function evaluateApprovalRequest(request: RecoveryApprovalRequest): Recov
   if (!request.tenantId || !request.recoveryKey || !request.idempotencyKey || !request.actorId) throw new Error("RECOVERY_APPROVAL_INPUT_INVALID");
   if (request.decision.tenantId !== request.tenantId || request.decision.recoveryKey !== request.recoveryKey) throw new Error("RECOVERY_APPROVAL_DECISION_SCOPE_MISMATCH");
   if (request.policyWeight && (request.policyWeight.sampleCount < 1 || request.policyWeight.confidenceBps < 0 || request.policyWeight.confidenceBps > 10000)) throw new Error("RECOVERY_APPROVAL_POLICY_INVALID");
+  const normalizedPolicyWeight = request.policyWeight ?? null;
   const decisionHash = hashRecoveryDecision(request.decision);
   const approved = request.action === "APPROVE";
   const executableDecision = request.decision.decision !== "NO_ACTION" && request.decision.requiresApproval;
-  const confidenceEscalation = evaluatePolicyConfidenceEscalation(request.policyWeight);
+  const confidenceEscalation = evaluatePolicyConfidenceEscalation(normalizedPolicyWeight);
   return {
     status: approved ? "APPROVED" : "REJECTED", approvalId:"pending", tenantId:request.tenantId, recoveryKey:request.recoveryKey,
     decision:request.decision.decision, decisionHash, action:request.action,
     executionPermission: approved && executableDecision ? "GRANTED" : "DENIED",
     approvedBy:request.actorId, approvedAt:new Date().toISOString(), reason:request.reason ?? null,
-    policyWeight:request.policyWeight ?? null,
-    approvalTier:request.policyWeight && request.policyWeight.netWeight >= 0 && request.policyWeight.confidenceBps >= 5000 ? "POLICY_SUPPORTED" : "POLICY_UNSUPPORTED",
+    policyWeight:normalizedPolicyWeight,
+    approvalTier:normalizedPolicyWeight && normalizedPolicyWeight.netWeight >= 0 && normalizedPolicyWeight.confidenceBps >= 5000 ? "POLICY_SUPPORTED" : "POLICY_UNSUPPORTED",
     confidenceEscalation,
   };
 }
