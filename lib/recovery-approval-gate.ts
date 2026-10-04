@@ -14,7 +14,7 @@ export type RecoveryApprovalWeight = {
 export type RecoveryApprovalRequest = {
   tenantId: string;
   recoveryKey: string;
-  decision: RecoveryDecisionResult;
+  decision: Omit<RecoveryDecisionResult, "source"> & { source: "RECOVERY_STATE" | "RECOVERY_STATE + LEARNING_POLICY" };
   action: ApprovalAction;
   actorId: string;
   actorKind: "human" | "system" | "agent" | "anonymous";
@@ -50,7 +50,7 @@ export class ApprovalConflictError extends Error {
   }
 }
 
-export function hashRecoveryDecision(decision: RecoveryDecisionResult): string {
+export function hashRecoveryDecision(decision: RecoveryApprovalRequest["decision"]): string {
   return createHash("sha256").update(JSON.stringify(decision)).digest("hex");
 }
 
