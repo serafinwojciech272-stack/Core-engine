@@ -31,7 +31,8 @@ create or replace function public.ce_recovery_approval_commit(
   p_reason text default null
 ) returns jsonb
 language plpgsql
-as $$
+set search_path = pg_catalog, public
+as $
 declare
   v_existing public.ce_recovery_approvals%rowtype;
   v_id uuid;
@@ -113,7 +114,7 @@ begin
 end;
 $$;
 
-revoke all on function public.ce_recovery_approval_commit(uuid, text, text, text, jsonb, text, text, text)
+revoke all on function public.ce_recovery_approval_commit(uuid, text, text, text, jsonb, text, text, text, text)
   from public, anon, authenticated;
-grant execute on function public.ce_recovery_approval_commit(uuid, text, text, text, jsonb, text, text, text)
+grant execute on function public.ce_recovery_approval_commit(uuid, text, text, text, jsonb, text, text, text, text)
   to service_role;
