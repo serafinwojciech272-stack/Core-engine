@@ -197,7 +197,7 @@ export function replanUniversalAgent(plan: UniversalAgentPlan, feedback: string[
   };
 }
 export function approveUniversalAgentPlan(plan: UniversalAgentPlan): UniversalAgentPlan {
-  if (!plan.objective?.objective) {
+  if (!plan.request?.objective) {
     // Defensive compatibility guard for malformed external payloads.
     throw new Error("PLAN_INVALID");
   }
