@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "@vercel/next";
 import { buildUniversalAgentPlan, replanUniversalAgent, canUniversalAgentExecute, advanceUniversalAgentStage, approveUniversalAgentPlan } from "@/lib/universal-agent";
 import { guardMutation } from "@/lib/http";
 
@@ -9,7 +9,8 @@ export async function GET() {
     ok: true,
     service: "universal-agent",
     version: "universal-agent-v2",
-    stages: 113,
+    stages: 12,
+    stageRange: "113-124",
     executionPolicy: "HUMAN_APPROVAL_REQUIRED"
   });
 }
