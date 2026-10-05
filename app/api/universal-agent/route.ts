@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildUniversalAgentPlan, replanUniversalAgent, canUniversalAgentExecute, advanceUniversalAgentStage } from "@/lib/universal-agent";
+import { buildUniversalAgentPlan, replanUniversalAgent, canUniversalAgentExecute, advanceUniversalAgentStage, approveUniversalAgentPlan } from "@/lib/universal-agent";
 import { guardMutation } from "@/lib/http";
 
 const MAX = 32000;
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, action, plan, execution: canUniversalAgentExecute(plan) });
     }
 
-    if (action === "advance") {
+    if (action === "approve") {\n      const plan = body.plan;\n      if (!plan || typeof plan !== "object") return NextResponse.json({ ok: false, error: "PLAN_REQUIRED" }, { status: 400 });\n      const next = approveUniversalAgentPlan(plan);\n      return NextResponse.json({ ok: true, action, plan: next, execution: canUniversalAgentExecute(next) });\n    }\n\n    if (action === "advance") {
       const plan = body.plan;
       if (!plan || typeof plan !== "object") {
         return NextResponse.json({ ok: false, error: "PLAN_REQUIRED" }, { status: 400 });
