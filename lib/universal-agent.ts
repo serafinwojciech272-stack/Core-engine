@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { planGrowthCapabilities } from "@/lib/capability-planner";
 import { getAgentManifest, type AgentLoopStage } from "@/lib/agent-contract";
+import { createSkillContract, evaluateSkillCandidate, optimizeSkillSelection } from "@/lib/universal-skill-intelligence";
 export const UNIVERSAL_AGENT_VERSION="universal-agent-v2" as const;
 export const UNIVERSAL_AGENT_STAGES=[{id:113,name:"INTENT_NORMALIZATION",phase:"UNDERSTAND"},{id:114,name:"WORLD_CONTEXT_ASSEMBLY",phase:"UNDERSTAND"},{id:115,name:"CAPABILITY_DISCOVERY",phase:"PLAN"},{id:116,name:"MULTI_STEP_PLAN_COMPILATION",phase:"PLAN"},{id:117,name:"POLICY_AND_RISK_GATE",phase:"GOVERNANCE"},{id:118,name:"HUMAN_APPROVAL_BOUNDARY",phase:"CONTROL"},{id:119,name:"GOVERNED_ACTION_EXECUTION",phase:"EXECUTE"},{id:120,name:"VERIFICATION_AND_EVIDENCE",phase:"VERIFY"},{id:121,name:"OUTCOME_MEASUREMENT",phase:"MEASURE"},{id:122,name:"MEMORY_AND_LEARNING",phase:"LEARN"},{id:123,name:"ADAPTIVE_REPLANNING",phase:"CONTINUATION"},{id:124,name:"UNIVERSAL_AGENT_HANDOFF",phase:"HANDOFF"}] as const;
 export type UniversalAgentStageId=typeof UNIVERSAL_AGENT_STAGES[number]["id"];
