@@ -26,7 +26,9 @@ const examples = [
   "Zaprojektuj plan marketingowy na 90 dni"
 ];
 
-function PlusIcon() { return <span style={{fontSize:"12px"}}>+</span>; }\n\nfunction formatSize(bytes: number) {
+function PlusIcon() { return <span style={{fontSize:"12px"}}>+</span>; }
+
+function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
   return (bytes / 1024 / 1024).toFixed(1) + " MB";
 }
@@ -172,7 +174,9 @@ export default function CoreAgentConsole() {
               {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
               {mission.state === "APPROVED" && <button onClick={() => missionAction("execute")} disabled={missionBusy}><Play size={13}/> EXECUTE</button>}
               {mission.state !== "AWAITING_APPROVAL" && mission.state !== "APPROVED" && <b className="mission-state">{mission.state}</b>}
-            </div>}\n\n            {attachments.length > 0 && <div className="agent-attachments">
+            </div>}
+
+            {attachments.length > 0 && <div className="agent-attachments">
               {attachments.map((file, i) => <span key={file.name + i}><FileText size={12}/>{file.name}<small>{formatSize(file.size)}</small><button onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))} aria-label={"Usuń " + file.name}><X size={11}/></button></span>)}
             </div>}
 
