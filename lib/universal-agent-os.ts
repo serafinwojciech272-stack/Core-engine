@@ -121,7 +121,7 @@ export function advanceUniversalAgentRun(
   evidence: string[] = [],
   outcome?: string
 ): UniversalAgentRun {
-  if (!run.approved && run.currentStage >= 127) throw new Error("HUMAN_APPROVAL_REQUIRED");
+  if (!run.approved && run.currentStage >= 125) throw new Error("HUMAN_APPROVAL_REQUIRED");
   const index = UAOS_STAGES.findIndex(s => s.id === run.currentStage);
   if (index < 0) throw new Error("RUN_STAGE_NOT_FOUND");
   const nextStage = UAOS_STAGES[index + 1]?.id;
