@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildUniversalAgentPlan, advanceUniversalAgentStage, canUniversalAgentExecute, replanUniversalAgent, UNIVERSAL_AGENT_STAGES } from "../lib/universal-agent";
+import { buildUniversalAgentPlan, advanceUniversalAgentStage, approveUniversalAgentPlan, canUniversalAgentExecute, replanUniversalAgent, UNIVERSAL_AGENT_STAGES } from "../lib/universal-agent";
 
 test("Universal Agent v2 creates governed multi-stage plan", () => {
   const plan = buildUniversalAgentPlan({
@@ -57,4 +57,13 @@ test("Universal Agent replanning preserves lineage through integrity", () => {
 
 test("Universal Agent stage contract is deterministic", () => {
   assert.deepEqual(UNIVERSAL_AGENT_STAGES.map(s => s.id), [113,114,115,116,117,118,119,120,121,122,123,124]);
+});
+
+
+test("Universal Agent exposes an explicit approval transition", () => {
+  const plan = buildUniversalAgentPlan({ objective: "Improve sales operations" });
+  const approved = approveUniversalAgentPlan(plan);
+  assert.equal(approved.status, "EXECUTING");
+  assert.equal(approved.stages.find(s => s.id === 118)?.status, "READY");
+  assert.equal(approved.policy.executionAllowed, true);
 });
