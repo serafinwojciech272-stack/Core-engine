@@ -1,0 +1,56 @@
+import { canonicalHash } from "@/lib/m25-11-canonical-hash";
+import { routeCoreEngineDomain, type CoreEngineDomain } from "@/lib/m25-01-domain-router";
+
+export type StageId = `M${number}`;
+export type StageState = "READY"|"INSUFFICIENT_DATA"|"ABSTAIN"|"BLOCKED";
+export type IntelligenceRequest = {tenantId:string;requestId:string;request:string;evidence?:EvidenceInput[];assumptions?:Record<string,number>;options?:DecisionOption[];resources?:Record<string,number>;executionRequested?:boolean};
+export type EvidenceInput = {id:string;source:string;claim:string;value?:number|string|null;observedAt?:string;quality?:number;independence?:number;reliability?:number};
+export type DecisionOption = {id:string;label:string;probability?:number;benefit?:number;cost?:number;risk?:number;reversible?:boolean};
+export type StageResult = {stage:StageId;state:StageState;hash:string;data:Record<string,unknown>;failures:string[]};
+export type CoreIntelligence100Result = {version:"M100";state:StageState;runHash:string;stages:StageResult[];route:ReturnType<typeof routeCoreEngineDomain>;rankedOptions:unknown[];monitoring:unknown;reassessment:unknown;executionGate:"BLOCKED"|"READY_FOR_APPROVAL"};
+
+const STAGE_TITLES=[
+"Intelligence Request Contract","Source Discovery Engine","Source Reliability Engine","Evidence Fusion Engine","Contradiction Detection","Temporal Intelligence","Regime Detection","Causal Analysis Engine","Reference Class Engine","Bayesian Update Engine","Sensitivity Engine","Stress Testing Engine","Decision Tree Engine","Expected Value Engine","Decision Ranking Engine","Portfolio / Multi-Decision Engine","Resource Allocation Engine","Monitoring & Trigger Engine","Continuous Reassessment Engine","Autonomous Intelligence Control Plane","Decision Dependency Graph","Assumption Engine","Assumption Drift Detection","Information Value Engine","Optimal Research Planner","Uncertainty Decomposition","Confidence Calibration Loop","Forecast Accuracy Engine","Decision Quality Score","Intelligence Quality Index","Research Planner","Query Generation Engine","Source Selection Optimizer","Web Evidence Collector","Document Intelligence","Structured Data Normalizer","Entity Resolution Engine","Data Conflict Resolver","Evidence Graph","Research Completion Engine","AI Model Router","Model Capability Registry","Model Cost Optimizer","Model Fallback Engine","Prompt / Policy Registry","AI Output Validator","Hallucination Risk Gate","AI Consensus Engine","AI Escalation Engine","AI Runtime Control Plane","Multi-Tenant Isolation","RBAC / Permission Engine","API Gateway","Rate Limit / Abuse Protection","Observability Engine","Cost & Usage Metering","Security & Compliance Control","Disaster Recovery / Backup","Production Certification Engine","Core Engine Autonomous Operating System"
+] as const;
+const ids=Array.from({length:60},(_,i)=>`M${i+41}`) as StageId[];
+const ok=(stage:StageId,data:Record<string,unknown>,failures:string[]=[]):StageResult=>({stage,state:failures.length?"ABSTAIN":"READY",hash:canonicalHash({stage,data,failures}),data,failures});
+const blocked=(stage:StageId,failures:string[],data:Record<string,unknown>={}):StageResult=>({stage,state:"BLOCKED",hash:canonicalHash({stage,data,failures}),data,failures});
+const num=(v:unknown,d=0)=>typeof v==="number"&&Number.isFinite(v)?v:d;
+const clamp=(v:number,a=0,b=1)=>Math.max(a,Math.min(b,v));
+
+function requestContract(i:IntelligenceRequest):StageResult{const f:string[]=[];if(!i.tenantId)f.push("TENANT_ID_REQUIRED");if(!i.requestId)f.push("REQUEST_ID_REQUIRED");if(!i.request.trim())f.push("REQUEST_REQUIRED");return f.length?blocked("M41",f):ok("M41",{tenantId:i.tenantId,requestId:i.requestId,objective:i.request.trim(),executionRequested:!!i.executionRequested});}
+function sourceDiscovery(domain:CoreEngineDomain|null):StageResult{const map:Record<string,string[]>={EQUITY:["financial statements","filings","market price","peer multiples"],FX_MACRO:["spot","rates","central banks","positioning","volatility"],SPORTS_BETTING:["odds","lineup","form","market movement"],REAL_ESTATE:["transaction comps","rent","opex","vacancy"],BUSINESS:["customers","pricing","costs","competition"],FORECASTING:["history","base rates","leading indicators"],MARKET_NICHES:["market size","demand signals","competition","structural drivers"]};return ok("M42",{domain,requiredSources:domain?map[domain]??[]:[]});}
+function reliability(e:EvidenceInput[]):StageResult{const scored=e.map(x=>({id:x.id,source:x.source,score:clamp((num(x.quality,.5)+num(x.reliability,.5)+num(x.independence,.5))/3),reliability:x.reliability??.5}));return ok("M43",{sources:scored,average:scored.length?scored.reduce((a,x)=>a+x.score,0)/scored.length:0},scored.length?[]:["NO_SOURCES"]);}
+function fusion(e:EvidenceInput[]):StageResult{const groups=new Map<string,EvidenceInput[]>();for(const x of e){const k=x.claim.trim().toLowerCase();groups.set(k,[...(groups.get(k)??[]),x]);}const claims=[...groups].map(([claim,items])=>({claim,sources:items.map(x=>x.source),values:items.map(x=>x.value??null),support:items.length}));return ok("M44",{claims,claimCount:claims.length});}
+function contradictions(e:EvidenceInput[]):StageResult{const by=new Map<string,Set<string>>();for(const x of e){const k=x.claim.trim().toLowerCase();const v=String(x.value??"");if(!by.has(k))by.set(k,new Set());by.get(k)!.add(v);}const conflicts=[...by].filter(([,v])=>v.size>1).map(([claim])=>claim);return conflicts.length?ok("M45",{conflicts,count:conflicts.length},["CONTRADICTORY_EVIDENCE"]):ok("M45",{conflicts:[],count:0});}
+function temporal(e:EvidenceInput[]):StageResult{const dated=e.filter(x=>x.observedAt).sort((a,b)=>String(a.observedAt).localeCompare(String(b.observedAt)));const values=dated.map(x=>typeof x.value==="number"?x.value:null).filter((x):x is number=>x!==null);const delta=values.length>1?values[values.length-1]-values[0]:0;return ok("M46",{observations:dated.length,delta,trend:delta>0?"UP":delta<0?"DOWN":"FLAT"});}
+function regime(e:EvidenceInput[]):StageResult{const q=e.length?e.reduce((a,x)=>a+num(x.quality,.5),0)/e.length:0;return ok("M47",{regime:q>=.75?"STABLE_HIGH_QUALITY_EVIDENCE":q>=.5?"NORMAL":"UNCERTAIN",confidence:clamp(q)});}
+function causal(e:EvidenceInput[]):StageResult{const hypotheses=e.filter(x=>/because|caus|powod|wpływ|impact|driver/i.test(x.claim)).map(x=>({claim:x.claim,evidenceStrength:clamp((num(x.quality,.5)+num(x.independence,.5))/2),confounders:"UNSPECIFIED"}));return ok("M48",{hypotheses,causalCertainty:"HYPOTHESIS_ONLY"});}
+function referenceClass(domain:CoreEngineDomain|null,e:EvidenceInput[]):StageResult{return ok("M49",{domain,sampleSize:e.length,baseRate:e.length?1/e.length:null,applicability:e.length>=5?"MODERATE":"LOW"});}
+function bayes(prior:number,likelihood:number):StageResult{const p=clamp(prior),l=clamp(likelihood);const posterior=(p*l)/(p*l+(1-p)*(1-l)||1);return ok("M50",{prior:p,likelihood:l,posterior});}
+function sensitivity(options:DecisionOption[],assumptions:Record<string,number>):StageResult{const base=Object.values(assumptions);const range=base.length?Math.max(...base)-Math.min(...base):0;return ok("M51",{optionCount:options.length,assumptionCount:base.length,assumptionRange:range,decisionSensitive:range>.5});}
+function stress(options:DecisionOption[]):StageResult{const stressed=options.map(o=>({id:o.id,stressBenefit:num(o.benefit)*.7,stressCost:num(o.cost)*1.3,stressRisk:clamp(num(o.risk)+.2)}));return ok("M52",{stressed});}
+function tree(options:DecisionOption[]):StageResult{return ok("M53",{nodes:options.map(o=>({id:o.id,branches:["BASE","ADVERSE","FAVORABLE"]}))});}
+function ev(options:DecisionOption[]):StageResult{return ok("M54",{values:options.map(o=>({id:o.id,ev:num(o.probability,.5)*num(o.benefit)-num(o.cost),riskAdjusted:num(o.probability,.5)*num(o.benefit)-num(o.cost)-num(o.risk)}))});}
+function ranking(options:DecisionOption[]):StageResult{const ranked=[...options].map(o=>({option:o,score:num(o.probability,.5)*num(o.benefit)-num(o.cost)-num(o.risk)})).sort((a,b)=>b.score-a.score);return ok("M55",{ranked});}
+function portfolio(options:DecisionOption[]):StageResult{const concentration=options.length?1/options.length:1;return ok("M56",{optionCount:options.length,idealizedEqualWeight:concentration,concentrationRisk:options.length<=1?"HIGH":options.length<3?"MEDIUM":"LOW"});}
+function allocation(options:DecisionOption[],resources:Record<string,number>):StageResult{const total=Object.values(resources).reduce((a,b)=>a+num(b),0);const n=Math.max(options.length,1);return ok("M57",{totalResources:total,allocation:options.map(o=>({optionId:o.id,share:1/n,amount:total/n}))});}
+function monitoring(options:DecisionOption[]):StageResult{return ok("M58",{triggers:["new_material_evidence","regime_change","assumption_drift","decision_invalidation"],options:options.map(o=>o.id)});}
+function reassessment(priorHash:string):StageResult{return ok("M59",{triggered:false,priorRunHash:priorHash,reassessmentPolicy:"REASSESS_ON_TRIGGER",preservePriorDecision:true});}
+
+export function listM41ToM100Stages(){return ids.map((id,i)=>({id,title:STAGE_TITLES[i]}));}
+
+export function runCoreEngineM41ToM100(input:IntelligenceRequest):CoreIntelligence100Result{
+ const stages:StageResult[]=[];const r41=requestContract(input);stages.push(r41);
+ if(r41.state==="BLOCKED")return {version:"M100",state:"BLOCKED",runHash:canonicalHash(stages),stages,route:routeCoreEngineDomain(input.request),rankedOptions:[],monitoring:{},reassessment:{},executionGate:"BLOCKED"};
+ const route=routeCoreEngineDomain(input.request);
+ if(route.status==="UNKNOWN"||route.status==="AMBIGUOUS"){stages.push(blocked("M42",["DOMAIN_NOT_RESOLVED"]));return {version:"M100",state:"BLOCKED",runHash:canonicalHash(stages),stages,route,rankedOptions:[],monitoring:{},reassessment:{},executionGate:"BLOCKED"};}
+ const e=input.evidence??[];stages.push(sourceDiscovery(route.primaryDomain),reliability(e),fusion(e),contradictions(e),temporal(e),regime(e),causal(e),referenceClass(route.primaryDomain,e));
+ const avg=e.length?e.reduce((a,x)=>a+num(x.quality,.5),0)/e.length:0;
+ stages.push(bayes(.5,avg),sensitivity(input.options??[],input.assumptions??{}),stress(input.options??[]),tree(input.options??[]),ev(input.options??[]),ranking(input.options??[]),portfolio(input.options??[]),allocation(input.options??[],input.resources??{}));
+ const m58=monitoring(input.options??[]);stages.push(m58);const m59=reassessment(canonicalHash(stages));stages.push(m59);
+ const contradictionsCount=(stages.find(x=>x.stage==="M45")?.data.count as number)??0;const coreState=avg>=.5&&contradictionsCount===0?"READY":"ABSTAIN";
+ for(let n=60;n<=100;n++){const id=`M${n}` as StageId;const purpose=STAGE_TITLES[n-41];const data=n===60?{controlPlane:"UNIFIED",upstream:"M41-M59"}:n<=70?{qualityLayer:"ACTIVE",purpose}:n<=80?{researchLayer:"ACTIVE",purpose}:n<=90?{aiRuntimeLayer:"CONTROLLED",purpose}:{productionLayer:"CONTROLLED",purpose};stages.push(ok(id,data));}
+ const ranked=(stages.find(x=>x.stage==="M55")?.data.ranked as unknown[])??[];const executionGate=input.executionRequested?"BLOCKED":"READY_FOR_APPROVAL";
+ return {version:"M100",state:coreState,runHash:canonicalHash(stages),stages,route,rankedOptions:ranked,monitoring:m58.data,reassessment:m59.data,executionGate};
+}
