@@ -8,8 +8,8 @@ test("exposes a truthful commercial agent contract", () => {
   assert.equal(manifest.id, "core-business-agent");
   assert.equal(manifest.contract, "agent-runtime-v1");
   assert.equal(manifest.autonomy, "HUMAN_APPROVED");
-  assert.equal(manifest.sideEffects, "SIMULATION_ONLY");
-  assert.equal(manifest.durableState, "SUPABASE_REQUIRED_FOR_PRODUCTION");
+  assert.equal(manifest.sideEffects, "GOVERNED_APPROVED");
+  assert.equal(manifest.durableState, "SUPABASE_REQUIRED_FOR_PRODUCTION");\n  assert.ok(manifest.capabilities.includes("universal-agent-planning"));\n  assert.ok(manifest.capabilities.includes("adaptive-replanning"));\n  assert.ok(manifest.capabilities.includes("governed-handoff"));
   assert.deepEqual(manifest.loop, [
     "OBSERVE",
     "UNDERSTAND",
