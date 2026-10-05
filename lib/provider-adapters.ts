@@ -46,7 +46,7 @@ async function vercelRequest(path: string, init: RequestInit = {}) {
   const text = await response.text();
   let body: Json = {};
   try { body = text ? JSON.parse(text) : {}; } catch {}
-  if (!response.ok) throw new Error("VERCEL_HTTP_" + response.status + ":" + String(body.error?.message ?? body.message ?? text).slice(0, 300));
+  if (!response.ok) throw new Error("VERCEL_HTTP_" + response.status + ":" + String((body.error as Json | undefined)?.message ?? body.message ?? text).slice(0, 300));
   return body;
 }
 
