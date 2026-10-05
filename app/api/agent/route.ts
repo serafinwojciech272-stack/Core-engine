@@ -95,8 +95,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
       "TASK: " + task,
       "ATTACHMENTS: " + JSON.stringify(attachments),
       "DOCUMENT CONTEXT: " + documentContext.slice(0, 50000)
-    ].join("
-");
+    ].join("\\n");
     const response = await fetch(base.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
