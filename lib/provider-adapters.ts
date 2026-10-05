@@ -93,7 +93,7 @@ const githubAdapter: CapabilityAdapter = {
           method: "PUT",
           body: JSON.stringify({ message: "feat(agent): add " + file.path, content: Buffer.from(file.content, "utf8").toString("base64"), branch: "main" })
         });
-        commits.push(String(result.commit?.sha ?? ""));
+        commits.push(String((result.commit as Json | undefined)?.sha ?? ""));
       }
       return receipt(startedAt, "GitHub repository created and initialized.", {
         provider: "github", repository: fullName, url: String(created.html_url ?? ""), branch: "main", commits
@@ -114,7 +114,7 @@ const githubAdapter: CapabilityAdapter = {
     const body: Json = { message: inputString(input, "message", "feat(agent): update " + path), content: Buffer.from(content, "utf8").toString("base64"), branch };
     if (sha) body.sha = sha;
     const result = await githubRequest("/repos/" + fullName + "/contents/" + path.split("/").map(encodeURIComponent).join("/"), { method: "PUT", body: JSON.stringify(body) });
-    return receipt(startedAt, "GitHub repository file committed.", { provider: "github", repository: fullName, path, branch, commitSha: String(result.commit?.sha ?? "") });
+    return receipt(startedAt, "GitHub repository file committed.", { provider: "github", repository: fullName, path, branch, commitSha: String((result.commit as Json | undefined)?.sha ?? "") });
   }
 };
 
