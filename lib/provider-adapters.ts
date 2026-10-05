@@ -118,6 +118,22 @@ const githubAdapter: CapabilityAdapter = {
   }
 };
 
+const buildAndDeployAdapter: CapabilityAdapter = {
+  id: "provider.build-deploy.v1",
+  supports: (action) => action.id === "project.build_and_deploy",
+  async execute(action, context) {
+    const startedAt = new Date().toISOString();
+    const input = context.input ?? {};
+    const githubResult = await githubAdapter.execute({ id: "github.repository.create", name: "Create GitHub repository", description: "Create repository", risk: "HIGH", requiresApproval: true, inputs: [], outputs: [] }, context);
+    const repository = String(githubResult.output?.repository ?? "");
+    if (!repository) throw new Error("GITHUB_REPOSITORY_CREATE_DID_NOT_RETURN_REPOSITORY");
+    const vercelResult = await vercelAdapter.execute({ id: "vercel.project.deploy", name: "Deploy to Vercel", description: "Deploy", risk: "CRITICAL", requiresApproval: true, inputs: [], outputs: [] }, { ...context, input: { ...input, repository } });
+    return receipt(startedAt, "GitHub repository created and Vercel deployment requested.", {
+      provider: "github+vercel", repository, github: githubResult.output ?? {}, vercel: vercelResult.output ?? {}
+    });
+  }
+};
+
 const vercelAdapter: CapabilityAdapter = {
   id: "provider.vercel.v1",
   supports: (action) => action.id === "vercel.project.deploy",
@@ -164,7 +180,7 @@ const vercelAdapter: CapabilityAdapter = {
   }
 };
 
-export const providerAdapters: CapabilityAdapter[] = [githubAdapter, vercelAdapter];
+export const providerAdapters: CapabilityAdapter[] = [buildAndDeployAdapter, githubAdapter, vercelAdapter];
 
 export function providerReadiness() {
   return {
