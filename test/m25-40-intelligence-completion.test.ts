@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {canonicalHash} from "../lib/m25-11-canonical-hash";
+import {createEvidenceRecord} from "../lib/m25-12-evidence-contract";
+import {validateEvidence} from "../lib/m25-13-evidence-validation";
+import {assessDataQuality} from "../lib/m25-14-data-quality";
+import {assessCalibration} from "../lib/m25-18-calibration-engine";
+import {createForecastLifecycle,transitionForecast} from "../lib/m25-19-forecast-lifecycle";
+import {assessRisks} from "../lib/m25-20-risk-engine";
+import {evaluateApprovalGate} from "../lib/m27-approval-gate";
+import {buildExecutionPlan} from "../lib/m28-execution-plan";
+import {evaluateExecutionGate} from "../lib/m29-execution-gate";
+import {verifyExecution} from "../lib/m30-verification-engine";
+import {createOutcomeEvent} from "../lib/m31-outcome-contract";
+import {MemoryLearningPersistence} from "../lib/m32-learning-persistence";
+import {buildProvenance,verifyProvenance} from "../lib/m35-provenance";
+import {createAuditEvent,verifyAuditEvent} from "../lib/m36-audit-trail";
+import {replayDeterministic} from "../lib/m37-replay-engine";
+import {enforceIntelligencePolicy} from "../lib/m39-policy-guard";
+import {runCoreIntelligence} from "../lib/m40-core-intelligence-orchestrator";
+
+test("M25 canonical hashing, evidence validation and data quality",()=>{assert.equal(canonicalHash({b:2,a:1}),canonicalHash({a:1,b:2}));const e=createEvidenceRecord({id:"e1",domain:"EQUITY",kind:"PRIMARY",source:"filing",observedAt:new Date().toISOString(),quality:.9,confidence:.9});const v=validateEvidence([e]);const q=assessDataQuality({requiredCount:1,providedCount:1,evidence:v});assert.equal(v.valid,true);assert.equal(q.failClosed,false);});
+test("M25 calibration and forecast lifecycle",()=>{assert.equal(assessCalibration({observations:40,errors:Array(40).fill(.1)}).ready,true);const f=createForecastLifecycle({horizonHours:1,invalidationCriteria:["regime"]});assert.equal(transitionForecast(f,"VERIFY").state,"VERIFIED");});
+test("M26-M30 preserve human approval and verification gates",()=>{const hash="a".repeat(64),rejected=evaluateApprovalGate({decisionHash:hash,approved:false});assert.equal(rejected.state,"REJECTED");const approved=evaluateApprovalGate({decisionHash:hash,approved:true,approvedBy:"human",approvalToken:"token"});const p=buildExecutionPlan(hash,[],"EXECUTABLE");assert.equal(evaluateExecutionGate({approval:approved,planMode:p.mode,decisionHash:hash,planDecisionHash:p.decisionHash}).allowed,true);assert.equal(verifyExecution({expectedOutcome:"ok",actualOutcome:"ok",executionAllowed:true}).verified,true);});
+test("M31-M37 preserve outcome, learning, provenance, audit and replay integrity",async()=>{const o=createOutcomeEvent({requestId:"r",decisionHash:"a".repeat(64),expected:"ok",actual:"ok",observedAt:new Date().toISOString()});assert.equal(o.status,"MATCH");const store=new MemoryLearningPersistence();const e={tenantId:"t",requestId:"r",prediction:"1",actualOutcome:"1",predictionCorrect:true,calibrationDelta:.02,signal:"PREDICTION_MATCH",modelVersion:"m25",payload:{}};await store.persist(e);assert.deepEqual(await store.read("t","r"),e);const p=buildProvenance([{id:"1",source:"s",observedAt:new Date().toISOString(),claim:"c"}]);assert.equal(verifyProvenance(p),true);const a=createAuditEvent({tenantId:"t",requestId:"r",eventType:"x",payload:{a:1}});assert.equal(verifyAuditEvent(a),true);assert.equal(replayDeterministic({original:{a:1,b:2},replayed:{b:2,a:1},expectedHash:canonicalHash({a:1,b:2})}).valid,true);});
+test("M39 policy and M40 fail closed on unapproved execution",()=>{const policy=enforceIntelligencePolicy({evidenceValid:true,dataQuality:.9,confidence:.9,approvalRequired:true,approvalGranted:false,executionRequested:true});assert.equal(policy.state,"BLOCKED");const r=runCoreIntelligence({tenantId:"t",requestId:"r",request:"DCF valuation of a company",evidence:[{id:"e1",domain:"EQUITY",kind:"PRIMARY",source:"filing",observedAt:new Date().toISOString(),quality:1,confidence:1,freshnessHours:168}],executionRequested:true});assert.equal(r.policy.state,"BLOCKED");assert.equal(r.executionGate.allowed,false);});
