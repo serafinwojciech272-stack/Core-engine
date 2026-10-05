@@ -93,8 +93,10 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
       "execution must be HUMAN_APPROVAL_REQUIRED or SIMULATION_ONLY. Plan must contain 2-5 concrete stages.",
       "Task classes: BUILD, ANALYSIS, CREATIVE, RESEARCH, OPERATIONS, INTELLIGENCE.",
       "TASK: " + task,
-      "ATTACHMENTS: " + JSON.stringify(attachments),\n      "DOCUMENT CONTEXT: " + documentContext.slice(0, 50000)
-    ].join("\n");
+      "ATTACHMENTS: " + JSON.stringify(attachments),
+      "DOCUMENT CONTEXT: " + documentContext.slice(0, 50000)
+    ].join("
+");
     const response = await fetch(base.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
@@ -121,7 +123,8 @@ export async function POST(request: Request) {
     const task = typeof body.task === "string" ? body.task.trim() : "";
     if (!task) return NextResponse.json({ ok: false, error: "TASK_REQUIRED" }, { status: 400 });
     if (task.length > MAX_TASK) return NextResponse.json({ ok: false, error: "TASK_TOO_LONG" }, { status: 400 });
-    const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";\n    const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
+    const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
+    const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     const result = await generateAgentResponse(task, attachments, documentContext);
     return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true } });
   } catch {
