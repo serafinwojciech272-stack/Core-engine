@@ -5,6 +5,8 @@ import { storageMode } from "@/lib/storage";
 import { listCapabilityAdapters } from "@/lib/capability-adapters";
 import { listCapabilityPacks } from "@/lib/capability-registry";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
+import { ensureExternalProviderPack } from "@/lib/external-provider-pack";
+import { providerReadiness } from "@/lib/provider-adapters";
 import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
 import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
 import { saasStatus } from "@/lib/saas-runtime";
@@ -13,6 +15,7 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   ensureCapabilityPacks();
+  ensureExternalProviderPack();
   const manifest = getAgentManifest();
   const persistence = storageMode();
 
@@ -24,6 +27,7 @@ export async function GET() {
       persistence,
       durable: persistence === "supabase",
       adapters: listCapabilityAdapters(),
+      providerReadiness: providerReadiness(),
       capabilityPacks: listCapabilityPacks().length,
       execution: getProductionReadiness().execution,
       liveExternalSideEffects: false,
