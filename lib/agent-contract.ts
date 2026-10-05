@@ -64,7 +64,14 @@ export function getAgentManifest(): AgentManifest {
       "idempotent-execution",
       "outcome-measurement",
       "learning",
-      "audit-trail",\n      "universal-agent-planning",\n      "adaptive-replanning",\n      "research",\n      "build",\n      "deploy",\n      "image-capability",\n      "governed-handoff"
+      "audit-trail",
+      "universal-agent-planning",
+      "adaptive-replanning",
+      "research",
+      "build",
+      "deploy",
+      "image-capability",
+      "governed-handoff"
     ]
   };
 }
