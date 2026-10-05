@@ -33,7 +33,7 @@ const RULES: readonly DomainRule[] = [
       "stock", "stocks", "share", "shares", "equity", "ticker", "eps",
       "ebitda", "revenue", "free cash flow", "fcf", "dcf", "valuation",
       "pe ratio", "p/e", "price to book", "pb ratio", "dividend",
-      "buyback", "competitive moat", "quality of earnings", "portfolio",
+      "buyback", "competitive moat", "quality of earnings", "portfolio", "akcje", "spolka", "spółka", "gielda", "giełda", "wycena", "dywidenda",
     ],
   },
   {
@@ -42,7 +42,7 @@ const RULES: readonly DomainRule[] = [
       "forex", "fx", "currency", "eurusd", "gbpusd", "usdpln", "eurpln",
       "us dollar", "euro", "zloty", "rates", "interest rates", "fed",
       "ecb", "nbp", "central bank", "forward guidance", "cot",
-      "positioning", "yield curve", "macro", "volatility targeting",
+      "positioning", "yield curve", "macro", "volatility targeting", "waluta", "waluty", "kurs walutowy", "stopy procentowe",
     ],
   },
   {
@@ -51,7 +51,7 @@ const RULES: readonly DomainRule[] = [
       "sports betting", "betting", "bookmaker", "odds", "implied probability",
       "expected value", "ev+", "kelly", "stake", "bankroll", "xg", "elo",
       "poisson", "dixon-coles", "line movement", "steam", "reverse line",
-      "player prop", "match odds", "bet",
+      "player prop", "match odds", "bet", "zaklady sportowe", "zakład sportowy", "kursy bukmacherskie", "bukmacher",
     ],
   },
   {
@@ -59,8 +59,8 @@ const RULES: readonly DomainRule[] = [
     signals: [
       "real estate", "property", "apartment", "flat", "house", "rental",
       "rent", "landlord", "tenant", "noi", "cap rate", "cash-on-cash",
-      "irr", "equity multiple", "br​rrr", "buy-to-let", "development",
-      "vacancy", "capex", "property market",
+      "irr", "equity multiple", "brrr", "buy-to-let", "development",
+      "vacancy", "capex", "property market", "nieruchomości", "nieruchomosci", "mieszkanie", "mieszkania", "dom", "wynajem",
     ],
   },
   {
@@ -70,7 +70,7 @@ const RULES: readonly DomainRule[] = [
       "unit economics", "tam", "sam", "som", "go-to-market", "gtm",
       "market size", "funding", "investor", "revenue model", "pricing",
       "customer acquisition", "cac", "ltv", "competitive landscape",
-      "moat", "operations", "commercial strategy",
+      "moat", "operations", "commercial strategy", "biznesplan", "plan biznesowy", "firma", "strategia biznesowa",
     ],
   },
   {
@@ -79,7 +79,7 @@ const RULES: readonly DomainRule[] = [
       "forecast", "forecasting", "prediction", "predict", "probability",
       "scenario", "base rate", "reference class", "bayesian", "bayes",
       "confidence interval", "uncertainty", "decision tree", "leading indicator",
-      "projection", "outlook", "what are the chances", "likelihood",
+      "projection", "outlook", "what are the chances", "likelihood", "prognoza", "prognozowanie", "przewidywanie", "prawdopodobieństwo", "prawdopodobienstwo",
     ],
   },
   {
@@ -89,7 +89,7 @@ const RULES: readonly DomainRule[] = [
       "structural tailwind", "bottleneck", "pain point", "barrier to entry",
       "winner-take-most", "why now", "silver economy", "longevity",
       "energy grid", "agriculture", "food security", "cybersecurity",
-      "digital trust", "supply chain resilience", "climate adaptation",
+      "digital trust", "supply chain resilience", "climate adaptation", "nisza", "nisze", "trend rynkowy", "trendy rynkowe", "energia", "łańcuch dostaw",
     ],
   },
 ];
