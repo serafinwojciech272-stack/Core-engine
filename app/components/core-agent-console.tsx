@@ -1,10 +1,10 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
-import { ArrowUp, Bot, CheckCircle2, FileText, Image as ImageIcon, Loader2, Paperclip, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
 
 type Attachment = { name: string; type: string; size: number };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -26,7 +26,7 @@ const examples = [
   "Zaprojektuj plan marketingowy na 90 dni"
 ];
 
-function formatSize(bytes: number) {
+function PlusIcon() { return <span style={{fontSize:"12px"}}>+</span>; }\n\nfunction formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
   return (bytes / 1024 / 1024).toFixed(1) + " MB";
 }
@@ -37,6 +37,8 @@ export default function CoreAgentConsole() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
+  const [missionBusy, setMissionBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
@@ -67,6 +69,51 @@ export default function CoreAgentConsole() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function createMission(messageIndex: number, intent: string | undefined, text: string) {
+    if (missionBusy || mission) return;
+    setMissionBusy(true); setError("");
+    try {
+      const response = await fetch("/api/engine", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
+        domain: intent === "DOCUMENT_ANALYSIS" ? "document" : intent === "IMAGE_TASK" ? "creative" : intent === "RESEARCH" ? "research" : "general",
+        signals: [{ name: "agent_task", value: text.slice(0, 200), source: "core-agent" }, { name: "intent", value: intent || "GENERAL_AGENT", source: "core-agent" }]
+      })});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć misji.");
+      let capabilityActionId: string | undefined;
+      try {
+        const caps = await fetch("/api/capabilities?q=" + encodeURIComponent(intent || "agent")).then((x) => x.json());
+        const actions = (caps.packs || []).flatMap((p: {actions?: Array<{id:string;name:string;requiresApproval?:boolean}>}) => p.actions || []);
+        const preferred = actions.find((a: {id:string;name:string}) => {
+          const s = (a.id + " " + a.name).toLowerCase();
+          if (intent === "WEB_BUILD" || intent === "APP_BUILD") return /build|deploy|create|website|application/.test(s);
+          if (intent === "DOCUMENT_ANALYSIS") return /document|file|analysis|parse|extract/.test(s);
+          if (intent === "IMAGE_TASK") return /image|photo|creative/.test(s);
+          if (intent === "RESEARCH") return /research|web|search|audit/.test(s);
+          return /cognition|plan|analysis|workflow/.test(s);
+        });
+        capabilityActionId = preferred?.id;
+      } catch {}
+      const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId };
+      setMission(m);
+      setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
+    } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
+    finally { setMissionBusy(false); }
+  }
+
+  async function missionAction(action: "approve" | "execute") {
+    if (!mission || missionBusy) return;
+    setMissionBusy(true); setError("");
+    try {
+      const response = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
+        id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
+      })});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Mission action failed.");
+      setMission((m) => m ? { ...m, state: data.mission?.state || m.state } : m);
+    } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
+    finally { setMissionBusy(false); }
   }
 
   function addFiles(list: FileList | null) {
@@ -113,13 +160,19 @@ export default function CoreAgentConsole() {
                     <span>PROPOSED EXECUTION PLAN</span>
                     {message.plan.map((step, i) => <div key={step}><b>{String(i + 1).padStart(2, "0")}</b>{step}</div>)}
                     <div className="agent-gate"><ShieldCheck size={13}/> {message.gate === "HUMAN_APPROVAL_REQUIRED" ? "HUMAN APPROVAL REQUIRED" : "SIMULATION ONLY"} <em>{message.intent}</em></div>
+                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
                   </div>}
                 </div>
               ))}
               {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> Analizuję zadanie, dobieram capability i buduję plan…</div></div>}
             </div>
 
-            {attachments.length > 0 && <div className="agent-attachments">
+            {mission && <div className="agent-mission-panel">
+              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state}</small></div>
+              {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
+              {mission.state === "APPROVED" && <button onClick={() => missionAction("execute")} disabled={missionBusy}><Play size={13}/> EXECUTE</button>}
+              {mission.state !== "AWAITING_APPROVAL" && mission.state !== "APPROVED" && <b className="mission-state">{mission.state}</b>}
+            </div>}\n\n            {attachments.length > 0 && <div className="agent-attachments">
               {attachments.map((file, i) => <span key={file.name + i}><FileText size={12}/>{file.name}<small>{formatSize(file.size)}</small><button onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))} aria-label={"Usuń " + file.name}><X size={11}/></button></span>)}
             </div>}
 
