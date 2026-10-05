@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { understand, decide, learn } from "@/lib/cognition/synthesis";
 import type { CapabilityAction, CapabilityFailureCategory } from "@/lib/capability-contracts";
+import { providerAdapters } from "@/lib/provider-adapters";
 
 export type CapabilityAdapterContext = { missionId?: string; idempotencyKey?: string; attempt: number; input?: Record<string, unknown> };
 export type CapabilityAdapterReceipt = { status: "EXECUTED" | "REJECTED" | "FAILED"; startedAt: string; completedAt: string; sideEffect: boolean; message: string; output?: Record<string, unknown>; errorCategory?: CapabilityFailureCategory; retryable?: boolean };
@@ -104,7 +105,7 @@ const cognitionAdapter: CapabilityAdapter = {
   }
 };
 
-const adapters: CapabilityAdapter[] = [publicWebAuditAdapter, webhookAdapter, cognitionAdapter, simulationAdapter];
+const adapters: CapabilityAdapter[] = [...providerAdapters, publicWebAuditAdapter, webhookAdapter, cognitionAdapter, simulationAdapter];
 export function isObservationalAdapter(adapter: CapabilityAdapter) { return adapter.observationalOnly === true || adapter.id === "core.simulation.v1"; }
 export function registerCapabilityAdapter(adapter: CapabilityAdapter) { if (!adapter.id.trim()) throw new Error("CAPABILITY_ADAPTER_ID_REQUIRED"); if (adapters.some((item) => item.id === adapter.id)) throw new Error("CAPABILITY_ADAPTER_ALREADY_REGISTERED"); adapters.push(adapter); }
 // Registry maintenance primitive. Removing the last adapter that supports an
