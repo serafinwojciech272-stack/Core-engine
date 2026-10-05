@@ -29,3 +29,13 @@ footer{background:rgba(3,3,5,.55)}
 @keyframes ceSweep{0%,45%{transform:translateX(-110%)}70%,100%{transform:translateX(110%)}}
 @keyframes ceOrbit{to{transform:rotate(372deg)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+/* Keep the enhancement layer aligned with the editorial light system. */
+body{background:radial-gradient(900px 500px at 82% 8%,rgba(232,91,61,.12),transparent 65%),radial-gradient(700px 420px at 8% 38%,rgba(232,91,61,.045),transparent 65%),#f3efe8;color:#171513}
+.hero:after{background:linear-gradient(90deg,transparent,rgba(232,91,61,.18),rgba(232,91,61,.8),rgba(232,91,61,.18),transparent);box-shadow:0 0 28px rgba(232,91,61,.12)}
+.hero:before{border-color:rgba(232,91,61,.18);box-shadow:0 0 140px rgba(232,91,61,.12),inset 0 0 110px rgba(232,91,61,.045)}
+.eyebrow,.sectionhead>span{color:#b83f29;text-shadow:none}.pulse,.dot{background:#e85b3d;box-shadow:0 0 8px #e85b3d,0 0 24px rgba(232,91,61,.35)}
+.brand .mark{border-color:#171513;background:transparent;box-shadow:none}.navbtn,.primary,.nextaction{background:#171513;border-color:#171513;box-shadow:0 12px 28px rgba(23,21,19,.12)}
+.demo-bar,.decision{border-color:rgba(23,21,19,.16);background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(232,91,61,.08));box-shadow:0 20px 70px rgba(23,21,19,.08)}
+.approved{color:#b83f29;border-color:rgba(184,63,41,.35);background:rgba(232,91,61,.06);box-shadow:none}.corecard{background:radial-gradient(circle at 70% 18%,rgba(232,91,61,.16),transparent 32%),radial-gradient(circle at 10% 90%,rgba(77,128,105,.05),transparent 30%),rgba(255,255,255,.35)}
+.orb{border-color:#e85b3d;background:rgba(232,91,61,.08);box-shadow:0 0 45px rgba(232,91,61,.12)}.sectionhead>span{color:#b83f29}.quality{background:rgba(232,91,61,.06)}footer{background:rgba(243,239,232,.72)}

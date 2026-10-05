@@ -3,9 +3,13 @@ import "./globals.css";
 import "./ui-enhancement.css";
 
 export const metadata: Metadata = {
-  title: "Core Engine | AI Decision & Execution Infrastructure",
-  description: "Universal AI decision and execution infrastructure for business growth.",
-  robots: { index: true, follow: true }
+  title: "Core Engine | Intelligence that moves business",
+  description: "A governed intelligence core that turns business signals into measurable action.",
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: "Core Engine | Intelligence that moves business",
+    description: "Observe, decide, execute and learn through one reusable intelligence core."
+  }
 };
 
 export const viewport: Viewport = {
