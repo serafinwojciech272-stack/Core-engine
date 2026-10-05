@@ -3,7 +3,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
 
-type Attachment = { name: string; type: string; size: number };
+type Attachment = { name: string; type: string; size: number; file: File };
 type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
 type AgentResponse = {
   ok: boolean;
@@ -40,7 +40,7 @@ export default function CoreAgentConsole() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
-  const [missionBusy, setMissionBusy] = useState(false);
+  const [missionBusy, setMissionBusy] = useState(false);\n  const [documentContext, setDocumentContext] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
@@ -52,10 +52,22 @@ export default function CoreAgentConsole() {
     setMessages((m) => [...m, { role: "user", text: value }]);
     setTask("");
     try {
+      let parsedContext = "";
+      if (attachments.length) {
+        const form = new FormData();
+        attachments.forEach((item) => form.append("file", item.file, item.name));
+        const fileResponse = await fetch("/api/agent/file", { method: "POST", body: form });
+        const fileData = await fileResponse.json();
+        if (!fileResponse.ok) throw new Error(fileData.error || "Nie udało się przeanalizować pliku.");
+        parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
+          "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify(item.metadata) + "\nEXTRACTED TEXT:\n" + item.extractedText
+        ).join("\n\n");
+        setDocumentContext(parsedContext);
+      }
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ task: value, attachments })
+        body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000) })
       });
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
@@ -120,7 +132,7 @@ export default function CoreAgentConsole() {
 
   function addFiles(list: FileList | null) {
     if (!list) return;
-    const next = Array.from(list).slice(0, 6).map((f) => ({ name: f.name, type: f.type || "application/octet-stream", size: f.size }));
+    const next = Array.from(list).slice(0, 6).map((file) => ({ name: file.name, type: file.type || "application/octet-stream", size: file.size, file }));
     setAttachments((current) => [...current, ...next].slice(0, 6));
   }
 
