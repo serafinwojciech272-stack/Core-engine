@@ -58,7 +58,7 @@ function classifyTask(task: string) {
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
 }
 
-function fallbackAgent(task: string, attachments: AgentAttachment[]) {
+function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
   const [intent, capability, kind] = classifyTask(task);
   const needsAttachment = ["DOCUMENT_ANALYSIS", "IMAGE_TASK"].includes(intent) && attachments.length === 0;
   const plan = needsAttachment
@@ -78,11 +78,11 @@ function fallbackAgent(task: string, attachments: AgentAttachment[]) {
   return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability };
 }
 
-async function generateAgentResponse(task: string, attachments: AgentAttachment[]) {
+async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "") {
   const base = process.env.CORE_ENGINE_LLM_BASE_URL;
   const key = process.env.CORE_ENGINE_LLM_API_KEY;
   const model = process.env.CORE_ENGINE_LLM_MODEL;
-  if (!base || !key || !model) return fallbackAgent(task, attachments);
+  if (!base || !key || !model) return fallbackAgent(task, attachments, documentContext);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
@@ -93,7 +93,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
       "execution must be HUMAN_APPROVAL_REQUIRED or SIMULATION_ONLY. Plan must contain 2-5 concrete stages.",
       "Task classes: BUILD, ANALYSIS, CREATIVE, RESEARCH, OPERATIONS, INTELLIGENCE.",
       "TASK: " + task,
-      "ATTACHMENTS: " + JSON.stringify(attachments)
+      "ATTACHMENTS: " + JSON.stringify(attachments),\n      "DOCUMENT CONTEXT: " + documentContext.slice(0, 50000)
     ].join("\n");
     const response = await fetch(base.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
@@ -101,12 +101,12 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
       body: JSON.stringify({ model, temperature: 0.2, messages: [{ role: "system", content: "You are a strict JSON API." }, { role: "user", content: prompt }] }),
       signal: controller.signal
     });
-    if (!response.ok) return fallbackAgent(task, attachments);
+    if (!response.ok) return fallbackAgent(task, attachments, documentContext);
     const body = await response.json();
     const content = body?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return fallbackAgent(task, attachments);
+    if (typeof content !== "string") return fallbackAgent(task, attachments, documentContext);
     const parsed = JSON.parse(content.replace(/^\x60\x60\x60json\s*/i, "").replace(/\s*\x60\x60\x60$/, ""));
-    if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments);
+    if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
     return { reply: String(parsed.reply), intent: String(parsed.intent || "GENERAL_AGENT"), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: Boolean(parsed.needsAttachment) };
   } catch {
     return fallbackAgent(task, attachments);
@@ -121,8 +121,8 @@ export async function POST(request: Request) {
     const task = typeof body.task === "string" ? body.task.trim() : "";
     if (!task) return NextResponse.json({ ok: false, error: "TASK_REQUIRED" }, { status: 400 });
     if (task.length > MAX_TASK) return NextResponse.json({ ok: false, error: "TASK_TOO_LONG" }, { status: 400 });
-    const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
-    const result = await generateAgentResponse(task, attachments);
+    const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";\n    const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
+    const result = await generateAgentResponse(task, attachments, documentContext);
     return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
