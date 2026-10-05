@@ -14,7 +14,6 @@ export const AGENT_LOOP = [
 ] as const;
 
 export type AgentLoopStage = typeof AGENT_LOOP[number];
-
 export type AgentAutonomyMode = "HUMAN_APPROVED";
 
 export type AgentManifest = {
