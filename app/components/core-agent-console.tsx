@@ -40,7 +40,8 @@ export default function CoreAgentConsole() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
-  const [missionBusy, setMissionBusy] = useState(false);\n  const [documentContext, setDocumentContext] = useState("");
+  const [missionBusy, setMissionBusy] = useState(false);
+  const [documentContext, setDocumentContext] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
