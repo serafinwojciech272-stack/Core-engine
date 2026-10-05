@@ -8,6 +8,8 @@ import { ensureCapabilityPacks } from "@/lib/capability-packs";
 import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
 import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
 import { saasStatus } from "@/lib/saas-runtime";
+import { guardMutation } from "@/lib/http";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   ensureCapabilityPacks();
