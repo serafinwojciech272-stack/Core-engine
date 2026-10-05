@@ -1,0 +1,3 @@
+import { canonicalHash } from "@/lib/m25-11-canonical-hash";
+export type ReplayResult={valid:boolean;state:"REPLAY_VERIFIED"|"REPLAY_BLOCKED";failures:string[];replayHash:string|null};
+export function replayDeterministic(input:{original:unknown;replayed:unknown;expectedHash:string}):ReplayResult{const h=canonicalHash(input.replayed),failures:string[]=[];if(canonicalHash(input.original)!==h)failures.push("REPLAY_PAYLOAD_MISMATCH");if(h!==input.expectedHash)failures.push("REPLAY_HASH_MISMATCH");return failures.length?{valid:false,state:"REPLAY_BLOCKED",failures,replayHash:null}:{valid:true,state:"REPLAY_VERIFIED",failures:[],replayHash:h};}

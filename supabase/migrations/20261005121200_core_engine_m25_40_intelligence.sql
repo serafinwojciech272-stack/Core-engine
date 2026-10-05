@@ -1,0 +1,16 @@
+create table if not exists public.ce_intelligence_learning_events (id uuid primary key default gen_random_uuid(),tenant_id text not null,request_id text not null,prediction text not null,actual_outcome text,prediction_correct boolean,calibration_delta numeric not null default 0,signal text not null,model_version text not null default 'm25-v1',payload jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(tenant_id,request_id));
+alter table public.ce_intelligence_learning_events enable row level security;
+drop policy if exists "deny anon intelligence learning" on public.ce_intelligence_learning_events;
+drop policy if exists "deny authenticated intelligence learning" on public.ce_intelligence_learning_events;
+create policy "deny anon intelligence learning" on public.ce_intelligence_learning_events for all to anon using(false) with check(false);
+create policy "deny authenticated intelligence learning" on public.ce_intelligence_learning_events for all to authenticated using(false) with check(false);
+revoke all on public.ce_intelligence_learning_events from anon,authenticated;
+create index if not exists ce_intelligence_learning_tenant_created_idx on public.ce_intelligence_learning_events(tenant_id,created_at desc);
+create table if not exists public.ce_intelligence_audit_events (id uuid primary key default gen_random_uuid(),tenant_id text not null,request_id text not null,event_type text not null,event_hash text not null check(event_hash ~ '^[0-9a-f]{64}$'),payload jsonb not null default '{}'::jsonb,created_at timestamptz not null default now());
+alter table public.ce_intelligence_audit_events enable row level security;
+drop policy if exists "deny anon intelligence audit" on public.ce_intelligence_audit_events;
+drop policy if exists "deny authenticated intelligence audit" on public.ce_intelligence_audit_events;
+create policy "deny anon intelligence audit" on public.ce_intelligence_audit_events for all to anon using(false) with check(false);
+create policy "deny authenticated intelligence audit" on public.ce_intelligence_audit_events for all to authenticated using(false) with check(false);
+revoke all on public.ce_intelligence_audit_events from anon,authenticated;
+create index if not exists ce_intelligence_audit_identity_idx on public.ce_intelligence_audit_events(tenant_id,request_id,created_at desc);

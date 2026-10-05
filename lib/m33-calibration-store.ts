@@ -1,0 +1,3 @@
+import type { LearningEvent } from "@/lib/m32-learning-persistence";
+export type CalibrationObservation={predicted:number;actual:number;error:number;createdAt:string};
+export class CalibrationStore{private readonly rows:CalibrationObservation[]=[];add(predicted:number,actual:number){this.rows.push({predicted,actual,error:actual-predicted,createdAt:new Date().toISOString()});}summary(){const n=this.rows.length,mae=n?this.rows.reduce((s,r)=>s+Math.abs(r.error),0)/n:0,bias=n?this.rows.reduce((s,r)=>s+r.error,0)/n:0;return {observations:n,mae,bias,ready:n>=30&&mae<.25};}applyLearningEvent(e:LearningEvent){const predicted=Number(e.prediction),actual=Number(e.actualOutcome);if(Number.isFinite(predicted)&&Number.isFinite(actual))this.add(predicted,actual);}}

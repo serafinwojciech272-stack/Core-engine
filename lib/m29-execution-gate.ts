@@ -1,0 +1,3 @@
+import type { ApprovalGate } from "@/lib/m27-approval-gate";
+export type ExecutionGate={allowed:boolean;state:"EXECUTION_PERMISSION_GRANTED"|"BLOCKED";failures:string[]};
+export function evaluateExecutionGate(input:{approval:ApprovalGate;planMode:"OBSERVATIONAL"|"EXECUTABLE";decisionHash:string;planDecisionHash:string}):ExecutionGate{const failures:string[]=[];if(input.approval.state!=="APPROVED")failures.push("APPROVAL_REQUIRED");if(input.decisionHash!==input.planDecisionHash)failures.push("DECISION_HASH_MISMATCH");return failures.length?{allowed:false,state:"BLOCKED",failures}:{allowed:true,state:"EXECUTION_PERMISSION_GRANTED",failures:[]};}

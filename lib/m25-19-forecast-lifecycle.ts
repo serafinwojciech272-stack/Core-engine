@@ -1,0 +1,4 @@
+export type ForecastState="DRAFT"|"ACTIVE"|"EXPIRED"|"INVALIDATED"|"VERIFIED";
+export type ForecastLifecycle={state:ForecastState;issuedAt:string;expiresAt:string;invalidationCriteria:string[];verifiedAt?:string};
+export function createForecastLifecycle(input:{now?:string;horizonHours:number;invalidationCriteria:string[]}):ForecastLifecycle{const now=input.now?new Date(input.now):new Date();return {state:"ACTIVE",issuedAt:now.toISOString(),expiresAt:new Date(now.getTime()+input.horizonHours*3600000).toISOString(),invalidationCriteria:input.invalidationCriteria};}
+export function transitionForecast(f:ForecastLifecycle,event:"EXPIRE"|"INVALIDATE"|"VERIFY",at=new Date().toISOString()):ForecastLifecycle{if(f.state!=="ACTIVE")return f;if(event==="EXPIRE")return {...f,state:"EXPIRED"};if(event==="INVALIDATE")return {...f,state:"INVALIDATED"};return {...f,state:"VERIFIED",verifiedAt:at};}

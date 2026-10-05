@@ -1,0 +1,4 @@
+import type { CoreEngineDomain } from "@/lib/m25-01-domain-router";
+export type DecisionAction={id:string;domain:CoreEngineDomain;action:string;expectedOutcome:string;preconditions:string[];invalidation:string[];reversible:boolean};
+export type DecisionActionSet={status:"PROPOSED"|"BLOCKED";actions:DecisionAction[];reason?:string};
+export function proposeDecisionActions(input:{domains:CoreEngineDomain[];decision:string;risks:string[]}):DecisionActionSet{if(input.decision!=="ANALYZE"||!input.domains.length)return {status:"BLOCKED",actions:[],reason:"NO_ACTIONABLE_DECISION"};return {status:"PROPOSED",actions:input.domains.map((domain,i)=>({id:`ACTION-${i+1}`,domain,action:`PERFORM_${domain}_ANALYSIS_DECISION`,expectedOutcome:"Evidence-backed decision package",preconditions:["APPROVAL_GRANTED","EVIDENCE_VALID"],invalidation:["EVIDENCE_STALE","MATERIAL_REGIME_CHANGE"],reversible:true}))};}
