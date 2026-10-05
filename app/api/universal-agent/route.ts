@@ -1,4 +1,4 @@
-import { NextResponse } from "@vercel/next";
+import { NextResponse } from "next/server";
 import { buildUniversalAgentPlan, replanUniversalAgent, canUniversalAgentExecute, advanceUniversalAgentStage, approveUniversalAgentPlan } from "@/lib/universal-agent";
 import { guardMutation } from "@/lib/http";
 
