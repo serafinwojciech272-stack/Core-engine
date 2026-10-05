@@ -196,3 +196,21 @@ export function replanUniversalAgent(plan: UniversalAgentPlan, feedback: string[
     integrity
   };
 }
+export function approveUniversalAgentPlan(plan: UniversalAgentPlan): UniversalAgentPlan {
+  if (!plan.objective?.objective) {
+    // Defensive compatibility guard for malformed external payloads.
+    throw new Error("PLAN_INVALID");
+  }
+  const stages = plan.stages.map(stage =>
+    stage.id === 118
+      ? { ...stage, status: "READY" as const, reason: "HUMAN_APPROVAL_GRANTED" }
+      : stage
+  );
+  return {
+    ...plan,
+    status: "EXECUTING",
+    stages,
+    policy: { ...plan.policy, executionAllowed: true, reasons: [...plan.policy.reasons, "Human approval explicitly granted."] },
+    integrity: digest({ previous: plan.integrity, approval: "GRANTED" })
+  };
+}
