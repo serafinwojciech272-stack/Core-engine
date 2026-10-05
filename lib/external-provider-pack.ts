@@ -7,8 +7,17 @@ registerCapabilityPack({
   category: "INTEGRATION",
   inspiredBy: ["GitHub", "Vercel"],
   description: "Governed execution adapters for repository creation, source commits and Vercel deployments.",
-  capabilities: ["github-repository", "github-commit", "vercel-deploy"],
+  capabilities: ["github-repository", "github-commit", "vercel-deploy", "build-and-deploy"],
   actions: [
+    {
+      id: "project.build_and_deploy",
+      name: "Build project and deploy to Vercel",
+      description: "Create a GitHub repository from approved source files and request a Vercel deployment.",
+      risk: "CRITICAL",
+      requiresApproval: true,
+      inputs: ["name", "description", "private", "files", "branch", "framework", "target"],
+      outputs: ["repository", "commitSha", "deploymentId", "deploymentUrl", "state"]
+    },
     {
       id: "github.repository.create",
       name: "Create GitHub repository",
