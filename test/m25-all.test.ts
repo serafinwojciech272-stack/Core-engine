@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {routeCoreEngineDomain} from "../lib/m25-01-domain-router";
+import {getDomainPolicy} from "../lib/m25-02-domain-policy-registry";
+import {buildEvidenceRequirements,assessEvidence} from "../lib/m25-03-evidence-requirements";
+import {buildAnalysisFramework} from "../lib/m25-04-analysis-framework";
+import {buildScenarioSet,validateScenarioSet} from "../lib/m25-05-scenario-engine";
+import {assessConfidence} from "../lib/m25-06-confidence-engine";
+import {synthesizeDecision} from "../lib/m25-07-decision-synthesis";
+import {buildIntelligenceOutput} from "../lib/m25-08-intelligence-output-contract";
+import {bridgeIntelligenceToM24} from "../lib/m25-09-m24-integrity-bridge";
+import {evaluateLearningFeedback} from "../lib/m25-10-learning-feedback";
+
+test("M25.02 returns domain policy",()=>assert.equal(getDomainPolicy("EQUITY").preferredMethods.includes("DCF"),true));
+test("M25.03 creates and assesses requirements",()=>{const req=buildEvidenceRequirements(["EQUITY"]);assert.ok(req.length>0);assert.equal(assessEvidence(["EQUITY"],["ticker/company","financial statements","valuation inputs","market price"]).sufficient,true)});
+test("M25.04 builds combined framework",()=>{const f=buildAnalysisFramework(["EQUITY","FORECASTING"]);assert.ok(f.methods.includes("DCF"));assert.ok(f.methods.includes("Bayesian updating"))});
+test("M25.05 scenarios normalize",()=>{const s=buildScenarioSet({});assert.equal(validateScenarioSet(s),true);assert.equal(s.scenarios.length,3)});
+test("M25.06 confidence penalizes missing evidence",()=>{const c=assessConfidence({evidenceSufficient:false,domainCount:1,dataFresh:false,assumptionCount:5});assert.equal(c.band,"LOW")});
+test("M25.07 blocks insufficient data",()=>{const s=buildScenarioSet({});const c=assessConfidence({evidenceSufficient:false,domainCount:1,dataFresh:false,assumptionCount:0});assert.equal(synthesizeDecision({domains:["EQUITY"],evidenceSufficient:false,scenarios:s,confidence:c,assumptions:[],risks:[]}).decision,"INSUFFICIENT_DATA")});
+test("M25.08 preserves observed/inferred/decided separation",()=>{const r=routeCoreEngineDomain("DCF dla spółki");const f=buildAnalysisFramework(["EQUITY"]);const s=buildScenarioSet({});const c=assessConfidence({evidenceSufficient:true,domainCount:1,dataFresh:true,assumptionCount:1});const d=synthesizeDecision({domains:["EQUITY"],evidenceSufficient:true,scenarios:s,confidence:c,assumptions:["growth"],risks:["valuation"]});const o=buildIntelligenceOutput({route:r,framework:f,decision:d,observed:["price"],inferred:["growth"],decided:["analyze"]});assert.equal(o.observed[0],"price")});
+test("M25.09 blocks non-actionable decision and permits actionable decision",()=>{const s=buildScenarioSet({});const c=assessConfidence({evidenceSufficient:true,domainCount:1,dataFresh:true,assumptionCount:1});const d=synthesizeDecision({domains:["EQUITY"],evidenceSufficient:true,scenarios:s,confidence:c,assumptions:[],risks:[]});const ok=bridgeIntelligenceToM24({tenantId:"t",requestId:"r",decision:d});assert.equal(ok.state,"READY_FOR_M24");assert.equal(ok.allowed,true)});
+test("M25.10 records learning only after outcome",()=>{assert.equal(evaluateLearningFeedback({predicted:"BASE"}).status,"INSUFFICIENT_OUTCOME");assert.equal(evaluateLearningFeedback({predicted:"BASE",outcome:{predictionCorrect:true,actualOutcome:"BASE"}}).status,"LEARNED")});
