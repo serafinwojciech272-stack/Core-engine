@@ -187,3 +187,9 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 .website-hero-preview button{border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:8px 11px;background:rgba(255,255,255,.08);color:#fff;font-size:9px;font-weight:800}
 .website-sections{display:flex;gap:18px;padding:12px 18px;background:#f8f4eb;font-size:9px;font-weight:800;letter-spacing:.1em;color:#425044}
 @media(max-width:700px){.agent-modebar{overflow-x:auto;flex-wrap:nowrap}.agent-modebar button{white-space:nowrap}.website-hero-preview h4{font-size:25px}.website-sections{gap:10px;overflow:auto}}
+
+/* INTERACTION HARDENING */
+.agent-section{scroll-margin-top:92px}
+.composer-send{min-width:112px;width:auto;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:9px;font-weight:800;letter-spacing:.08em}
+.composer-send span{display:inline}
+@media(max-width:600px){.composer-send{min-width:44px;width:44px;padding:0}.composer-send span{display:none}}
