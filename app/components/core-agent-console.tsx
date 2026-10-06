@@ -153,15 +153,7 @@ export default function CoreAgentConsole() {
       })});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Mission action failed.");
-      if (action === "approve" && nextOS) {
-        const executing = await fetch("/api/universal-agent/os", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "transition", run: nextOS, next: "EXECUTING" })
-        });
-        const executingOS = await executing.json();
-        if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
-        nextOS = executingOS.run;
-      } else if (action === "execute" && nextOS && nextOS.state === "AWAITING_APPROVAL") {
+      if (action === "execute" && nextOS && nextOS.state === "AWAITING_APPROVAL") {
         const approval = await fetch("/api/universal-agent/os", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
