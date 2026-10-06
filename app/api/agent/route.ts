@@ -359,8 +359,10 @@ export async function POST(request: Request) {
     if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
     if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
       try { artifact = await executeImageEdit(imageData, task); } catch (error) { artifact = { type: "image", title: "Edycja zdjęcia", status: "FAILED", provider: "image-provider" }; }
-    }\n    if (artifact) {
-      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine wykonał operację i zwrócił artefakt wynikowy." : "Operacja została przygotowana, ale provider wykonawczy nie jest jeszcze skonfigurowany." }, artifact };\n    }
+    }
+    if (artifact) {
+      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine wykonał operację i zwrócił artefakt wynikowy." : "Operacja została przygotowana, ale provider wykonawczy nie jest jeszcze skonfigurowany." }, artifact };
+    }
     return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
