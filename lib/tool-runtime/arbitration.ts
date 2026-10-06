@@ -1,0 +1,2 @@
+import type {ToolContract} from "./contracts";
+export function arbitrateTools(candidates:ToolContract[]){const rank:Record<string,number>={LOW:1,MEDIUM:2,HIGH:3,CRITICAL:4};return [...candidates].sort((a,b)=>rank[a.risk]-rank[b.risk])[0]??null}
