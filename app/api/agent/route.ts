@@ -319,7 +319,14 @@ export async function POST(request: Request) {
     if (task.length > MAX_TASK) return NextResponse.json({ ok: false, error: "TASK_TOO_LONG" }, { status: 400 });
     const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
-    let result = await generateAgentResponse(task, attachments, documentContext, typeof body.imageData === "string" ? body.imageData : "");\n    const imageData = typeof body.imageData === "string" ? body.imageData : "";\n    let artifact: AgentArtifact | undefined;\n    if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);\n    if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {\n      try { artifact = await executeImageEdit(imageData, task); } catch (error) { artifact = { type: "image", title: "Edycja zdjęcia", status: "FAILED", provider: "image-provider" }; }\n    }\n    if (artifact) {\n      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine wykonał operację i zwrócił artefakt wynikowy." : "Operacja została przygotowana, ale provider wykonawczy nie jest jeszcze skonfigurowany." }, artifact };\n    }
+    let result = await generateAgentResponse(task, attachments, documentContext, typeof body.imageData === "string" ? body.imageData : "");
+    const imageData = typeof body.imageData === "string" ? body.imageData : "";
+    let artifact: AgentArtifact | undefined;
+    if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
+    if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
+      try { artifact = await executeImageEdit(imageData, task); } catch (error) { artifact = { type: "image", title: "Edycja zdjęcia", status: "FAILED", provider: "image-provider" }; }
+    }\n    if (artifact) {
+      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine wykonał operację i zwrócił artefakt wynikowy." : "Operacja została przygotowana, ale provider wykonawczy nie jest jeszcze skonfigurowany." }, artifact };\n    }
     return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
