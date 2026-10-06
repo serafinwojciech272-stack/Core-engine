@@ -65,21 +65,79 @@ function classifyTask(task: string) {
 function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
   const [intent, capability, kind] = classifyTask(task);
   const needsAttachment = ["DOCUMENT_ANALYSIS", "IMAGE_TASK"].includes(intent) && attachments.length === 0;
-  const plan = needsAttachment
-    ? ["Uzupełnij wymagany plik lub materiał wejściowy", "Zweryfikuję format, zakres i kompletność danych", "Przygotuję analizę oraz wynik do akceptacji"]
-    : intent === "WEB_BUILD"
-      ? ["Zdefiniuję cel, odbiorcę, strukturę i wymagania strony", "Przygotuję architekturę, UX/UI, treść i plan implementacji", "Zbuduję wersję roboczą i przeprowadzę kontrolę jakości", "Przedstawię rezultat przed publikacją lub wdrożeniem"]
-      : intent === "APP_BUILD"
-        ? ["Rozbiję wymagania na funkcje, dane i interfejs", "Zaprojektuję architekturę oraz plan implementacji", "Zbuduję MVP i wykonam testy", "Przedstawię gotowy rezultat do akceptacji"]
-        : intent === "DOCUMENT_ANALYSIS"
-          ? ["Odczytam i uporządkuję dane z załączonego materiału", "Wykryję kluczowe fakty, ryzyka, anomalie i zależności", "Przygotuję syntetyczny raport oraz rekomendacje"]
-          : intent === "IMAGE_TASK"
-            ? ["Zweryfikuję materiał i oczekiwany efekt", "Dobiorę operacje edycji zgodne z celem", "Przygotuję wersję wynikową do akceptacji"]
-            : ["Zrozumiem cel i kryterium sukcesu", "Dobiorę odpowiednie capability oraz źródła", "Przygotuję plan działania i kryteria weryfikacji", "Wykonanie efektu zewnętrznego pozostawię za bramką akceptacji"];
-  const reply = needsAttachment
-    ? "Rozumiem zadanie: " + task + ". Do tego typu pracy potrzebuję materiału wejściowego. Dodaj plik, a Core Engine przejdzie do analizy."
-    : "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw przygotuję kontrolowany plan, a wykonanie działania powodującego efekt zewnętrzny wymaga Twojej akceptacji.";
-  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability };
+
+  let plan: string[];
+  let reply: string;
+
+  if (needsAttachment) {
+    plan = [
+      "Uzupełnij wymagany materiał wejściowy i określ kryterium sukcesu",
+      "Zweryfikuję format, zakres, kompletność oraz jakość danych",
+      "Przeprowadzę analizę i oddzielę fakty od wniosków",
+      "Przygotuję wynik, ryzyka i rekomendacje do akceptacji"
+    ];
+    reply = "Rozumiem zadanie: " + task + ". Do tego typu pracy potrzebuję materiału wejściowego. Dodaj plik, a Core Engine przejdzie od razu do analizy.";
+  } else if (intent === "OPERATIONS_PLAN" && /(marketing|market|kampani|promoc|sprzedaż|90 dni|90-dni)/i.test(task)) {
+    plan = [
+      "DNI 1–14 · DIAGNOZA I POZYCJONOWANIE — zdefiniuję ICP, ofertę główną, przewagę, persony i 3–5 hipotez wzrostu; ustawię baseline: ruch, leady, konwersja, CAC i przychód.",
+      "DNI 15–30 · FUNDAMENT — dopracuję komunikat, landing page/ofertę, CTA, tracking i lejek; uruchomię pierwsze testy treści oraz źródeł leadów.",
+      "DNI 31–60 · AKWIZYCJA — prowadzę równolegle 2–3 kanały o najwyższym potencjale (np. Google/SEO, social/content, outbound/partnerstwa), z tygodniowym testem kreacji, oferty i CTA.",
+      "DNI 61–75 · OPTYMALIZACJA — odcinam kanały poniżej progu opłacalności, zwiększam budżet na zwycięskie segmenty i poprawiam konwersję na każdym etapie lejka.",
+      "DNI 76–90 · SKALOWANIE — utrwalam zwycięskie kampanie, automatyzuję follow-up, buduję plan retencji i przygotowuję dashboard KPI oraz backlog testów na kolejne 90 dni."
+    ];
+    reply = "Core Engine przygotował konkretny 90-dniowy plan marketingowy. Priorytetem jest najpierw ustalenie ICP i baseline, potem szybkie testy kanałów, następnie optymalizacja ekonomiki pozyskania i dopiero na końcu skalowanie. KPI kontrolne: liczba kwalifikowanych leadów, konwersja, CAC, wartość sprzedaży, koszt kanału i udział powracających klientów. Nie deklaruję wykonania kampanii — wykonanie działań zewnętrznych pozostaje za bramką akceptacji.";
+  } else if (intent === "WEB_BUILD") {
+    plan = [
+      "Zdefiniuję cel biznesowy, odbiorcę, ofertę i główną konwersję",
+      "Zaprojektuję strukturę informacji, UX, sekcje, CTA oraz wymagania SEO",
+      "Przygotuję treść i komponenty wersji roboczej",
+      "Wykonam kontrolę responsywności, dostępności i jakości przed publikacją"
+    ];
+    reply = "Zadanie zaklasyfikowane jako BUILD. Wynikiem będzie specyfikacja strony, struktura UX/UI, treść, komponenty i lista testów. Publikacja lub zmiana zewnętrznego systemu wymaga Twojej akceptacji.";
+  } else if (intent === "APP_BUILD") {
+    plan = [
+      "Rozbiję cel na użytkowników, przypadki użycia i kryteria akceptacji",
+      "Zaprojektuję model danych, API, interfejs i architekturę MVP",
+      "Zbuduję najkrótszy działający przepływ end-to-end",
+      "Uruchomię testy funkcjonalne, bezpieczeństwa i regresji"
+    ];
+    reply = "Zadanie zaklasyfikowane jako APP BUILD. Core Engine przygotuje MVP wokół mierzalnego przypadku użycia, zamiast generować sam opis aplikacji. Wdrożenie pozostaje kontrolowane przez approval gate.";
+  } else if (intent === "RESEARCH") {
+    plan = [
+      "Zdefiniuję pytanie badawcze, zakres i kryteria wiarygodności źródeł",
+      "Zbiorę i uporządkuję dane oraz oddzielę fakty od interpretacji",
+      "Porównam opcje, konkurencję, ryzyka i luki informacyjne",
+      "Przygotuję rekomendację z dowodami, confidence i kolejnymi krokami"
+    ];
+    reply = "Zadanie zaklasyfikowane jako RESEARCH. Wynikiem ma być decyzja oparta na źródłach, a nie ogólny tekst: fakty, porównanie, ryzyka, niepewności i rekomendacja.";
+  } else if (intent === "DOCUMENT_ANALYSIS") {
+    plan = [
+      "Odczytam i uporządkuję zawartość załączonego materiału",
+      "Wyodrębnię kluczowe fakty, liczby, anomalie, ryzyka i zależności",
+      "Porównam ustalenia z celem analizy i wskażę luki w danych",
+      "Przygotuję raport: najważniejsze ustalenia → wpływ → rekomendowane działania"
+    ];
+    reply = "Materiał wejściowy został przyjęty. Core Engine nie będzie udawał analizy bez danych: najpierw ekstrakcja i walidacja, potem ustalenia, ryzyka i rekomendacje.";
+  } else {
+    plan = [
+      "Zrozumiem cel, ograniczenia i mierzalne kryterium sukcesu",
+      "Dobiorę capability, narzędzia i źródła odpowiednie do problemu",
+      "Zbuduję konkretny plan z warunkami weryfikacji i przewidywanym wynikiem",
+      "Przedstawię rezultat przed każdym działaniem powodującym efekt zewnętrzny"
+    ];
+    reply = "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw powstaje konkretny plan i kryterium sukcesu; efekt zewnętrzny pozostaje za bramką akceptacji.";
+  }
+
+  return {
+    reply,
+    intent,
+    confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.95,
+    plan,
+    requiresApproval: !needsAttachment,
+    execution: "HUMAN_APPROVAL_REQUIRED",
+    needsAttachment,
+    capability
+  };
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "") {
