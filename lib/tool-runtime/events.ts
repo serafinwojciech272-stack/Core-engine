@@ -1,0 +1,3 @@
+import type {ToolInvocation,ToolEvent} from "./contracts";
+export function invocationEvent(i:ToolInvocation):ToolEvent{return {type:"INVOCATION",tenantId:i.request.tenantId,missionId:i.request.missionId,invocationId:i.invocationId,payload:{toolId:i.request.toolId,status:i.status}}}
+export function outcomeEvent(i:ToolInvocation,payload:Record<string,unknown>):ToolEvent{return {type:"OUTCOME",tenantId:i.request.tenantId,missionId:i.request.missionId,invocationId:i.invocationId,payload}}

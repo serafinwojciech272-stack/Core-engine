@@ -1,0 +1,1 @@
+import type {ToolAdapter} from "../executor"; export type ResourceAdapters={files:ToolAdapter;database:ToolAdapter;api:ToolAdapter;external:ToolAdapter}; export const resourceAdapter=(kind:keyof ResourceAdapters,adapters:ResourceAdapters):ToolAdapter=>adapters[kind]

@@ -1,0 +1,1 @@
+import type {ToolAdapter} from "../executor"; export const browserAdapter=(handler:ToolAdapter):ToolAdapter=>handler
