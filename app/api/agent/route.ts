@@ -53,11 +53,11 @@ const MAX_TASK = 12000;
 
 function classifyTask(task: string) {
   const t = task.toLowerCase();
-  if (/(pdf|xls|xlsx|doc|docx|csv|plik|dokument|dane|analizuj|analiza|tabela)/.test(t)) return ["DOCUMENT_ANALYSIS", "Document Intelligence", "ANALYSIS"];
-  if (/(fotograf|zdję|obraz|image|png|jpg|jpeg|retusz|popraw)/.test(t)) return ["IMAGE_TASK", "Creative / Image Capability", "CREATIVE"];
   if (/(stronę|strona www|website|landing|witryn)/.test(t)) return ["WEB_BUILD", "Web Build", "BUILD"];
   if (/(aplikac|app|system|program|dashboard|narzędzi)/.test(t)) return ["APP_BUILD", "Application Build", "BUILD"];
-  if (/(research|zbadaj|wyszukaj|sprawdź|konkurenc|rynek|ofert)/.test(t)) return ["RESEARCH", "Research & Web Intelligence", "RESEARCH"];
+  if (/(research|zbadaj|wyszukaj|sprawdź|konkurenc|rynek|konkurent|benchmark|ofert)/.test(t)) return ["RESEARCH", "Research & Web Intelligence", "RESEARCH"];
+  if (/(pdf|xls|xlsx|doc|docx|csv|plik|dokument|tabela|załącznik)/.test(t)) return ["DOCUMENT_ANALYSIS", "Document Intelligence", "ANALYSIS"];
+  if (/(fotograf|zdję|obraz|image|png|jpg|jpeg|retusz|popraw)/.test(t)) return ["IMAGE_TASK", "Creative / Image Capability", "CREATIVE"];
   if (/(plan|strateg|marketing|sprzedaż|proces|workflow|automatyz)/.test(t)) return ["OPERATIONS_PLAN", "Operations & Growth", "OPERATIONS"];
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
 }
@@ -128,16 +128,20 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
     reply = "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw powstaje konkretny plan i kryterium sukcesu; efekt zewnętrzny pozostaje za bramką akceptacji.";
   }
 
-  return {
-    reply,
-    intent,
-    confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.95,
-    plan,
-    requiresApproval: !needsAttachment,
-    execution: "HUMAN_APPROVAL_REQUIRED",
-    needsAttachment,
-    capability
-  };
+  const objective = task.trim();
+  const deliverables = intent === "OPERATIONS_PLAN" && /(marketing|market|kampani|90 dni|90-dni)/i.test(task)
+    ? ["90-dniowy plan etapowy", "priorytetowe kanały i eksperymenty", "KPI i punkty kontroli tygodniowej", "backlog działań na kolejne 90 dni"]
+    : intent === "DOCUMENT_ANALYSIS"
+      ? ["ekstrakt treści", "ustalenia i anomalie", "ryzyka i luki danych", "rekomendacje"]
+      : intent === "RESEARCH"
+        ? ["zestawienie faktów i źródeł", "porównanie opcji", "ryzyka i niepewności", "rekomendacja"]
+        : ["konkretny plan wykonania", "kryteria akceptacji", "wynik do weryfikacji"];
+  const assumptions = needsAttachment ? ["Materiał wejściowy nie został jeszcze dostarczony."] : ["Brak danych biznesowych poza treścią zadania; wartości wymagające danych użytkownika zostaną oznaczone jako założenia."];
+  const kpis = intent === "OPERATIONS_PLAN" && /(marketing|market|kampani|90 dni|90-dni)/i.test(task)
+    ? ["kwalifikowane leady", "conversion rate", "CAC", "wartość sprzedaży", "koszt kanału", "udział klientów powracających"]
+    : ["czas realizacji", "kompletność wyniku", "zgodność z kryteriami akceptacji"];
+  const risks = needsAttachment ? ["brak materiału źródłowego"] : ["niepełny kontekst biznesowy", "ryzyko błędnych założeń bez danych źródłowych"];
+  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.95, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, objective, deliverables, assumptions, kpis, risks, nextAction: needsAttachment ? "Dodaj wymagany materiał wejściowy." : "Przejrzyj plan i utwórz Mission po akceptacji." };
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "") {
@@ -150,7 +154,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
   try {
     const prompt = [
       "You are Core Engine AI, a universal task-planning agent.",
-      "Return ONLY valid JSON with keys: reply, intent, confidence, plan, requiresApproval, execution, capability, needsAttachment.",
+      "Return ONLY valid JSON with keys: reply, intent, confidence, plan, requiresApproval, execution, capability, needsAttachment, objective, deliverables, assumptions, kpis, risks, nextAction.",
       "Never claim an external side effect has already happened. Never invent attached file contents.",
       "execution must be HUMAN_APPROVAL_REQUIRED or SIMULATION_ONLY. Plan must contain 2-5 concrete stages.",
       "Task classes: BUILD, ANALYSIS, CREATIVE, RESEARCH, OPERATIONS, INTELLIGENCE.",
@@ -170,13 +174,19 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     if (typeof content !== "string") return fallbackAgent(task, attachments, documentContext);
     const parsed = JSON.parse(content.replace(/^\x60\x60\x60json\s*/i, "").replace(/\s*\x60\x60\x60$/, ""));
     if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
-    return { reply: String(parsed.reply), intent: String(parsed.intent || "GENERAL_AGENT"), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: Boolean(parsed.needsAttachment) };
+    const fallback = fallbackAgent(task, attachments, documentContext);
+    return { ...fallback, reply: String(parsed.reply), intent: String(parsed.intent || fallback.intent), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || fallback.confidence)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || fallback.capability), needsAttachment: Boolean(parsed.needsAttachment), objective: String(parsed.objective || fallback.objective), deliverables: Array.isArray(parsed.deliverables) ? parsed.deliverables.map(String).slice(0, 8) : fallback.deliverables, assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions.map(String).slice(0, 8) : fallback.assumptions, kpis: Array.isArray(parsed.kpis) ? parsed.kpis.map(String).slice(0, 10) : fallback.kpis, risks: Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 8) : fallback.risks, nextAction: String(parsed.nextAction || fallback.nextAction) };
   } catch {
     return fallbackAgent(task, attachments);
   } finally { clearTimeout(timeout); }
 }
 
 export async function POST(request: Request) {
+  const guard = guardMutation(request, "agent");
+  if (guard) return guard;
+  const ip = (request.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+  const rl = rateLimit("agent:" + ip);
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "RATE_LIMITED" }, { status: 429 });
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > 64000) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
