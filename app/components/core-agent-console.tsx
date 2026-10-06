@@ -20,7 +20,18 @@ type AgentResponse = {
   successCriteria?: string[];
 };
 
-const modes = [\n  { id: "BUILD", label: "Build a website", icon: Globe2, prompt: "Create a website for an Italian restaurant in Gliwice. Use a premium dark green, cream and warm gold palette, elegant typography, menu, reservations and contact sections." },\n  { id: "APP", label: "Build an app", icon: Target, prompt: "Build an app for managing restaurant reservations with dashboard, calendar, customer records and daily KPIs." },\n  { id: "DATA", label: "Data visualization", icon: BarChart3, prompt: "Create a data visualization dashboard from this dataset with KPI cards, trends, anomalies and an executive summary." },\n  { id: "FILE", label: "Transform a file", icon: FileText, prompt: "Transform this file into a clean, professional report with structured tables and an executive summary." },\n  { id: "IMAGE", label: "Create image", icon: ImageIcon, prompt: "Create a premium hero image for an Italian restaurant in Gliwice, cinematic editorial style, warm evening atmosphere." },\n  { id: "EDIT", label: "Change image", icon: Wand2, prompt: "Change this image into a premium editorial version while preserving the main subject and composition." },\n  { id: "VIDEO", label: "Image to video", icon: Video, prompt: "Turn this image into a short cinematic promotional video concept with subtle camera movement and atmospheric motion." },\n  { id: "RESEARCH", label: "Research", icon: Sparkles, prompt: "Research the Italian restaurant market in Gliwice and prepare a competitive positioning brief." }\n];\n\nconst examples = [
+const modes = [
+  { id: "BUILD", label: "Build a website", icon: Globe2, prompt: "Create a website for an Italian restaurant in Gliwice. Use a premium dark green, cream and warm gold palette, elegant typography, menu, reservations and contact sections." },
+  { id: "APP", label: "Build an app", icon: Target, prompt: "Build an app for managing restaurant reservations with dashboard, calendar, customer records and daily KPIs." },
+  { id: "DATA", label: "Data visualization", icon: BarChart3, prompt: "Create a data visualization dashboard from this dataset with KPI cards, trends, anomalies and an executive summary." },
+  { id: "FILE", label: "Transform a file", icon: FileText, prompt: "Transform this file into a clean, professional report with structured tables and an executive summary." },
+  { id: "IMAGE", label: "Create image", icon: ImageIcon, prompt: "Create a premium hero image for an Italian restaurant in Gliwice, cinematic editorial style, warm evening atmosphere." },
+  { id: "EDIT", label: "Change image", icon: Wand2, prompt: "Change this image into a premium editorial version while preserving the main subject and composition." },
+  { id: "VIDEO", label: "Image to video", icon: Video, prompt: "Turn this image into a short cinematic promotional video concept with subtle camera movement and atmospheric motion." },
+  { id: "RESEARCH", label: "Research", icon: Sparkles, prompt: "Research the Italian restaurant market in Gliwice and prepare a competitive positioning brief." }
+];
+
+const examples = [
   "Utwórz stronę WWW dla mojego biznesu",
   "Zbuduj aplikację do zarządzania ofertami",
   "Przeanalizuj ten PDF i znajdź najważniejsze ryzyka",
@@ -34,7 +45,12 @@ const modes = [\n  { id: "BUILD", label: "Build a website", icon: Globe2, prompt
 
 function PlusIcon() { return <span style={{fontSize:"12px"}}>+</span>; }
 
-function extractWebsiteTitle(task: string) {\n  const match = task.match(/(?:for|dla)\\s+(?:a|an|the|restauracji|restaurację)?\\s*([^.,]+?)(?:\\s+(?:located|znajduj|w\\s+Gliwicach)|\\.|$)/i);\n  return match?.[1]?.trim() || "Italian Restaurant";\n}\n\nfunction formatSize(bytes: number) {
+function extractWebsiteTitle(task: string) {
+  const match = task.match(/(?:for|dla)\\s+(?:a|an|the|restauracji|restaurację)?\\s*([^.,]+?)(?:\\s+(?:located|znajduj|w\\s+Gliwicach)|\\.|$)/i);
+  return match?.[1]?.trim() || "Italian Restaurant";
+}
+
+function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
   return (bytes / 1024 / 1024).toFixed(1) + " MB";
 }
@@ -49,7 +65,8 @@ export default function CoreAgentConsole() {
   const [missionBusy, setMissionBusy] = useState(false);
   const [documentContext, setDocumentContext] = useState("");
   const [activeStage, setActiveStage] = useState(1);
-  const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);\n  const [selectedMode, setSelectedMode] = useState("BUILD");
+  const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);
+  const [selectedMode, setSelectedMode] = useState("BUILD");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
@@ -143,7 +160,14 @@ export default function CoreAgentConsole() {
     finally { setMissionBusy(false); }
   }
 
-  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setActiveStage(1); }\n\n  function chooseMode(mode: typeof modes[number]) {\n    setSelectedMode(mode.id);\n    setTask(mode.prompt);\n    setError("");\n    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(".agent-composer textarea")?.focus());\n  }
+  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setActiveStage(1); }
+
+  function chooseMode(mode: typeof modes[number]) {
+    setSelectedMode(mode.id);
+    setTask(mode.prompt);
+    setError("");
+    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(".agent-composer textarea")?.focus());
+  }
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -171,14 +195,18 @@ export default function CoreAgentConsole() {
               <span><i/> READY</span>
             </div>
 
-            <div className="agent-modebar" aria-label="Choose what Core Engine should create or do">\n              {modes.map((mode) => { const Icon = mode.icon; return <button key={mode.id} type="button" className={selectedMode === mode.id ? "selected" : ""} onClick={() => chooseMode(mode)}><Icon size={14}/><span>{mode.label}</span></button>; })}\n            </div>\n            <div className="agent-stagebar" aria-label="Core Engine demo stages">
+            <div className="agent-modebar" aria-label="Choose what Core Engine should create or do">
+              {modes.map((mode) => { const Icon = mode.icon; return <button key={mode.id} type="button" className={selectedMode === mode.id ? "selected" : ""} onClick={() => chooseMode(mode)}><Icon size={14}/><span>{mode.label}</span></button>; })}
+            </div>
+            <div className="agent-stagebar" aria-label="Core Engine demo stages">
               {[
                 ["01","INPUT"],["02","UNDERSTAND"],["03","ROUTE"],["04","PLAN"],["05","EVIDENCE"],["06","RISK"],["07","APPROVAL"],["08","OUTCOME"]
               ].map(([n,label], i) => <div key={n} className={activeStage >= i + 1 ? "active" : ""}><b>{n}</b><span>{label}</span></div>)}
             </div>
             <div className="agent-messages" aria-live="polite">
               {messages.length === 0 ? (
-                <div className="agent-empty">\n                  <div className="agent-empty-label">ONE COMMAND. ANY TASK.</div>
+                <div className="agent-empty">
+                  <div className="agent-empty-label">ONE COMMAND. ANY TASK.</div>
                   <Sparkles size={22}/>
                   <strong>Jakie jest Twoje zadanie?</strong>
                   <p>Możesz napisać je normalnym językiem. Nie musisz znać komend ani struktury Core Engine.</p>
@@ -215,7 +243,11 @@ export default function CoreAgentConsole() {
                     <div><small>EVIDENCE</small>{(lastResponse.evidence || []).map(x => <span key={x.label}><b>{x.status}</b>{x.label}: {x.value}</span>)}</div>
                   </div>
                   <div className="success-criteria"><small>VERIFICATION CONTRACT</small>{(lastResponse.successCriteria || []).map((x,i) => <span key={x}><b>{i+1}</b>{x}</span>)}</div>
-                  {lastResponse.intent === "WEB_BUILD" && <div className="website-preview">\n                    <div className="website-preview-top"><span>LIVE DEMO ARTIFACT</span><b>WEBSITE CONCEPT</b></div>\n                    <div className="website-browser"><div className="website-browserbar"><i/><i/><i/><span>core-engine.demo / restaurant</span></div><div className="website-hero-preview"><small>GLIWICE · ITALIAN CUISINE</small><h4>{extractWebsiteTitle(lastResponse.evidence?.[0]?.value || "")}</h4><p>Authentic Italian dining, designed around your brief.</p><div><button type="button">VIEW MENU</button><button type="button">RESERVE A TABLE</button></div></div><div className="website-sections"><span>MENU</span><span>ABOUT</span><span>RESERVATIONS</span><span>CONTACT</span></div></div>\n                  </div>}\n                  <div className="result-note"><AlertTriangle size={12}/>{lastResponse.preview.disclaimer}</div>
+                  {lastResponse.intent === "WEB_BUILD" && <div className="website-preview">
+                    <div className="website-preview-top"><span>LIVE DEMO ARTIFACT</span><b>WEBSITE CONCEPT</b></div>
+                    <div className="website-browser"><div className="website-browserbar"><i/><i/><i/><span>core-engine.demo / restaurant</span></div><div className="website-hero-preview"><small>GLIWICE · ITALIAN CUISINE</small><h4>{extractWebsiteTitle(lastResponse.evidence?.[0]?.value || "")}</h4><p>Authentic Italian dining, designed around your brief.</p><div><button type="button">VIEW MENU</button><button type="button">RESERVE A TABLE</button></div></div><div className="website-sections"><span>MENU</span><span>ABOUT</span><span>RESERVATIONS</span><span>CONTACT</span></div></div>
+                  </div>}
+                  <div className="result-note"><AlertTriangle size={12}/>{lastResponse.preview.disclaimer}</div>
                 </div>
               )}
             {mission && <div className="agent-mission-panel">
