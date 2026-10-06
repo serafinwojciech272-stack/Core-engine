@@ -1,0 +1,1 @@
+import type {SkillVersion} from "./contracts"; export function chooseSkillVersion(versions:SkillVersion[],certified:string[]):SkillVersion|null{return versions.filter(v=>v.status==="CANDIDATE"&&certified.includes(v.version)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]||versions.find(v=>v.status==="ACTIVE")||null;}

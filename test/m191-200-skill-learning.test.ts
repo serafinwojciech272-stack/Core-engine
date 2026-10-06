@@ -1,0 +1,12 @@
+import test from "node:test";import assert from "node:assert/strict";import {aggregateSkillPerformance,predictSkill,rankSkills,evaluateCandidates,detectSkillRegression,chooseSkillVersion,SkillRegistry,selectSkill} from "../lib/skill-learning";import {toSkillManifestV2} from "../lib/skill-intelligence";
+const manifest=(id:string,rel=.9)=>toSkillManifestV2({id,version:"1",name:id,description:id,domains:["agent"],capabilities:["OBSERVE"],risk:"LOW",inputSchema:{required:[],properties:{}},outputSchema:{required:[],properties:{}},preconditions:[],postconditions:[],dependencies:[],tags:["agent"]},{publisher:"core-engine",trust:"VERIFIED",evidence:[],cost:{latencyMs:100,credits:2},reliability:rel});
+const runs=(id:string,outcome:"SUCCESS"|"FAILED",n:number)=>Array.from({length:n},(_,i)=>({runId:id+"-"+i,skillId:id,version:"1",outcome,latencyMs:100,credits:2,verified:outcome==="SUCCESS",timestamp:"2026-10-06T00:00:00Z"} as const));
+test("M191 performance memory",()=>assert.equal(aggregateSkillPerformance("a",runs("a","SUCCESS",4)).successRate,1));
+test("M192 predictor",()=>assert.equal(predictSkill(manifest("a"),aggregateSkillPerformance("a",runs("a","SUCCESS",10))).successProbability,1));
+test("M193 optimizer",()=>assert.equal(rankSkills([manifest("a",.9),manifest("b",.5)])[0].skillId,"a"));
+test("M194 evidence-backed evaluation",()=>assert.equal(evaluateCandidates(runs("a","SUCCESS",5),5).winner,"a"));
+test("M195 regression",()=>assert.equal(detectSkillRegression(runs("a","SUCCESS",10),runs("a","FAILED",10)).regression,true));
+test("M196 versioning",()=>assert.equal(chooseSkillVersion([{skillId:"a",version:"1",status:"ACTIVE",createdAt:"2026-01-01"},{skillId:"a",version:"2",status:"CANDIDATE",createdAt:"2026-10-01"}],["2"])?.version,"2"));
+test("M198 registry gate",()=>{const r=new SkillRegistry();assert.throws(()=>r.register({manifest:manifest("a"),enabled:true,certified:false,updatedAt:"now"}));});
+test("M199 risk-aware selection",()=>assert.equal(selectSkill([manifest("a")]).requiresApproval,false));
+test("M200 control-plane selection",()=>assert.equal(selectSkill([manifest("a"),manifest("b",.5)]).selected?.skillId,"a"));

@@ -1,0 +1,2 @@
+import type {ToolEvent} from "./contracts"; import type {ToolOutcome} from "./outcome";
+export function learningEvent(outcome:ToolOutcome):ToolEvent{return {type:"LEARNING",tenantId:"derived",missionId:"derived",invocationId:outcome.invocationId,payload:{status:outcome.status,verified:outcome.verified,reason:outcome.reason}}}

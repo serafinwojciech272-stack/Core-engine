@@ -10,6 +10,7 @@ const pipeline=["SOURCE DATA","CONTRACT","SERVICE EVENT","BILLING","VALIDATION",
 export default function FccErpPage(){
  const[d,setD]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(false);
  async function load(){setLoading(true);setError(false);try{const response=await fetch("/api/fcc-erp/command-center",{cache:"no-store"});if(!response.ok)throw new Error("command-center");setD(await response.json())}catch{setError(true)}finally{setLoading(false)}}
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{void load()},[]);
  const source=d?.source==="live"?"LIVE DATA":"CONTROL MODE";
  return <main className="erp-shell">
