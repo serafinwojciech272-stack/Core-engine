@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       let text = "";
       let metadata: Record<string, unknown> = {};
       if (file.type.startsWith("image/") || ["png","jpg","jpeg","webp"].includes(extension)) {
-        metadata = { mediaType: "image", width: null, height: null, editable: true };
+        metadata = { mediaType: "image", width: null, height: null, editable: true, dataUrl: "data:" + (file.type || "image/png") + ";base64," + buffer.toString("base64") };
       } else {
         try {
           const ast = await OfficeParser.parseOffice(buffer);
