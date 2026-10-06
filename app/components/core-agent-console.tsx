@@ -85,14 +85,16 @@ export default function CoreAgentConsole() {
     setMessages((m) => [...m, { role: "user", text: value }]);
     setTask("");
     try {
-      let parsedContext = "";\n      let imageData = "";
+      let parsedContext = "";
+      let imageData = "";
       if (attachments.length) {
         const form = new FormData();
         attachments.forEach((item) => form.append("file", item.file, item.name));
         const fileResponse = await fetch("/api/agent/file", { method: "POST", body: form });
         const fileData = await fileResponse.json();
         if (!fileResponse.ok) throw new Error(fileData.error || "Nie udało się przeanalizować pliku.");
-        imageData = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).find(Boolean) || "";\n        parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
+        imageData = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).find(Boolean) || "";
+        parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
           "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify(item.metadata) + "\nEXTRACTED TEXT:\n" + item.extractedText
         ).join("\n\n");
         setDocumentContext(parsedContext);
