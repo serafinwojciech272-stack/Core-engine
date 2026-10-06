@@ -193,3 +193,5 @@ footer{border-top:1px solid rgba(255,255,255,.025)}
 .composer-send{min-width:112px;width:auto;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:9px;font-weight:800;letter-spacing:.08em}
 .composer-send span{display:inline}
 @media(max-width:600px){.composer-send{min-width:44px;width:44px;padding:0}.composer-send span{display:none}}
+
+.agent-live-status{margin:8px 18px 0;min-height:32px;border:1px solid #30283b;border-radius:8px;background:#0c0a10;display:flex;align-items:center;gap:8px;padding:0 11px;color:#a9a3b0;font:8px ui-monospace,monospace;letter-spacing:.1em}.agent-live-status span{display:grid;place-items:center;color:#a980ff}.agent-live-status.done{border-color:#2b3b34}.agent-live-status.done span{color:#34d399}.agent-live-status strong{font-weight:700}.agent-live-status.working strong{color:#c8bdd8}
