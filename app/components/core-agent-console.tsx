@@ -4,7 +4,7 @@ import { FormEvent, useRef, useState } from "react";
 import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
 
 type Attachment = { name: string; type: string; size: number; file: File };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: { runId:string; state:string; approvalId:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string }; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -21,6 +21,8 @@ type AgentResponse = {
   kpis?: string[];
   risks?: string[];
   nextAction?: string;
+  agentRunId?: string;
+  osRun?: AgentMessage["osRun"];
 };
 
 const examples = [
@@ -91,6 +93,8 @@ export default function CoreAgentConsole() {
         kpis: data.kpis,
         risks: data.risks,
         nextAction: data.nextAction,
+        agentRunId: data.agentRunId,
+        osRun: data.osRun,
       }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd agenta.");
@@ -99,7 +103,7 @@ export default function CoreAgentConsole() {
     }
   }
 
-  async function createMission(messageIndex: number, intent: string | undefined, text: string) {
+  async function createMission(messageIndex: number, intent: string | undefined, text: string, osRun: AgentMessage["osRun"]) {
     if (missionBusy || mission) return;
     setMissionBusy(true); setError("");
     try {
@@ -123,7 +127,7 @@ export default function CoreAgentConsole() {
         });
         capabilityActionId = preferred?.id;
       } catch {}
-      const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId };
+      const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, osRun };
       setMission(m);
       setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
@@ -134,12 +138,45 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
+      let nextOS = mission.osRun;
+      if (action === "approve" && nextOS) {
+        const approval = await fetch("/api/universal-agent/os", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
+        });
+        const approvedOS = await approval.json();
+        if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
+        nextOS = approvedOS.run;
+      }
       const response = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
         id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
       })});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Mission action failed.");
-      setMission((m) => m ? { ...m, state: data.mission?.state || m.state } : m);
+      if (action === "approve" && nextOS) {
+        const executing = await fetch("/api/universal-agent/os", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "transition", run: nextOS, next: "EXECUTING" })
+        });
+        const executingOS = await executing.json();
+        if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
+        nextOS = executingOS.run;
+      } else if (action === "execute" && nextOS && nextOS.state === "AWAITING_APPROVAL") {
+        const approval = await fetch("/api/universal-agent/os", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
+        });
+        const approvedOS = await approval.json();
+        if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
+        const executing = await fetch("/api/universal-agent/os", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "transition", run: approvedOS.run, next: "EXECUTING" })
+        });
+        const executingOS = await executing.json();
+        if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
+        nextOS = executingOS.run;
+      }
+      setMission((m) => m ? { ...m, state: data.mission?.state || m.state, osRun: nextOS } : m);
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
     finally { setMissionBusy(false); }
   }
@@ -193,7 +230,7 @@ export default function CoreAgentConsole() {
                     {message.risks?.length ? <div className="agent-result-block"><span>RISKS / UNCERTAINTY</span>{message.risks.map((item) => <div key={item}>• {item}</div>)}</div> : null}
                     {message.assumptions?.length ? <div className="agent-result-block"><span>ASSUMPTIONS</span>{message.assumptions.map((item) => <div key={item}>• {item}</div>)}</div> : null}
                     {message.nextAction ? <div className="agent-next-action"><strong>NEXT ACTION</strong><span>{message.nextAction}</span></div> : null}
-                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
+                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text, message.osRun)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
                   </div>}
                 </div>
               ))}
@@ -201,7 +238,7 @@ export default function CoreAgentConsole() {
             </div>
 
             {mission && <div className="agent-mission-panel">
-              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state}</small></div>
+              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state} · OS {mission.osRun?.state || "UNLINKED"}</small></div>
               {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
               {mission.state === "APPROVED" && <button onClick={() => missionAction("execute")} disabled={missionBusy}><Play size={13}/> EXECUTE</button>}
               {mission.state !== "AWAITING_APPROVAL" && mission.state !== "APPROVED" && <b className="mission-state">{mission.state}</b>}
