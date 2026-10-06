@@ -14,7 +14,6 @@ export const AGENT_LOOP = [
 ] as const;
 
 export type AgentLoopStage = typeof AGENT_LOOP[number];
-
 export type AgentAutonomyMode = "HUMAN_APPROVED";
 
 export type AgentManifest = {
@@ -22,7 +21,7 @@ export type AgentManifest = {
   name: "Core Engine Business Agent";
   contract: typeof AGENT_CONTRACT_VERSION;
   autonomy: AgentAutonomyMode;
-  sideEffects: "SIMULATION_ONLY";
+  sideEffects: "SIMULATION_ONLY" | "GOVERNED_APPROVED";
   durableState: "SUPABASE_REQUIRED_FOR_PRODUCTION";
   loop: readonly AgentLoopStage[];
   missionStates: readonly MissionState[];
@@ -35,7 +34,7 @@ export function getAgentManifest(): AgentManifest {
     name: "Core Engine Business Agent",
     contract: AGENT_CONTRACT_VERSION,
     autonomy: "HUMAN_APPROVED",
-    sideEffects: "SIMULATION_ONLY",
+    sideEffects: "GOVERNED_APPROVED",
     durableState: "SUPABASE_REQUIRED_FOR_PRODUCTION",
     loop: AGENT_LOOP,
     missionStates: [
@@ -64,7 +63,14 @@ export function getAgentManifest(): AgentManifest {
       "idempotent-execution",
       "outcome-measurement",
       "learning",
-      "audit-trail"
+      "audit-trail",
+      "universal-agent-planning",
+      "adaptive-replanning",
+      "research",
+      "build",
+      "deploy",
+      "image-capability",
+      "governed-handoff"
     ]
   };
 }
