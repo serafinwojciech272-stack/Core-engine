@@ -62,7 +62,7 @@ function classifyTask(task: string) {
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
 }
 
-function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
+export function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
   const [intent, capability, kind] = classifyTask(task);
   const needsAttachment = ["DOCUMENT_ANALYSIS", "IMAGE_TASK"].includes(intent) && attachments.length === 0;
 
