@@ -271,7 +271,7 @@ export default function CoreAgentConsole() {
               <button type="button" className="composer-icon" onClick={() => fileRef.current?.click()} aria-label="Dodaj plik"><Paperclip size={17}/></button>
               <input ref={fileRef} type="file" multiple hidden accept=".pdf,.xls,.xlsx,.doc,.docx,.csv,.txt,.json,.png,.jpg,.jpeg,.webp,.zip" onChange={(e) => addFiles(e.target.files)}/>
               <textarea value={task} onChange={(e) => setTask(e.target.value)} placeholder="Napisz zadanie dla Core Engine AI… np. „Przeanalizuj ten PDF i przygotuj listę najważniejszych ryzyk”" rows={2} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }}}/>
-              <button className="composer-send" type="submit" disabled={!task.trim() || loading} aria-label="Wykonaj zadanie">{loading ? <Loader2 size={17} className="spin"/> : <ArrowUp size={18}/>}<span>WYKONAJ</span></button>
+              <button className="composer-send" type="button" onClick={() => { void submit(); }} disabled={!task.trim() || loading} aria-label="Wykonaj zadanie" data-agent-submit="true">{loading ? <Loader2 size={17} className="spin"/> : <ArrowUp size={18}/>}<span>WYKONAJ</span></button>
             </form>
             {requestStatus && <div className={"agent-live-status " + (loading ? "working" : "done")} aria-live="polite"><span>{loading ? <Loader2 size={13} className="spin"/> : <CheckCircle2 size={13}/>}</span><strong>{requestStatus}</strong></div>}
             <div className="agent-composer-foot"><span><ShieldCheck size={11}/> CONTROLLED EXECUTION</span><span><Paperclip size={11}/> PDF · XLS · DOC · CSV · IMAGE</span><span>ENTER = SEND · SHIFT+ENTER = NEW LINE</span></div>
