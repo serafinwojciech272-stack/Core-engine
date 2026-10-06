@@ -4,7 +4,7 @@ import { FormEvent, useRef, useState } from "react";
 import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
 
 type Attachment = { name: string; type: string; size: number; file: File };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -15,6 +15,12 @@ type AgentResponse = {
   execution: "SIMULATION_ONLY" | "HUMAN_APPROVAL_REQUIRED";
   needsAttachment?: boolean;
   capability?: string;
+  objective?: string;
+  deliverables?: string[];
+  assumptions?: string[];
+  kpis?: string[];
+  risks?: string[];
+  nextAction?: string;
 };
 
 const examples = [
@@ -78,6 +84,13 @@ export default function CoreAgentConsole() {
         plan: data.plan,
         intent: data.intent,
         gate: data.execution,
+        confidence: data.confidence,
+        capability: data.capability,
+        deliverables: data.deliverables,
+        assumptions: data.assumptions,
+        kpis: data.kpis,
+        risks: data.risks,
+        nextAction: data.nextAction,
       }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd agenta.");
@@ -174,7 +187,12 @@ export default function CoreAgentConsole() {
                   {message.plan && <div className="agent-plan">
                     <span>PROPOSED EXECUTION PLAN</span>
                     {message.plan.map((step, i) => <div key={step}><b>{String(i + 1).padStart(2, "0")}</b>{step}</div>)}
-                    <div className="agent-gate"><ShieldCheck size={13}/> {message.gate === "HUMAN_APPROVAL_REQUIRED" ? "HUMAN APPROVAL REQUIRED" : "SIMULATION ONLY"} <em>{message.intent}</em></div>
+                    <div className="agent-gate"><ShieldCheck size={13}/> {message.gate === "HUMAN_APPROVAL_REQUIRED" ? "HUMAN APPROVAL REQUIRED" : "SIMULATION ONLY"} <em>{message.intent} · {message.capability || "Core Intelligence"} · {typeof message.confidence === "number" ? Math.round(message.confidence * 100) + "% confidence" : ""}</em></div>
+                    {message.deliverables?.length ? <div className="agent-result-block"><span>DELIVERABLES</span>{message.deliverables.map((item) => <div key={item}>• {item}</div>)}</div> : null}
+                    {message.kpis?.length ? <div className="agent-result-block"><span>SUCCESS METRICS</span>{message.kpis.map((item) => <div key={item}>• {item}</div>)}</div> : null}
+                    {message.risks?.length ? <div className="agent-result-block"><span>RISKS / UNCERTAINTY</span>{message.risks.map((item) => <div key={item}>• {item}</div>)}</div> : null}
+                    {message.assumptions?.length ? <div className="agent-result-block"><span>ASSUMPTIONS</span>{message.assumptions.map((item) => <div key={item}>• {item}</div>)}</div> : null}
+                    {message.nextAction ? <div className="agent-next-action"><strong>NEXT ACTION</strong><span>{message.nextAction}</span></div> : null}
                     {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
                   </div>}
                 </div>
