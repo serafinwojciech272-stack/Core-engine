@@ -16,7 +16,7 @@ type AgentResponse = {
   executionState?: { phase: string; authentication: { required: boolean; status: string; terminal: boolean; meaning: string }; stages: Array<{stage:string;status:string}>; externalSideEffects: string };
   needsAttachment?: boolean;
   capability?: string;
-  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };
+  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };\n  artifact?: { type:"website"|"image"; title:string; html?:string; dataUrl?:string; provider?:string; status:string };
   evidence?: Array<{label:string;value:string;status:string}>;
   successCriteria?: string[];
 };
@@ -84,14 +84,14 @@ export default function CoreAgentConsole() {
     setMessages((m) => [...m, { role: "user", text: value }]);
     setTask("");
     try {
-      let parsedContext = "";
+      let parsedContext = "";\n      let imageData = "";
       if (attachments.length) {
         const form = new FormData();
         attachments.forEach((item) => form.append("file", item.file, item.name));
         const fileResponse = await fetch("/api/agent/file", { method: "POST", body: form });
         const fileData = await fileResponse.json();
         if (!fileResponse.ok) throw new Error(fileData.error || "Nie udało się przeanalizować pliku.");
-        parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
+        imageData = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).find(Boolean) || "";\n        parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
           "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify(item.metadata) + "\nEXTRACTED TEXT:\n" + item.extractedText
         ).join("\n\n");
         setDocumentContext(parsedContext);
@@ -99,7 +99,7 @@ export default function CoreAgentConsole() {
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000) })
+        body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000), imageData })
       });
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
@@ -254,6 +254,8 @@ export default function CoreAgentConsole() {
                     <div><small>EVIDENCE</small>{(lastResponse.evidence || []).map(x => <span key={x.label}><b>{x.status}</b>{x.label}: {x.value}</span>)}</div>
                   </div>
                   <div className="success-criteria"><small>VERIFICATION CONTRACT</small>{(lastResponse.successCriteria || []).map((x,i) => <span key={x}><b>{i+1}</b>{x}</span>)}</div>
+                  {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "image" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>IMAGE EDITED</b></div><img src={lastResponse.artifact.dataUrl} alt="Wynik edycji zdjęcia" style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download="core-engine-edited.png" className="agent-mission-button">POBIERZ WYNIK</a></div>}
+                  {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "website" && lastResponse.artifact.html && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>WEBSITE BUILT</b></div><iframe title="Generated website" srcDoc={lastResponse.artifact.html} style={{width:"100%",height:"520px",border:0,borderRadius:"14px",background:"#fff"}} sandbox="allow-same-origin"/></div>}
                   {lastResponse.intent === "WEB_BUILD" && <div className="website-preview">
                     <div className="website-preview-top"><span>LIVE DEMO ARTIFACT</span><b>WEBSITE CONCEPT</b></div>
                     <div className="website-browser"><div className="website-browserbar"><i/><i/><i/><span>core-engine.demo / restaurant</span></div><div className="website-hero-preview"><small>GLIWICE · ITALIAN CUISINE</small><h4>{extractWebsiteTitle(lastResponse.evidence?.[0]?.value || "")}</h4><p>Authentic Italian dining, designed around your brief.</p><div><button type="button">VIEW MENU</button><button type="button">RESERVE A TABLE</button></div></div><div className="website-sections"><span>MENU</span><span>ABOUT</span><span>RESERVATIONS</span><span>CONTACT</span></div></div>
