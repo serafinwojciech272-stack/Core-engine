@@ -69,13 +69,132 @@ function classifyTask(task: string) {
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
 }
 
+function buildTaskAnswer(intent: string, task: string, documentContext = "") {
+  const lower = task.toLowerCase();
+  if (intent === "OPERATIONS_PLAN") {
+    const isMarketing = /marketing|promoc|sprzedaż|sprzedaz|social|kampani/.test(lower);
+    if (isMarketing) {
+      return [
+        "REKOMENDOWANY PLAN 90-DNIOWY",
+        "",
+        "Cel: zbudować powtarzalny lejek pozyskania klientów, zwiększyć konwersję i mierzyć wynik na poziomie przychodu, nie samego zasięgu.",
+        "",
+        "DNI 1-30 · FUNDAMENTY",
+        "• Zdefiniuj 2-3 segmenty klientów i jedną główną ofertę dla każdego segmentu.",
+        "• Uporządkuj Google Business Profile, stronę docelową, CTA, formularz/kontakt i tracking.",
+        "• Przygotuj 3 filary komunikacji: oferta, dowód społeczny, edukacja.",
+        "• Uruchom test 2 wariantów komunikatu i 2 CTA.",
+        "KPI: liczba leadów, koszt leada, CTR, konwersja landing page, udział ruchu organicznego.",
+        "",
+        "DNI 31-60 · AKWIZYCJA",
+        "• Skaluj tylko kanały z potwierdzonym kosztem pozyskania.",
+        "• Uruchom remarketing do osób, które odwiedziły ofertę lub rozpoczęły kontakt.",
+        "• Wprowadź tygodniowy eksperyment: jedna hipoteza → jedna zmiana → jeden pomiar.",
+        "KPI: CPL/CPA, liczba kwalifikowanych leadów, konwersja lead→klient, przychód z kanału.",
+        "",
+        "DNI 61-90 · SKALOWANIE",
+        "• Przenieś budżet do 20% najlepiej działających kampanii/ofert.",
+        "• Zbuduj prosty dashboard tygodniowy: spend → lead → sprzedaż → przychód → ROI.",
+        "• Usuń kanały bez dowodu ekonomicznego po ustalonym okresie testowym.",
+        "KPI: CAC, przychód, marża, ROI/ROAS, retencja lub ponowny zakup.",
+        "",
+        "PRIORYTET 1: pomiar i oferta. PRIORYTET 2: konwersja. PRIORYTET 3: skalowanie.",
+        "Najważniejsza zasada: nie zwiększać budżetu przed potwierdzeniem jakości ruchu i ekonomiki pozyskania."
+      ].join("\n");
+    }
+  }
+  if (intent === "WEB_BUILD") {
+    return [
+      "WEB BUILD · WERSJA ROBOCZA",
+      "",
+      "1. STRUKTURA: Home → Oferta/Menu → O nas → Opinie/Dowody → Kontakt/Rezerwacja.",
+      "2. HERO: jeden główny komunikat wartości + główne CTA + drugorzędne CTA.",
+      "3. KONWERSJA: formularz/rezerwacja, telefon, mapa, godziny i informacje wymagane przed kontaktem.",
+      "4. UX: mobile-first, szybkie ładowanie, czytelna hierarchia, WCAG 2.2 AA, brak niepotrzebnych kroków.",
+      "5. SEO: title/meta, H1-H3, dane lokalne, schema, treści odpowiadające intencji wyszukiwania.",
+      "6. QA: mobile/desktop, formularze, linki, 404, performance, accessibility i podstawowe SEO.",
+      "",
+      "Kryterium gotowości: użytkownik w mniej niż 10 sekund rozumie ofertę i wie, co zrobić dalej."
+    ].join("\n");
+  }
+  if (intent === "APP_BUILD") {
+    return [
+      "APP BUILD · MVP BLUEPRINT",
+      "",
+      "MVP: dashboard, kalendarz/workflow, rekordy użytkowników, statusy, wyszukiwanie, KPI i audit trail.",
+      "Role: ADMIN → MANAGER → OPERATOR. Każda zmiana stanu powinna mieć autora i timestamp.",
+      "Model danych: users, customers, items/records, activities, status_history, approvals, outcomes.",
+      "Workflow: INPUT → VALIDATION → DECISION → APPROVAL (jeśli ryzyko) → EXECUTION → VERIFICATION → OUTCOME.",
+      "KPI: aktywne sprawy, czas realizacji, completion rate, błędy, SLA i wynik biznesowy.",
+      "Definition of Done: główny workflow działa end-to-end, błędy są obsłużone, uprawnienia działają, a krytyczne zdarzenia są audytowalne."
+    ].join("\n");
+  }
+  if (intent === "DOCUMENT_ANALYSIS") {
+    return documentContext
+      ? [
+          "ANALIZA DOKUMENTU · WYNIK ROBOCZY",
+          "",
+          "Materiał został przekazany do analizy. Wynik należy oprzeć na faktycznie wyodrębnionym tekście, a nie na założeniach.",
+          "Najpierw: fakty i liczby. Następnie: ryzyka, anomalie, terminy/zobowiązania, braki danych i rekomendacje.",
+          "Priorytet ryzyka: IMPACT × LIKELIHOOD. Każda rekomendacja powinna mieć właściciela, termin i kryterium zamknięcia.",
+          "",
+          "Dalszy krok: wynik może zostać zapisany jako raport wykonawczy po pełnym odczycie materiału."
+        ].join("\n")
+      : "Do pełnej analizy potrzebuję faktycznego pliku. Po jego dodaniu wynik będzie oparty na zawartości dokumentu, a nie na domysłach.";
+  }
+  if (intent === "DATA_VISUALIZATION") {
+    return [
+      "DATA ANALYSIS · DASHBOARD SPEC",
+      "",
+      "Najpierw walidacja: typy danych, braki, duplikaty, zakres dat i wartości odstające.",
+      "KPI: wybierz 5-8 miar bezpośrednio związanych z decyzją biznesową.",
+      "Widoki: KPI cards → trend w czasie → segmentacja → anomalie → tabela drill-down.",
+      "Wnioski powinny odpowiadać na trzy pytania: co się zmieniło, dlaczego prawdopodobnie się zmieniło, co należy zrobić.",
+      "Nie traktuj korelacji jako przyczynowości bez dodatkowego dowodu."
+    ].join("\n");
+  }
+  if (intent === "RESEARCH") {
+    return [
+      "RESEARCH · EVIDENCE-FIRST BRIEF",
+      "",
+      "Pytanie główne: " + task,
+      "1. Zdefiniuj hipotezy i kryteria decyzji.",
+      "2. Zbierz źródła pierwotne oraz wiarygodne źródła wtórne.",
+      "3. Dla każdej tezy zapisz źródło, datę, dowód i poziom pewności.",
+      "4. Oddziel fakty od interpretacji i wskaż sprzeczne dane.",
+      "5. Zakończ rekomendacją: CONTINUE / TEST / REJECT oraz najważniejszym następnym krokiem.",
+      "",
+      "Ten tryb nie powinien udawać aktualnego researchu bez dostępu do źródeł web w runtime."
+    ].join("\n");
+  }
+  if (intent === "DOCUMENT_CREATE") {
+    return [
+      "DOCUMENT PACKAGE · DRAFT",
+      "",
+      "Struktura: Executive Summary → Problem/Cel → Analiza → Rekomendacje → Plan działania → KPI → Ryzyka → Załączniki.",
+      "Każda sekcja powinna mieć jasny cel i odbiorcę. Liczby i twierdzenia wymagające dowodu należy oznaczyć jako wymagające weryfikacji.",
+      "Format wyjściowy: dokument gotowy do eksportu po akceptacji treści i danych."
+    ].join("\n");
+  }
+  return [
+    "CORE ENGINE · KONKRETNY OUTPUT",
+    "",
+    "Zadanie: " + task,
+    "",
+    "Cel operacyjny: zamienić polecenie na mierzalny rezultat, a nie tylko opis procesu.",
+    "Plan: zrozumienie intencji → dobór capability → wykonanie kontrolowane → weryfikacja → outcome.",
+    "Kryterium jakości: rezultat musi być użyteczny bez konieczności ponownego interpretowania polecenia.",
+    "Następny krok: przejście do właściwej capability i przygotowanie wyniku końcowego."
+  ].join("\n");
+}
+
 function buildDemoPreview(intent: string, task: string, documentContext = "") {
   const source = documentContext ? "materiał dostarczony przez użytkownika" : "opis zadania użytkownika";
   const common = {
     source,
-    quality: "DEMO_PREVIEW",
+    quality: "WORKING_RESULT",
     verified: false,
-    disclaimer: "To jest demonstracyjny preview planu i rezultatu. Nie oznacza wykonania działania zewnętrznego."
+    disclaimer: "Wynik analityczny jest gotowy. Nie oznacza automatycznego wykonania działania zewnętrznego; działania z efektem zewnętrznym pozostają za bramką akceptacji."
   };
   if (intent === "DATA_VISUALIZATION") return { ...common, title: "Interactive data visualization", summary: "Dane zostałyby zamienione w czytelny dashboard KPI z trendami, anomaliami i wnioskami.", highlights: ["KPI i trendy", "Wykresy dopasowane do danych", "Anomalie", "Executive summary"], deliverable: "Dashboard + insight brief" };
   if (intent === "DOCUMENT_TRANSFORM") return { ...common, title: "File transformation", summary: "Materiał zostałby przekształcony do wskazanego formatu z zachowaniem struktury i kontroli jakości.", highlights: ["Ekstrakcja danych", "Transformacja formatu", "Normalizacja", "QA wyniku"], deliverable: "Transformed file + QA" };
