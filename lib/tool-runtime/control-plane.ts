@@ -1,3 +1,10 @@
-import type {ToolContract,ToolRequest} from "./contracts"; import {ToolRegistry} from "./registry"; import {routeTool} from "./router"; import {createInvocation,approveInvocation} from "./invocation"; import {requestApproval} from "./approval"; import {grantPermission} from "./permission"; import {evaluateToolPolicy,type ToolPolicy} from "./policy";
+import type {ToolContract,ToolRequest,ToolInvocation} from "./contracts"; import {ToolRegistry} from "./registry"; import {routeTool} from "./router"; import {createInvocation,approveInvocation} from "./invocation"; import {requestApproval} from "./approval"; import {grantPermission} from "./permission"; import {evaluateToolPolicy,type ToolPolicy} from "./policy";
 export type RuntimePlan={tool:ToolContract;invocationId:string;requiresHumanApproval:boolean;approvalReason:string;permission?:ReturnType<typeof grantPermission>};
-export function planToolExecution(registry:ToolRegistry,request:ToolRequest,policy:ToolPolicy={}):RuntimePlan{const tool=routeTool(registry,request);const invocation=createInvocation(request,tool);const p=evaluateToolPolicy(tool,policy);if(!p.allowed)throw new Error(p.reason);const approval=requestApproval(invocation,tool,policy);if(!approval.approved)return {tool,invocationId:invocation.invocationId,requiresHumanApproval:true,approvalReason:approval.reason};const approved=approveInvocation(invocation,approval.approvalId!);return {tool,invocationId:approved.invocationId,requiresHumanApproval:false,approvalReason:approval.reason,permission:grantPermission(approved,tool,approval.approvalId!)}}
+export function planToolExecution(registry:ToolRegistry,request:ToolRequest,policy:ToolPolicy={}):RuntimePlan{
+ const tool=routeTool(registry,request); const invocation=createInvocation(request,tool); const p=evaluateToolPolicy(tool,policy);
+ if(!p.allowed) throw new Error(p.reason);
+ const approval=requestApproval(invocation,tool,policy);
+ if(!approval.approved) return {tool,invocationId:invocation.invocationId,requiresHumanApproval:true,approvalReason:approval.reason};
+ const approved:ToolInvocation=approveInvocation(invocation,approval.approvalId!);
+ return {tool,invocationId:approved.invocationId,requiresHumanApproval:false,approvalReason:approval.reason,permission:grantPermission(approved,tool,approval.approvalId!)};
+}
