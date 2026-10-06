@@ -355,7 +355,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
 export async function POST(request: Request) {
   try {
     const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 64000) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
+    if (new TextEncoder().encode(raw).byteLength > 8 * 1024 * 1024) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
     const body = raw ? JSON.parse(raw) : {};
     const task = typeof body.task === "string" ? body.task.trim() : "";
     if (!task) return NextResponse.json({ ok: false, error: "TASK_REQUIRED" }, { status: 400 });
