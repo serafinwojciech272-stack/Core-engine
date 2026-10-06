@@ -7,6 +7,7 @@ type Bill={invoice_id:string;invoice_number:string;invoice_status:string;gross_a
 export default function Page(){
  const[d,setD]=useState<{source:string;queue:Row[];billing:Bill[]}|null>(null),[loading,setLoading]=useState(true);
  async function load(){setLoading(true);try{const r=await fetch("/api/fcc-erp/queue",{cache:"no-store"});setD(await r.json())}catch{setD({source:"fallback",queue:[],billing:[]})}finally{setLoading(false)}}
+ // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{load()},[]);
  return <main className="q-shell"><header><div><span>FCC ERP / CONTROL PLANE</span><h1>Operational Queue</h1><p>Najpierw wyjątki. Potem automatyzacja.</p></div><button onClick={load}><RefreshCw size={14} className={loading?"spin":""}/>SYNC</button></header>
  <section className="q-stats"><div><AlertTriangle/><b>{d?.queue?.filter(x=>x.queue_type==="INVOICE_ANOMALY").length||0}</b><span>ANOMALIES</span></div><div><UserRoundCheck/><b>{d?.queue?.filter(x=>x.queue_type==="APPROVAL").length||0}</b><span>APPROVALS</span></div><div><Clock3/><b>{d?.queue?.filter(x=>x.queue_type==="BOK_CASE").length||0}</b><span>BOK OPEN</span></div><div><CircleDollarSign/><b>{d?.billing?.length||0}</b><span>BILLING ITEMS</span></div></section>
