@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
-import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
+import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check, Target, BarChart3, AlertTriangle, FileCheck2, RotateCcw } from "lucide-react";
 
 type Attachment = { name: string; type: string; size: number; file: File };
 type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; missionId?: string; missionState?: string; capabilityActionId?: string; };
@@ -15,6 +15,9 @@ type AgentResponse = {
   execution: "SIMULATION_ONLY" | "HUMAN_APPROVAL_REQUIRED";
   needsAttachment?: boolean;
   capability?: string;
+  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string };
+  evidence?: Array<{label:string;value:string;status:string}>;
+  successCriteria?: string[];
 };
 
 const examples = [
@@ -45,6 +48,8 @@ export default function CoreAgentConsole() {
   const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
   const [missionBusy, setMissionBusy] = useState(false);
   const [documentContext, setDocumentContext] = useState("");
+  const [activeStage, setActiveStage] = useState(1);
+  const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
@@ -53,6 +58,8 @@ export default function CoreAgentConsole() {
     if (!value || loading) return;
     setLoading(true);
     setError("");
+    setLastResponse(null);
+    setActiveStage(2);
     setMessages((m) => [...m, { role: "user", text: value }]);
     setTask("");
     try {
@@ -75,6 +82,8 @@ export default function CoreAgentConsole() {
       });
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
+      setLastResponse(data);
+      setActiveStage(8);
       setMessages((m) => [...m, {
         role: "agent",
         text: data.reply,
@@ -134,6 +143,8 @@ export default function CoreAgentConsole() {
     finally { setMissionBusy(false); }
   }
 
+  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setActiveStage(1); }
+
   function addFiles(list: FileList | null) {
     if (!list) return;
     const next = Array.from(list).slice(0, 6).map((file) => ({ name: file.name, type: file.type || "application/octet-stream", size: file.size, file }));
@@ -160,6 +171,11 @@ export default function CoreAgentConsole() {
               <span><i/> READY</span>
             </div>
 
+            <div className="agent-stagebar" aria-label="Core Engine demo stages">
+              {[
+                ["01","INPUT"],["02","UNDERSTAND"],["03","ROUTE"],["04","PLAN"],["05","EVIDENCE"],["06","RISK"],["07","APPROVAL"],["08","OUTCOME"]
+              ].map(([n,label], i) => <div key={n} className={activeStage >= i + 1 ? "active" : ""}><b>{n}</b><span>{label}</span></div>)}
+            </div>
             <div className="agent-messages" aria-live="polite">
               {messages.length === 0 ? (
                 <div className="agent-empty">
@@ -185,6 +201,23 @@ export default function CoreAgentConsole() {
               {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> Analizuję zadanie, dobieram capability i buduję plan…</div></div>}
             </div>
 
+              {lastResponse?.preview && (
+                <div className="agent-result">
+                  <div className="result-head"><div><span>DEMO OUTCOME PREVIEW</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> NOT EXECUTED</b></div>
+                  <p>{lastResponse.preview.summary}</p>
+                  <div className="result-grid">
+                    <div><small>CAPABILITY</small><strong>{lastResponse.capability}</strong></div>
+                    <div><small>CONFIDENCE</small><strong>{Math.round(lastResponse.confidence * 100)}%</strong></div>
+                    <div><small>DELIVERABLE</small><strong>{lastResponse.preview.deliverable}</strong></div>
+                  </div>
+                  <div className="result-columns">
+                    <div><small>EXPECTED VALUE</small>{lastResponse.preview.highlights.map(x => <span key={x}><Check size={11}/>{x}</span>)}</div>
+                    <div><small>EVIDENCE</small>{(lastResponse.evidence || []).map(x => <span key={x.label}><b>{x.status}</b>{x.label}: {x.value}</span>)}</div>
+                  </div>
+                  <div className="success-criteria"><small>VERIFICATION CONTRACT</small>{(lastResponse.successCriteria || []).map((x,i) => <span key={x}><b>{i+1}</b>{x}</span>)}</div>
+                  <div className="result-note"><AlertTriangle size={12}/>{lastResponse.preview.disclaimer}</div>
+                </div>
+              )}
             {mission && <div className="agent-mission-panel">
               <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state}</small></div>
               {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
@@ -203,6 +236,7 @@ export default function CoreAgentConsole() {
               <button className="composer-send" disabled={!task.trim() || loading} aria-label="Wyślij zadanie"><ArrowUp size={18}/></button>
             </form>
             <div className="agent-composer-foot"><span><ShieldCheck size={11}/> CONTROLLED EXECUTION</span><span><Paperclip size={11}/> PDF · XLS · DOC · CSV · IMAGE</span><span>ENTER = SEND · SHIFT+ENTER = NEW LINE</span></div>
+            <div className="agent-actions"><button type="button" onClick={resetDemo}><RotateCcw size={11}/> RESET DEMO</button><span>Demo result ≠ external execution</span></div>
             {error && <div className="error agent-error">{error}</div>}
           </div>
 
