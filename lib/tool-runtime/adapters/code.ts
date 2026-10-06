@@ -1,0 +1,1 @@
+import type {ToolAdapter} from "../executor"; export const sandboxCodeAdapter=(handler:ToolAdapter):ToolAdapter=>handler
