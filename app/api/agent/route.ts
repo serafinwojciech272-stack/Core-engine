@@ -64,6 +64,32 @@ function classifyTask(task: string) {
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
 }
 
+function buildDemoPreview(intent: string, task: string, documentContext = "") {
+  const source = documentContext ? "materiał dostarczony przez użytkownika" : "opis zadania użytkownika";
+  const common = {
+    source,
+    quality: "DEMO_PREVIEW",
+    verified: false,
+    disclaimer: "To jest demonstracyjny preview planu i rezultatu. Nie oznacza wykonania działania zewnętrznego."
+  };
+  if (intent === "DOCUMENT_ANALYSIS") return { ...common, title: "Executive document analysis", summary: "Dokument zostałby uporządkowany do warstwy faktów, ryzyk, anomalii i rekomendacji.", highlights: ["Fakty i liczby", "Ryzyka / terminy / zobowiązania", "Anomalie i braki danych", "Rekomendacje z priorytetem"], deliverable: "Raport analityczny + tabela ryzyk" };
+  if (intent === "DOCUMENT_CREATE") return { ...common, title: "Professional document package", summary: "Core Engine przygotowałby strukturę dokumentu zgodną z celem biznesowym i formatem wyjściowym.", highlights: ["Struktura dokumentu", "Treść dopasowana do odbiorcy", "Kontrola kompletności", "Eksport do wskazanego formatu"], deliverable: "PDF / DOCX / XLS do akceptacji" };
+  if (intent === "WEB_BUILD") return { ...common, title: "Website build plan", summary: "Powstałby zweryfikowany plan strony z architekturą informacji, UX, treścią i kryteriami publikacji.", highlights: ["Sitemap i user journey", "UX/UI", "Treść i CTA", "QA przed publikacją"], deliverable: "Wersja robocza strony + QA checklist" };
+  if (intent === "APP_BUILD") return { ...common, title: "Application MVP blueprint", summary: "Zadanie zostałoby rozbite na funkcje, dane, role, API i kryteria akceptacji MVP.", highlights: ["Zakres MVP", "Model danych", "Workflow użytkownika", "Testy akceptacyjne"], deliverable: "MVP blueprint + backlog" };
+  if (intent === "RESEARCH") return { ...common, title: "Research intelligence brief", summary: "Research zostałby podzielony na pytania, źródła, dowody, sprzeczności i wnioski.", highlights: ["Źródła i dowody", "Porównanie konkurencji", "Luki informacyjne", "Rekomendacje"], deliverable: "Research brief z evidence trail" };
+  if (intent === "OPERATIONS_PLAN") return { ...common, title: "90-day operating plan", summary: "Plan zostałby rozłożony na priorytety, zależności, KPI i punkty kontrolne.", highlights: ["Priorytety", "KPI / outcome", "Właściciele zadań", "Review checkpoints"], deliverable: "Plan operacyjny + KPI board" };
+  if (intent === "IMAGE_TASK") return { ...common, title: "Creative transformation plan", summary: "Materiał zostałby oceniony pod kątem celu, formatu publikacji i wymaganych operacji.", highlights: ["Ocena materiału", "Docelowy format", "Operacje edycji", "Final QA"], deliverable: "Wersja kreatywna do akceptacji" };
+  return { ...common, title: "Core Intelligence task brief", summary: "Core Engine rozłożyłby zadanie na cel, ograniczenia, capability, plan i kryterium sukcesu.", highlights: ["Cel i zakres", "Capability routing", "Plan wykonania", "Verification"], deliverable: "Mission-ready execution brief" };
+}
+
+function buildEvidencePreview(task: string, attachments: AgentAttachment[], documentContext = "") {
+  return [
+    { label: "INPUT", value: task.slice(0, 120), status: "OBSERVED" },
+    { label: "ATTACHMENTS", value: attachments.length ? attachments.map(x => x.name).join(", ") : "Brak załączników", status: attachments.length ? "OBSERVED" : "NOT_REQUIRED" },
+    { label: "DOCUMENT CONTEXT", value: documentContext ? "Tekst wyodrębniony i przekazany do analizy" : "Brak", status: documentContext ? "OBSERVED" : "NOT_AVAILABLE" }
+  ];
+}
+
 function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
   const [intent, capability, kind] = classifyTask(task);
   const needsAttachment = ["DOCUMENT_ANALYSIS", "IMAGE_TASK"].includes(intent) && attachments.length === 0;
@@ -83,7 +109,7 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
   const reply = needsAttachment
     ? "Rozumiem zadanie: " + task + ". Do tego typu pracy potrzebuję materiału wejściowego. Dodaj plik, a Core Engine przejdzie do analizy."
     : "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw przygotuję kontrolowany plan, a wykonanie działania powodującego efekt zewnętrzny wymaga Twojej akceptacji.";
-  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability };
+  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, preview: buildDemoPreview(intent, task, documentContext), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "") {
@@ -116,7 +142,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     if (typeof content !== "string") return fallbackAgent(task, attachments, documentContext);
     const parsed = JSON.parse(content.replace(/^\x60\x60\x60json\s*/i, "").replace(/\s*\x60\x60\x60$/, ""));
     if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
-    return { reply: String(parsed.reply), intent: String(parsed.intent || "GENERAL_AGENT"), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: Boolean(parsed.needsAttachment) };
+    return { reply: String(parsed.reply), intent: String(parsed.intent || "GENERAL_AGENT"), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: Boolean(parsed.needsAttachment), preview: buildDemoPreview(String(parsed.intent || "GENERAL_AGENT"), task, documentContext), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
   } catch {
     return fallbackAgent(task, attachments);
   } finally { clearTimeout(timeout); }
