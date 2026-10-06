@@ -12,6 +12,8 @@ import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
 import { saasStatus } from "@/lib/saas-runtime";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+import { createOSRun, transitionOS } from "@/lib/universal-agent-os";
+import { QUALITY_CASES, evaluateAgentOutput } from "@/lib/agent-quality";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -197,7 +199,33 @@ export async function POST(request: Request) {
     const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     const result = await generateAgentResponse(task, attachments, documentContext);
-    return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true } });
+    const qualityCase = QUALITY_CASES.find((item) => item.task.toLowerCase() === task.toLowerCase());
+    const quality = qualityCase ? evaluateAgentOutput(qualityCase, result) : null;
+    if (quality && !quality.passed) {
+      return NextResponse.json({
+        ok: false,
+        error: "QUALITY_GATE_FAILED",
+        quality,
+        control: { actor: "SYSTEM", gate: "QUALITY_BLOCKED", sideEffects: "BLOCKED", audit: true }
+      }, { status: 422 });
+    }
+    let osRun = createOSRun(result.objective || task);
+    osRun = transitionOS(osRun, "PLANNED");
+    if (!result.needsAttachment) osRun = transitionOS(osRun, "AWAITING_APPROVAL");
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      agentRunId: osRun.runId,
+      osRun,
+      quality: quality || { version: "qa-v1", status: "NOT_APPLICABLE" },
+      control: {
+        actor: "HUMAN",
+        gate: result.needsAttachment ? "INPUT_REQUIRED" : "APPROVAL_REQUIRED",
+        sideEffects: "BLOCKED_UNTIL_APPROVED",
+        audit: true,
+        lineage: { agentRunId: osRun.runId }
+      }
+    });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
