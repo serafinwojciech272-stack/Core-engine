@@ -60,6 +60,7 @@ export default function CoreAgentConsole() {
   const [task, setTask] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [requestStatus, setRequestStatus] = useState("");
   const [error, setError] = useState("");
   const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
   const [missionBusy, setMissionBusy] = useState(false);
@@ -76,6 +77,7 @@ export default function CoreAgentConsole() {
     if (!value || loading) return;
     setLoading(true);
     setError("");
+    setRequestStatus("WYSYŁAM ZADANIE DO CORE ENGINE…");
     setLastResponse(null);
     setActiveStage(2);
     setMessages((m) => [...m, { role: "user", text: value }]);
@@ -101,6 +103,7 @@ export default function CoreAgentConsole() {
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
       setLastResponse(data);
+      setRequestStatus("ANALIZA ZAKOŃCZONA · WYNIK GOTOWY");
       setActiveStage(8);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
       setMessages((m) => [...m, {
@@ -112,6 +115,7 @@ export default function CoreAgentConsole() {
       }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd agenta.");
+      setRequestStatus("BŁĄD · SPRAWDŹ KOMUNIKAT PONIŻEJ");
     } finally {
       setLoading(false);
     }
@@ -162,7 +166,7 @@ export default function CoreAgentConsole() {
     finally { setMissionBusy(false); }
   }
 
-  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setActiveStage(1); }
+  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setRequestStatus(""); setActiveStage(1); }
 
   function chooseMode(mode: typeof modes[number]) {
     setSelectedMode(mode.id);
@@ -269,6 +273,7 @@ export default function CoreAgentConsole() {
               <textarea value={task} onChange={(e) => setTask(e.target.value)} placeholder="Napisz zadanie dla Core Engine AI… np. „Przeanalizuj ten PDF i przygotuj listę najważniejszych ryzyk”" rows={2} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }}}/>
               <button className="composer-send" type="submit" disabled={!task.trim() || loading} aria-label="Wykonaj zadanie">{loading ? <Loader2 size={17} className="spin"/> : <ArrowUp size={18}/>}<span>WYKONAJ</span></button>
             </form>
+            {requestStatus && <div className={"agent-live-status " + (loading ? "working" : "done")} aria-live="polite"><span>{loading ? <Loader2 size={13} className="spin"/> : <CheckCircle2 size={13}/>}</span><strong>{requestStatus}</strong></div>}
             <div className="agent-composer-foot"><span><ShieldCheck size={11}/> CONTROLLED EXECUTION</span><span><Paperclip size={11}/> PDF · XLS · DOC · CSV · IMAGE</span><span>ENTER = SEND · SHIFT+ENTER = NEW LINE</span></div>
             <div className="agent-actions"><button type="button" onClick={resetDemo}><RotateCcw size={11}/> RESET DEMO</button><span>Demo result ≠ external execution</span></div>
             {error && <div className="error agent-error">{error}</div>}
