@@ -152,6 +152,7 @@ export default function CoreAgentConsole() {
       })});
       const data = await readJsonResponse<{ mission?: { id?: string; state?: string; objective?: string }; error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć misji.");
+      if (!data.mission?.id || !data.mission.state || !data.mission.objective) throw new Error("Serwer zwrócił niepełne dane misji.");
       let capabilityActionId: string | undefined;
       try {
         const caps = await fetch("/api/capabilities?q=" + encodeURIComponent(intent || "agent")).then((x) => readJsonResponse<{ packs?: Array<{actions?: Array<{id:string;name:string;requiresApproval?:boolean}>}> }>(x));
