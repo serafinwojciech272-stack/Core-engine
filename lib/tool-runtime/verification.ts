@@ -1,0 +1,2 @@
+import type {ToolContract} from "./contracts";
+export function verifyToolOutput(tool:ToolContract,output:Record<string,unknown>){const missing=tool.outputKeys.filter(k=>!(k in output));return {verified:missing.length===0,missing}}
