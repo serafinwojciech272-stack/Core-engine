@@ -47,7 +47,7 @@ export default function CoreAgentConsole() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mission, setMission] = useState<{id:string;state:string;objective:string;capabilityActionId?:string}|null>(null);
+  type MissionState = { id:string; state:string; objective:string; capabilityActionId?:string; osRun?: AgentMessage["osRun"] };\n  const [mission, setMission] = useState<MissionState|null>(null);
   const [missionBusy, setMissionBusy] = useState(false);
   const [documentContext, setDocumentContext] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
