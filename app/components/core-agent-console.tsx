@@ -15,7 +15,7 @@ type AgentResponse = {
   execution: "SIMULATION_ONLY" | "HUMAN_APPROVAL_REQUIRED";
   needsAttachment?: boolean;
   capability?: string;
-  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string };
+  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };
   evidence?: Array<{label:string;value:string;status:string}>;
   successCriteria?: string[];
 };
@@ -237,8 +237,8 @@ export default function CoreAgentConsole() {
 
               {lastResponse?.preview && (
                 <div ref={resultRef} className="agent-result" data-agent-result="true">
-                  <div className="result-head"><div><span>DEMO OUTCOME PREVIEW</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> NOT EXECUTED</b></div>
-                  <p>{lastResponse.preview.summary}</p>
+                  <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> ANALYSIS COMPLETE</b></div>
+                  <p>{lastResponse.preview.summary}</p>{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
                   <div className="result-grid">
                     <div><small>CAPABILITY</small><strong>{lastResponse.capability}</strong></div>
                     <div><small>CONFIDENCE</small><strong>{Math.round(lastResponse.confidence * 100)}%</strong></div>
@@ -275,7 +275,7 @@ export default function CoreAgentConsole() {
             </form>
             {requestStatus && <div className={"agent-live-status " + (loading ? "working" : "done")} aria-live="polite"><span>{loading ? <Loader2 size={13} className="spin"/> : <CheckCircle2 size={13}/>}</span><strong>{requestStatus}</strong></div>}
             <div className="agent-composer-foot"><span><ShieldCheck size={11}/> CONTROLLED EXECUTION</span><span><Paperclip size={11}/> PDF · XLS · DOC · CSV · IMAGE</span><span>ENTER = SEND · SHIFT+ENTER = NEW LINE</span></div>
-            <div className="agent-actions"><button type="button" onClick={resetDemo}><RotateCcw size={11}/> RESET DEMO</button><span>Demo result ≠ external execution</span></div>
+            <div className="agent-actions"><button type="button" onClick={resetDemo}><RotateCcw size={11}/> RESET DEMO</button><span>Wynik AI ≠ automatyczne wykonanie efektu zewnętrznego</span></div>
             {error && <div className="error agent-error">{error}</div>}
           </div>
 
