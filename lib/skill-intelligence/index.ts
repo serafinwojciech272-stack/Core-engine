@@ -3,3 +3,7 @@ export * from "./contract-engine";
 export * from "./manifest-v2";
 export * from "./discovery";
 export * from "./composition";
+export * from "./dependency-graph";
+export * from "./preconditions";
+export * from "./verification";
+export * from "./evidence";
