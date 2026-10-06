@@ -67,6 +67,7 @@ export default function CoreAgentConsole() {
   const [activeStage, setActiveStage] = useState(1);
   const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);
   const [selectedMode, setSelectedMode] = useState("BUILD");
+  const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(e?: FormEvent) {
@@ -101,6 +102,7 @@ export default function CoreAgentConsole() {
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
       setLastResponse(data);
       setActiveStage(8);
+      requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
       setMessages((m) => [...m, {
         role: "agent",
         text: data.reply,
@@ -230,7 +232,7 @@ export default function CoreAgentConsole() {
             </div>
 
               {lastResponse?.preview && (
-                <div className="agent-result">
+                <div ref={resultRef} className="agent-result" data-agent-result="true">
                   <div className="result-head"><div><span>DEMO OUTCOME PREVIEW</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> NOT EXECUTED</b></div>
                   <p>{lastResponse.preview.summary}</p>
                   <div className="result-grid">
@@ -265,7 +267,7 @@ export default function CoreAgentConsole() {
               <button type="button" className="composer-icon" onClick={() => fileRef.current?.click()} aria-label="Dodaj plik"><Paperclip size={17}/></button>
               <input ref={fileRef} type="file" multiple hidden accept=".pdf,.xls,.xlsx,.doc,.docx,.csv,.txt,.json,.png,.jpg,.jpeg,.webp,.zip" onChange={(e) => addFiles(e.target.files)}/>
               <textarea value={task} onChange={(e) => setTask(e.target.value)} placeholder="Napisz zadanie dla Core Engine AI… np. „Przeanalizuj ten PDF i przygotuj listę najważniejszych ryzyk”" rows={2} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }}}/>
-              <button className="composer-send" disabled={!task.trim() || loading} aria-label="Wyślij zadanie"><ArrowUp size={18}/></button>
+              <button className="composer-send" type="submit" disabled={!task.trim() || loading} aria-label="Wykonaj zadanie">{loading ? <Loader2 size={17} className="spin"/> : <ArrowUp size={18}/>}<span>WYKONAJ</span></button>
             </form>
             <div className="agent-composer-foot"><span><ShieldCheck size={11}/> CONTROLLED EXECUTION</span><span><Paperclip size={11}/> PDF · XLS · DOC · CSV · IMAGE</span><span>ENTER = SEND · SHIFT+ENTER = NEW LINE</span></div>
             <div className="agent-actions"><button type="button" onClick={resetDemo}><RotateCcw size={11}/> RESET DEMO</button><span>Demo result ≠ external execution</span></div>
