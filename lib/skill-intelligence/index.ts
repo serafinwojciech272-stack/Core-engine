@@ -7,3 +7,8 @@ export * from "./dependency-graph";
 export * from "./preconditions";
 export * from "./verification";
 export * from "./evidence";
+export * from "./failure";
+export * from "./recovery";
+export * from "./fallback";
+export * from "./cost";
+export * from "./risk";
