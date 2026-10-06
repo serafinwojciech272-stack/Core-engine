@@ -3,8 +3,8 @@ import "./globals.css";
 import "./ui-enhancement.css";
 
 export const metadata: Metadata = {
-  title: "Core Engine | AI Decision & Execution Infrastructure",
-  description: "Universal AI decision and execution infrastructure for business growth.",
+  title: "Core Engine AI | Twój uniwersalny agent AI",
+  description: "Core Engine AI rozumie zadania, analizuje dokumenty, buduje rozwiązania, prowadzi research i przygotowuje kontrolowane działania.",
   robots: { index: true, follow: true }
 };
 
@@ -14,5 +14,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="pl"><body>{children}</body></html>;
 }

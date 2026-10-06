@@ -53,6 +53,8 @@ const MAX_TASK = 12000;
 
 function classifyTask(task: string) {
   const t = task.toLowerCase();
+  const documentCreate = /(utwórz|stwórz|wygeneruj|przygotuj|napisz|zrób|opracuj|exportuj|eksportuj).*(pdf|xls|xlsx|doc|docx|csv|arkusz|dokument)/.test(t) || /(pdf|xls|xlsx|doc|docx|csv|arkusz|dokument).*(utwórz|stwórz|wygeneruj|przygotuj|napisz|zrób|opracuj|exportuj|eksportuj)/.test(t);
+  if (documentCreate) return ["DOCUMENT_CREATE", "Document Generation", "CREATIVE"];
   if (/(pdf|xls|xlsx|doc|docx|csv|plik|dokument|dane|analizuj|analiza|tabela)/.test(t)) return ["DOCUMENT_ANALYSIS", "Document Intelligence", "ANALYSIS"];
   if (/(fotograf|zdję|obraz|image|png|jpg|jpeg|retusz|popraw)/.test(t)) return ["IMAGE_TASK", "Creative / Image Capability", "CREATIVE"];
   if (/(stronę|strona www|website|landing|witryn)/.test(t)) return ["WEB_BUILD", "Web Build", "BUILD"];
@@ -71,7 +73,9 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
       ? ["Zdefiniuję cel, odbiorcę, strukturę i wymagania strony", "Przygotuję architekturę, UX/UI, treść i plan implementacji", "Zbuduję wersję roboczą i przeprowadzę kontrolę jakości", "Przedstawię rezultat przed publikacją lub wdrożeniem"]
       : intent === "APP_BUILD"
         ? ["Rozbiję wymagania na funkcje, dane i interfejs", "Zaprojektuję architekturę oraz plan implementacji", "Zbuduję MVP i wykonam testy", "Przedstawię gotowy rezultat do akceptacji"]
-        : intent === "DOCUMENT_ANALYSIS"
+        : intent === "DOCUMENT_CREATE"
+          ? ["Zdefiniuję format, strukturę i wymagania wyniku", "Przygotuję treść, dane oraz układ dokumentu", "Wygeneruję wersję roboczą i sprawdzę kompletność", "Przedstawię plik do akceptacji lub dalszego użycia"]
+          : intent === "DOCUMENT_ANALYSIS"
           ? ["Odczytam i uporządkuję dane z załączonego materiału", "Wykryję kluczowe fakty, ryzyka, anomalie i zależności", "Przygotuję syntetyczny raport oraz rekomendacje"]
           : intent === "IMAGE_TASK"
             ? ["Zweryfikuję materiał i oczekiwany efekt", "Dobiorę operacje edycji zgodne z celem", "Przygotuję wersję wynikową do akceptacji"]
