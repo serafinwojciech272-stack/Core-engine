@@ -1,0 +1,3 @@
+import type {ToolInvocation} from "./contracts";
+export type ToolOutcome={status:"SUCCESS"|"FAILED"|"BLOCKED";invocationId:string;verified:boolean;reason:string};
+export function buildOutcome(i:ToolInvocation,verified:boolean):ToolOutcome{if(i.status==="COMPLETED"&&verified)return {status:"SUCCESS",invocationId:i.invocationId,verified:true,reason:"VERIFIED"};if(i.status==="BLOCKED")return {status:"BLOCKED",invocationId:i.invocationId,verified:false,reason:"POLICY_OR_PERMISSION"};return {status:"FAILED",invocationId:i.invocationId,verified,reason:"EXECUTION_OR_VERIFICATION_FAILURE"}}
