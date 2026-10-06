@@ -47,7 +47,14 @@ export default function CoreAgentConsole() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  type MissionState = { id:string; state:string; objective:string; capabilityActionId?:string; osRun?: AgentMessage["osRun"] };\n  const [mission, setMission] = useState<MissionState|null>(null);
+  type MissionState = {
+    id: string;
+    state: string;
+    objective: string;
+    capabilityActionId?: string;
+    osRun?: AgentMessage["osRun"];
+  };
+  const [mission, setMission] = useState<MissionState | null>(null);
   const [missionBusy, setMissionBusy] = useState(false);
   const [documentContext, setDocumentContext] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -138,7 +145,7 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      let nextOS = mission.osRun;
+      let nextOS: AgentMessage["osRun"] = mission.osRun;
       if (action === "approve" && nextOS) {
         const approval = await fetch("/api/universal-agent/os", {
           method: "POST", headers: { "Content-Type": "application/json" },
