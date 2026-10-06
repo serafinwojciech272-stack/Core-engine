@@ -188,6 +188,36 @@ function buildTaskAnswer(intent: string, task: string, documentContext = "") {
   ].join("\n");
 }
 
+function buildExecutionState(intent: string, needsAttachment: boolean) {
+  return {
+    phase: needsAttachment ? "INPUT_REQUIRED" : "RESULT_READY",
+    stages: needsAttachment
+      ? [
+          { stage: "RECEIVED", status: "COMPLETE" },
+          { stage: "UNDERSTAND", status: "COMPLETE" },
+          { stage: "AUTH_CHECK", status: "NOT_REQUIRED_CONTINUE" },
+          { stage: "INPUT_GATE", status: "WAITING_FOR_INPUT" }
+        ]
+      : [
+          { stage: "RECEIVED", status: "COMPLETE" },
+          { stage: "UNDERSTAND", status: "COMPLETE" },
+          { stage: "AUTH_CHECK", status: "NOT_REQUIRED_CONTINUE" },
+          { stage: "CAPABILITY", status: "SELECTED" },
+          { stage: "PLAN", status: "READY" },
+          { stage: "ANALYSIS", status: "COMPLETE" },
+          { stage: "VERIFICATION", status: "PENDING_EXTERNAL_EXECUTION" },
+          { stage: "OUTCOME", status: "RESULT_READY" }
+        ],
+    authentication: {
+      required: false,
+      status: "NOT_REQUIRED",
+      terminal: false,
+      meaning: "Authentication is not required for this analysis request; continue execution."
+    },
+    externalSideEffects: "BLOCKED_UNTIL_APPROVED"
+  };
+}
+
 function buildDemoPreview(intent: string, task: string, documentContext = "") {
   const source = documentContext ? "materiał dostarczony przez użytkownika" : "opis zadania użytkownika";
   const common = {
@@ -238,7 +268,7 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
   const reply = needsAttachment
     ? "Rozumiem zadanie: " + task + ". Do tego typu pracy potrzebuję materiału wejściowego. Dodaj plik, a Core Engine przejdzie do analizy."
     : "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw przygotuję kontrolowany plan, a wykonanie działania powodującego efekt zewnętrzny wymaga Twojej akceptacji.";
-  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, preview: buildDemoPreview(intent, task, documentContext), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
+  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, preview: { ...buildDemoPreview(intent, task, documentContext), answer: buildTaskAnswer(intent, task, documentContext) }, executionState: buildExecutionState(intent, needsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "") {
@@ -271,7 +301,9 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     if (typeof content !== "string") return fallbackAgent(task, attachments, documentContext);
     const parsed = JSON.parse(content.replace(/^\x60\x60\x60json\s*/i, "").replace(/\s*\x60\x60\x60$/, ""));
     if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
-    return { reply: String(parsed.reply), intent: String(parsed.intent || "GENERAL_AGENT"), confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: Boolean(parsed.needsAttachment), preview: buildDemoPreview(String(parsed.intent || "GENERAL_AGENT"), task, documentContext), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
+    const resolvedIntent = String(parsed.intent || "GENERAL_AGENT");
+    const resolvedNeedsAttachment = Boolean(parsed.needsAttachment);
+    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: buildTaskAnswer(resolvedIntent, task, documentContext) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
   } catch {
     return fallbackAgent(task, attachments);
   } finally { clearTimeout(timeout); }
@@ -288,7 +320,7 @@ export async function POST(request: Request) {
     const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     const result = await generateAgentResponse(task, attachments, documentContext);
-    return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true } });
+    return NextResponse.json({ ok: true, ...result, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
