@@ -4,7 +4,7 @@ import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
 const MAX_BYTES = 15 * 1024 * 1024;
-const ALLOWED = new Set(["pdf","xls","xlsx","doc","docx","csv","txt","json","ppt","pptx","odt","ods","rtf"]);
+const ALLOWED = new Set(["pdf","xls","xlsx","doc","docx","csv","txt","json","ppt","pptx","odt","ods","rtf","png","jpg","jpeg","webp"]);
 
 function ext(name: string) { return name.toLowerCase().split(".").pop() || ""; }
 
@@ -38,12 +38,16 @@ export async function POST(request: Request) {
       const buffer = Buffer.from(await file.arrayBuffer());
       let text = "";
       let metadata: Record<string, unknown> = {};
-      try {
-        const ast = await OfficeParser.parseOffice(buffer);
-        text = ast.toText();
-        metadata = (ast.metadata || {}) as Record<string, unknown>;
-      } catch (error) {
-        return NextResponse.json({ok:false,error:"DOCUMENT_PARSE_FAILED",file:file.name,detail:error instanceof Error ? error.message : "parser error"},{status:422});
+      if (file.type.startsWith("image/") || ["png","jpg","jpeg","webp"].includes(extension)) {
+        metadata = { mediaType: "image", width: null, height: null, editable: true };
+      } else {
+        try {
+          const ast = await OfficeParser.parseOffice(buffer);
+          text = ast.toText();
+          metadata = (ast.metadata || {}) as Record<string, unknown>;
+        } catch (error) {
+          return NextResponse.json({ok:false,error:"DOCUMENT_PARSE_FAILED",file:file.name,detail:error instanceof Error ? error.message : "parser error"},{status:422});
+        }
       }
       const stats = summarize(text);
       results.push({
