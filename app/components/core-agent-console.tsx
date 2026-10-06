@@ -16,7 +16,8 @@ type AgentResponse = {
   executionState?: { phase: string; authentication: { required: boolean; status: string; terminal: boolean; meaning: string }; stages: Array<{stage:string;status:string}>; externalSideEffects: string };
   needsAttachment?: boolean;
   capability?: string;
-  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };\n  artifact?: { type:"website"|"image"; title:string; html?:string; dataUrl?:string; provider?:string; status:string };
+  preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };
+  artifact?: { type:"website"|"image"; title:string; html?:string; dataUrl?:string; provider?:string; status:string };
   evidence?: Array<{label:string;value:string;status:string}>;
   successCriteria?: string[];
 };
