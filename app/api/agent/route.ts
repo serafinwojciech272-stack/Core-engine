@@ -12,6 +12,7 @@ import { commercialRuntimeReadiness } from "@/lib/commercial-storage";
 import { saasStatus } from "@/lib/saas-runtime";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+import sharp from "sharp";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -53,9 +54,17 @@ type AgentArtifact = { type: "website" | "image"; title: string; html?: string; 
 
 function taskImagePrompt(task: string) { return task.replace(/^(popraw|edytuj|zmień|zmien|retuszuj|ulepsz)\s+(tę|te|ten)?\s*(fotografię|zdjęcie|obraz)?/i, "").trim() || "Improve the photo naturally: correct exposure, color, sharpness and noise while preserving the subject and composition."; }
 
+async function executeLocalPhotoEnhancement(imageData: string): Promise<AgentArtifact> {
+  const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error("IMAGE_DATA_INVALID");
+  const input = Buffer.from(match[2], "base64");
+  const output = await sharp(input).rotate().normalize().modulate({ saturation: 1.04, brightness: 1.02 }).sharpen({ sigma: 1.1, m1: 0.6, m2: 2.0 }).png({ compressionLevel: 9 }).toBuffer();
+  return { type: "image", title: "Zdjęcie po poprawie jakości", status: "EXECUTED", provider: "core-local-sharp", dataUrl: "data:image/png;base64," + output.toString("base64") };
+}
+
 async function executeImageEdit(imageData: string, task: string): Promise<AgentArtifact> {
   const key = process.env.CORE_ENGINE_IMAGE_API_KEY?.trim();
-  if (!key) return { type: "image", title: "Edycja zdjęcia", status: "PROVIDER_NOT_CONFIGURED", provider: "image-provider" };
+  if (!key) return executeLocalPhotoEnhancement(imageData);
   const url = process.env.CORE_ENGINE_IMAGE_API_URL?.trim() || "https://api.openai.com/v1/images/edits";
   const model = process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "gpt-image-2";
   const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
