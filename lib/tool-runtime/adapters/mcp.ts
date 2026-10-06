@@ -1,0 +1,1 @@
+import type {ToolAdapter} from "../executor"; export const mcpAdapter=(handler:ToolAdapter):ToolAdapter=>handler

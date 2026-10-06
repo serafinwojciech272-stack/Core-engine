@@ -1,0 +1,4 @@
+import type {ToolContract,ToolInvocation} from "./contracts";
+export type ExecutionPermission={permissionId:string;invocationId:string;tenantId:string;expiresAt:number};
+export function grantPermission(i:ToolInvocation,tool:ToolContract,approvalId:string,now=Date.now()):ExecutionPermission{if(i.status!=="APPROVED")throw new Error("APPROVAL_REQUIRED");if(!approvalId)throw new Error("APPROVAL_REQUIRED");if(tool.risk==="CRITICAL")throw new Error("CRITICAL_TOOL_BLOCKED");return {permissionId:"perm-"+i.invocationId,invocationId:i.invocationId,tenantId:i.request.tenantId,expiresAt:now+300000}}
+export function assertPermission(p:ExecutionPermission,i:ToolInvocation,now=Date.now()){if(p.invocationId!==i.invocationId||p.tenantId!==i.request.tenantId||p.expiresAt<now)throw new Error("EXECUTION_PERMISSION_INVALID")}
