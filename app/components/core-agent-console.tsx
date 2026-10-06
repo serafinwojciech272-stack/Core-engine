@@ -21,6 +21,9 @@ const examples = [
   "Utwórz stronę WWW dla mojego biznesu",
   "Zbuduj aplikację do zarządzania ofertami",
   "Przeanalizuj ten PDF i znajdź najważniejsze ryzyka",
+  "Utwórz profesjonalny PDF z ofertą firmy",
+  "Przygotuj DOCX z raportem dla zarządu",
+  "Przeanalizuj XLS i przygotuj podsumowanie KPI",
   "Popraw tę fotografię i przygotuj wersję do publikacji",
   "Przeanalizuj plik XLS i wskaż anomalie oraz trendy",
   "Zaprojektuj plan marketingowy na 90 dni"
@@ -91,7 +94,7 @@ export default function CoreAgentConsole() {
     setMissionBusy(true); setError("");
     try {
       const response = await fetch("/api/engine", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
-        domain: intent === "DOCUMENT_ANALYSIS" ? "document" : intent === "IMAGE_TASK" ? "creative" : intent === "RESEARCH" ? "research" : "general",
+        domain: intent?.startsWith("DOCUMENT") ? "document" : intent === "IMAGE_TASK" ? "creative" : intent === "RESEARCH" ? "research" : "general",
         signals: [{ name: "agent_task", value: text.slice(0, 200), source: "core-agent" }, { name: "intent", value: intent || "GENERAL_AGENT", source: "core-agent" }]
       })});
       const data = await response.json();
