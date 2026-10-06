@@ -13,6 +13,7 @@ type AgentResponse = {
   plan: string[];
   requiresApproval: boolean;
   execution: "SIMULATION_ONLY" | "HUMAN_APPROVAL_REQUIRED";
+  executionState?: { phase: string; authentication: { required: boolean; status: string; terminal: boolean; meaning: string }; stages: Array<{stage:string;status:string}>; externalSideEffects: string };
   needsAttachment?: boolean;
   capability?: string;
   preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };
@@ -103,7 +104,10 @@ export default function CoreAgentConsole() {
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
       setLastResponse(data);
-      setRequestStatus("ANALIZA ZAKOŃCZONA · WYNIK GOTOWY");
+      setRequestStatus(data.executionState?.authentication?.required
+        ? "AUTH CHECK · WYMAGANA AUTORYZACJA"
+        : "AUTH CHECK · NIE WYMAGA AUTORYZACJI · KONTYNUUJĘ");
+      setActiveStage(data.executionState?.phase === "RESULT_READY" ? 8 : 4);
       setActiveStage(8);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
       setMessages((m) => [...m, {
@@ -237,7 +241,8 @@ export default function CoreAgentConsole() {
 
               {lastResponse?.preview && (
                 <div ref={resultRef} className="agent-result" data-agent-result="true">
-                  <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> ANALYSIS COMPLETE</b></div>
+                  <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> {lastResponse.executionState?.phase === "RESULT_READY" ? "RESULT READY" : "INPUT REQUIRED"}</b></div>
+                  {lastResponse.executionState && <div className="agent-execution-strip"><span>AUTH CHECK</span><strong>{lastResponse.executionState.authentication.required ? "AUTH REQUIRED" : "NOT REQUIRED · CONTINUE"}</strong><small>{lastResponse.executionState.authentication.meaning}</small></div>}
                   <p>{lastResponse.preview.summary}</p>{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
                   <div className="result-grid">
                     <div><small>CAPABILITY</small><strong>{lastResponse.capability}</strong></div>
