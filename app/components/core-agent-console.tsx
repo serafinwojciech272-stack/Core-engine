@@ -128,7 +128,7 @@ export default function CoreAgentConsole() {
         capabilityActionId = preferred?.id;
       } catch {}
       const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, osRun };
-      setMission(m);
+      setMission(m as MissionState);
       setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
     finally { setMissionBusy(false); }
@@ -168,7 +168,7 @@ export default function CoreAgentConsole() {
         if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
         nextOS = executingOS.run;
       }
-      setMission((m) => m ? { ...m, state: data.mission?.state || m.state, osRun: nextOS } : m);
+      setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || m.state, osRun: nextOS } : m);
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
     finally { setMissionBusy(false); }
   }
