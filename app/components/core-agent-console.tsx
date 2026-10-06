@@ -52,6 +52,20 @@ function extractWebsiteTitle(task: string) {
   return match?.[1]?.trim() || "Italian Restaurant";
 }
 
+async function readJsonResponse<T = unknown>(response: Response): Promise<T> {
+  const raw = await response.text();
+  const contentType = response.headers.get("content-type") || "";
+  if (!raw.trim()) {
+    throw new Error(`Serwer zwrócił pustą odpowiedź (HTTP ${response.status}). Spróbuj ponownie.`);
+  }
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    const preview = raw.replace(/\\s+/g, " ").trim().slice(0, 240);
+    throw new Error(`Serwer zwrócił nieprawidłowy JSON (HTTP ${response.status}).${contentType ? ` Content-Type: ${contentType}.` : ""}${preview ? ` Odpowiedź: ${preview}` : ""}`);
+  }
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
   return (bytes / 1024 / 1024).toFixed(1) + " MB";
@@ -91,7 +105,7 @@ export default function CoreAgentConsole() {
         const form = new FormData();
         attachments.forEach((item) => form.append("file", item.file, item.name));
         const fileResponse = await fetch("/api/agent/file", { method: "POST", body: form });
-        const fileData = await fileResponse.json();
+        const fileData = await readJsonResponse<{ files?: Array<{name:string;stats:unknown;metadata:unknown;extractedText:string}>; error?: string }>(fileResponse);
         if (!fileResponse.ok) throw new Error(fileData.error || "Nie udało się przeanalizować pliku.");
         imageData = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).find(Boolean) || "";
         parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
@@ -104,7 +118,7 @@ export default function CoreAgentConsole() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000), imageData })
       });
-      const data = (await response.json()) as AgentResponse & { error?: string };
+      const data = await readJsonResponse<AgentResponse & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
       setLastResponse(data);
       setRequestStatus(data.executionState?.authentication?.required
@@ -136,11 +150,11 @@ export default function CoreAgentConsole() {
         domain: intent?.startsWith("DOCUMENT") ? "document" : intent === "IMAGE_TASK" ? "creative" : intent === "RESEARCH" ? "research" : "general",
         signals: [{ name: "agent_task", value: text.slice(0, 200), source: "core-agent" }, { name: "intent", value: intent || "GENERAL_AGENT", source: "core-agent" }]
       })});
-      const data = await response.json();
+      const data = await readJsonResponse<{ mission?: { id?: string; state?: string; objective?: string }; error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć misji.");
       let capabilityActionId: string | undefined;
       try {
-        const caps = await fetch("/api/capabilities?q=" + encodeURIComponent(intent || "agent")).then((x) => x.json());
+        const caps = await fetch("/api/capabilities?q=" + encodeURIComponent(intent || "agent")).then((x) => readJsonResponse<{ packs?: Array<{actions?: Array<{id:string;name:string;requiresApproval?:boolean}>}> }>(x));
         const actions = (caps.packs || []).flatMap((p: {actions?: Array<{id:string;name:string;requiresApproval?:boolean}>}) => p.actions || []);
         const preferred = actions.find((a: {id:string;name:string}) => {
           const s = (a.id + " " + a.name).toLowerCase();
@@ -166,7 +180,7 @@ export default function CoreAgentConsole() {
       const response = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
         id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
       })});
-      const data = await response.json();
+      const data = await readJsonResponse<{ mission?: { state?: string }; error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Mission action failed.");
       setMission((m) => m ? { ...m, state: data.mission?.state || m.state } : m);
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
