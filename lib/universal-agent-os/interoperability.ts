@@ -1,0 +1,8 @@
+export type AgentIdentity={agentId:string;tenantId:string;version:string;trusted:boolean;capabilities:string[]};
+export type Envelope={protocol:"A2A";version:string;messageId:string;correlationId:string;sender:AgentIdentity;receiver:AgentIdentity;type:"TASK"|"OFFER"|"ACCEPT"|"REJECT"|"RESULT"|"ERROR";payload:Record<string,unknown>};
+export type Negotiation={accepted:boolean;reason:string;score:number};
+export function exchangeCapabilities(a:AgentIdentity,b:AgentIdentity){return b.capabilities.filter(x=>a.capabilities.includes(x))}
+export function negotiate(sender:AgentIdentity,receiver:AgentIdentity,required:string[]):Negotiation{if(!sender.trusted||!receiver.trusted)return {accepted:false,reason:"TRUST_REQUIRED",score:0};const shared=exchangeCapabilities(sender,receiver);const matched=required.filter(x=>shared.includes(x)).length;const score=required.length?matched/required.length:1;return {accepted:score===1,reason:score===1?"CAPABILITY_MATCH":"CAPABILITY_GAP",score}}
+export function makeEnvelope(sender:AgentIdentity,receiver:AgentIdentity,type:Envelope["type"],payload:Record<string,unknown>,messageId:string,correlationId:string):Envelope{return {protocol:"A2A",version:"1.0",messageId,correlationId,sender,receiver,type,payload}}
+export function compatible(a:string,b:string){return a.split(".")[0]===b.split(".")[0]}
+export function federatedRoute(candidates:AgentIdentity[],required:string[]){return candidates.map(a=>({agent:a,negotiation:negotiate(a,a,required)})).filter(x=>x.negotiation.accepted).sort((a,b)=>b.negotiation.score-a.negotiation.score)[0]?.agent??null}
