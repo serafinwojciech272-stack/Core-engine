@@ -86,8 +86,20 @@ async function executeImageCombine(imageDatas: string[], task: string): Promise<
   });
   if (buffers.length < 2) return executeImageEdit(imageDatas[0], task);
   const images = await Promise.all(buffers.slice(0, 6).map(async (buffer) => {
-    const meta = await sharp(buffer).rotate().metadata();
-    return { buffer, width: meta.width || 1, height: meta.height || 1 };
+    const normalized = await sharp(buffer).rotate().resize({ width: 1800, height: 1800, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
+    const meta = await sharp(normalized).metadata();
+    return { buffer: normalized, width: meta.width || 1, height: meta.height || 1 };
+  }));
+  const targetHeight = Math.min(1600, Math.max(...images.map((x) => x.height)));
+  const resized = await Promise.all(images.map(async (x) => ({
+    input: await sharp(x.buffer).resize({ height: targetHeight, fit: "contain", background: "#ffffff" }).jpeg({ quality: 88, mozjpeg: true }).toBuffer(),
+    width: Math.max(1, Math.round(x.width * targetHeight / x.height))
+  })));
+  const totalWidth = resized.reduce((sum, x) => sum + x.width, 0);
+  const output = await sharp({
+    create: { width: totalWidth, height: targetHeight, channels: 3, background: { r: 255, g: 255, b: 255 } }
+  }).composite(resized.map((x, index) => ({ input: x.input, left: resized.slice(0, index).reduce((s, y) => s + y.width, 0), top: 0 }))).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+  return { buffer, width: meta.width || 1, height: meta.height || 1 };
   }));
   const targetHeight = Math.max(...images.map((x) => x.height));
   const resized = await Promise.all(images.map(async (x) => ({
@@ -103,7 +115,7 @@ async function executeImageCombine(imageDatas: string[], task: string): Promise<
     title: "Połączone zdjęcia",
     status: "EXECUTED",
     provider: "core-local-sharp",
-    dataUrl: "data:image/png;base64," + output.toString("base64")
+    dataUrl: "data:image/jpeg;base64," + output.toString("base64")
   };
 }
 
