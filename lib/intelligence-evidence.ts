@@ -21,3 +21,5 @@ export type IntelligenceEvidence={
 export function buildIntelligenceEvidence(input:Omit<IntelligenceEvidence,"requestId"|"createdAt">):IntelligenceEvidence{
   return{...input,requestId:"ce-ev-"+randomUUID(),createdAt:new Date().toISOString()};
 }
+
+export async function recordIntelligenceEvidence(input:Omit<IntelligenceEvidence,"requestId"|"createdAt">){return buildIntelligenceEvidence(input);}
