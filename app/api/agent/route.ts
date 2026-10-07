@@ -15,6 +15,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import sharp from "sharp";
 import { executeRoutedMultiTask } from "@/lib/multitask-engine";
 import { universalGenerate } from "@/lib/universal-ai-router";
+import { multiModelGenerate } from "@/lib/multi-model-execution";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -375,7 +376,8 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     return { reply: answer, intent, confidence: 1, plan: ["Rozpoznanie zadania", "Wykonanie deterministyczne", "Weryfikacja wyniku"], requiresApproval: false, execution: "SIMULATION_ONLY", capability, needsAttachment: false, preview: { ...buildDemoPreview(intent, task), answer }, executionState: buildExecutionState(intent, false), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Wynik odpowiada dokładnie poleceniu użytkownika", "Brak zależności od zewnętrznego LLM"] };
   }
 
-  const universal = await universalGenerate(task, documentContext, imageData);
+  const multi = await multiModelGenerate(task, documentContext);
+  const universal = multi.ok && multi.text ? { ok: true, text: multi.text, provider: "openrouter-multi", model: multi.selectedModel, latencyMs: multi.candidates.reduce((sum, c) => sum + c.latencyMs, 0), attempts: multi.candidates.map(c => ({ provider: "openrouter", model: c.model, ok: true, latencyMs: c.latencyMs })), requestId: multi.requestId, routing: { mode: multi.mode, complexity: multi.complexity, domain: multi.domain, reasons: [], selectedModels: multi.candidates.map(c => c.model), fallbackModels: [], consensusModels: multi.mode === "consensus" ? multi.candidates.map(c => c.model) : undefined, judgeModel: multi.judgeModel } } : await universalGenerate(task, documentContext, imageData);
   if (universal.ok && universal.text) {
     const [intent, capability, kind] = classifyTask(task);
     const needsAttachment = ["DOCUMENT_ANALYSIS","DATA_VISUALIZATION","DOCUMENT_TRANSFORM","IMAGE_TASK","IMAGE_EDIT","IMAGE_TO_VIDEO"].includes(intent) && attachments.length === 0;
@@ -391,7 +393,8 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
       preview: { ...buildDemoPreview(intent, task, documentContext), answer: universal.text },
       executionState: buildExecutionState(intent, needsAttachment),
       evidence: buildEvidencePreview(task, attachments, documentContext),
-      successCriteria: ["Plan odpowiada intencji użytkownika", "Wynik jest rzeczywistą odpowiedzią lub artefaktem", "Ryzyko i approval gate są jawne", "Brak fałszywych deklaracji wykonania"]
+      successCriteria: ["Plan odpowiada intencji użytkownika", "Wynik jest rzeczywistą odpowiedzią lub artefaktem", "Ryzyko i approval gate są jawne", "Brak fałszywych deklaracji wykonania"],
+      intelligence: universal.routing
     };
   }
 
