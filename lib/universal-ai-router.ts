@@ -17,6 +17,16 @@ export type UniversalResult = {
   latencyMs?: number;
   attempts: Array<{ provider: string; model: string; ok: boolean; error?: string; latencyMs: number }>;
   requestId: string;
+  routing?: {
+    mode: "single" | "escalation" | "consensus";
+    complexity: number;
+    domain: string;
+    reasons?: string[];
+    selectedModels?: string[];
+    fallbackModels?: string[];
+    consensusModels?: string[];
+    judgeModel?: string;
+  };
 };
 
 function env(name: string) { return process.env[name]?.trim() || ""; }
