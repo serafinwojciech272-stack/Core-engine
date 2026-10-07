@@ -147,7 +147,7 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      let nextOS: AgentMessage["osRun"] = mission.osRun;
+      let nextOS: AgentMessage["osRun"] = (mission as any).osRun;
       if (action === "approve" && nextOS) {
         const approval = await fetch("/api/universal-agent/os", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -239,7 +239,7 @@ export default function CoreAgentConsole() {
             </div>
 
             {mission && <div className="agent-mission-panel">
-              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state} · OS {mission.osRun?.state || "UNLINKED"}</small></div>
+              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state} · OS {(mission as any).osRun?.state || "UNLINKED"}</small></div>
               {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
               {mission.state === "APPROVED" && <button onClick={() => missionAction("execute")} disabled={missionBusy}><Play size={13}/> EXECUTE</button>}
               {mission.state !== "AWAITING_APPROVAL" && mission.state !== "APPROVED" && <b className="mission-state">{mission.state}</b>}
