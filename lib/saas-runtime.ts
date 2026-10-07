@@ -78,7 +78,7 @@ export async function resolveSaaSContext(request:Request):Promise<{identity:SaaS
     if(!workspace||!tenantRecord)throw new Error("SAAS_ORGANIZATION_NOT_FOUND");
     return {identity:{userId:user.id,email:user.email??null,tenantId:String(tenantRecord.id),tenantKey:String(tenantRecord.external_key),tenantName:String(tenantRecord.name),workspaceId:String(workspace.id),workspaceSlug:String(workspace.slug),role:provisioned.role},legacyTenant:null};
   }
-  return {identity:null,legacyTenant:resolveTenant(request)};
+  try {\n    return {identity:null,legacyTenant:resolveTenant(request)};\n  } catch (error) {\n    if (error instanceof Error && error.message === "TENANT_NOT_CONFIGURED" && process.env.CORE_ENGINE_ALLOW_ANONYMOUS === "true") {\n      return {identity:null,legacyTenant:{tenantId:"09e12da8-24a5-5bfa-b2b4-c8d1d04aa0af",tenantKey:"public-demo"}};\n    }\n    throw error;\n  }
 }
 
 export async function consumeSaaSUsage(tenantId:string,units:number){
