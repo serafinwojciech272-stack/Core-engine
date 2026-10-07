@@ -111,7 +111,7 @@ export default function CoreAgentConsole() {
         imageDatas = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).filter(Boolean);
         imageData = imageDatas[0] || "";
         parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
-          "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify(item.metadata) + "\nEXTRACTED TEXT:\n" + item.extractedText
+          "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify({ ...(item.metadata as Record<string, unknown>), dataUrl: undefined }) + "\nEXTRACTED TEXT:\n" + item.extractedText
         ).join("\n\n");
         setDocumentContext(parsedContext);
       }
