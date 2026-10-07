@@ -26,3 +26,5 @@ export function adaptiveRoute(task:string, observations:RoutingObservation[]=[])
   const budgetMs=mode==="single"?NUM("CORE_ENGINE_SINGLE_BUDGET_MS",12000):mode==="escalation"?NUM("CORE_ENGINE_ESCALATION_BUDGET_MS",30000):NUM("CORE_ENGINE_CONSENSUS_BUDGET_MS",45000);
   return{complexity:p.complexity,domain:p.domain,mode,models,budgetMs,reason:avg.size?"adaptive:historical verified observations influence ordering":"baseline:insufficient verified observations"};
 }
+
+export async function adaptiveModelOrder(models:string[],_domain:string,_complexity:number){return models.slice();}
