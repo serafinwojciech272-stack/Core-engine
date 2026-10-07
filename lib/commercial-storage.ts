@@ -3,8 +3,15 @@ import { commercialRuntimeStatus } from "@/lib/commercial-runtime";
 type Config = { url: string; key: string };
 const memoryMissionTenants = new Map<string, string>();
 
+function normalizeSupabaseUrl(value: string | undefined) {
+  let raw = (value || "").trim();
+  if (raw.toUpperCase().startsWith("SUPABASE_URL")) { const i = raw.indexOf("="); if (i >= 0) raw = raw.slice(i + 1).trim(); }
+  const quote = String.fromCharCode(34); const apostrophe = String.fromCharCode(39);
+  if ((raw.startsWith(quote) && raw.endsWith(quote)) || (raw.startsWith(apostrophe) && raw.endsWith(apostrophe))) raw = raw.slice(1, -1).trim();
+  try { return raw ? new URL(raw).origin : ""; } catch { return ""; }
+}
 function cfg(): Config | null {
-  const url = process.env.SUPABASE_URL;
+  const url = normalizeSupabaseUrl(process.env.SUPABASE_URL);
   const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }
