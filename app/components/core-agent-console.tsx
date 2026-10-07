@@ -6,7 +6,7 @@ import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, 
 type Attachment = { name: string; type: string; size: number; file: File };
 
 type OSRun = { runId:string; state:string; approvalId:string|null; approvalCertificate:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; quality?: {score:number;certified:boolean}; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -23,6 +23,7 @@ type AgentResponse = {
   kpis?: string[];
   risks?: string[];
   nextAction?: string;
+  quality?: {score:number;certified:boolean};
   agentRunId?: string;
   osRun?: OSRun;
 };
@@ -54,6 +55,7 @@ export default function CoreAgentConsole() {
     state: string;
     objective: string;
     capabilityActionId?: string;
+    quality?: {score:number;certified:boolean};
     osRun?: AgentMessage["osRun"];
   };
   const [mission, setMission] = useState<MissionState | null>(null);
@@ -102,6 +104,7 @@ export default function CoreAgentConsole() {
         kpis: data.kpis,
         risks: data.risks,
         nextAction: data.nextAction,
+        quality: data.quality && typeof data.quality === "object" ? { score: Number(data.quality.score || 0), certified: Boolean(data.quality.certified) } : undefined,
         agentRunId: data.agentRunId,
         osRun: data.osRun,
       }]);
@@ -112,7 +115,7 @@ export default function CoreAgentConsole() {
     }
   }
 
-  async function createMission(messageIndex: number, intent: string | undefined, text: string, osRun: AgentMessage["osRun"]) {
+  async function createMission(messageIndex: number, intent: string | undefined, text: string, osRun: AgentMessage["osRun"], quality?: {score:number;certified:boolean}) {
     if (missionBusy || mission) return;
     setMissionBusy(true); setError("");
     try {
@@ -136,7 +139,7 @@ export default function CoreAgentConsole() {
         });
         capabilityActionId = preferred?.id;
       } catch {}
-      const m: MissionState = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, osRun };
+      const m: MissionState = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, quality, osRun };
       setMission(m);
       setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
@@ -187,6 +190,21 @@ export default function CoreAgentConsole() {
       });
       const gateData = await gate.json();
       if (!gate.ok) throw new Error(gateData.error || "Mission/Universal Agent OS gate certification failed.");
+      nextOS = gateData.run;
+
+      const gate = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "certify_gate",
+          run: nextOS,
+          missionState: mission.state,
+          qualityCertified: Boolean(mission.quality?.certified),
+          qualityScore: Number(mission.quality?.score || 0)
+        })
+      });
+      const gateData = await gate.json();
+      if (!gate.ok) throw new Error(gateData.error || "Mission/UAOS gate certification failed.");
       nextOS = gateData.run;
 
       const executing = await fetch("/api/universal-agent/os", {
@@ -265,7 +283,7 @@ export default function CoreAgentConsole() {
                     {message.risks?.length ? <div className="agent-result-block"><span>RISKS / UNCERTAINTY</span>{message.risks.map((item) => <div key={item}>• {item}</div>)}</div> : null}
                     {message.assumptions?.length ? <div className="agent-result-block"><span>ASSUMPTIONS</span>{message.assumptions.map((item) => <div key={item}>• {item}</div>)}</div> : null}
                     {message.nextAction ? <div className="agent-next-action"><strong>NEXT ACTION</strong><span>{message.nextAction}</span></div> : null}
-                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text, message.osRun)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
+                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text, message.osRun, message.quality)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
                   </div>}
                 </div>
               ))}
