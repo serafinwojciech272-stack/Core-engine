@@ -310,6 +310,20 @@ function buildEvidencePreview(task: string, attachments: AgentAttachment[], docu
   ];
 }
 
+function directFallbackAnswer(task: string) {
+  const t = task.trim();
+  const lower = t.toLowerCase();
+  const arithmetic = t.match(/^\s*(\d+(?:[.,]\d+)?)\s*([+\-*x×÷/])\s*(\d+(?:[.,]\d+)?)\s*\??\s*$/);
+  if (arithmetic) {
+    const a=Number(arithmetic[1].replace(",", ".")), b=Number(arithmetic[3].replace(",", ".")), op=arithmetic[2];
+    const value = op==="+"?a+b:op==="-"?a-b:op==="*"||op==="x"||op==="×"?a*b:op==="÷"||op==="/"?a/b:NaN;
+    if(Number.isFinite(value)) return "Wynik: " + value;
+  }
+  if (/^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(t)) return "Cześć. Core Engine AI działa. Napisz zadanie, które mam wykonać.";
+  if (/^\s*(kim jesteś|kim jestes|co potrafisz)[?.!]*$/i.test(lower)) return "Jestem Core Engine AI — centralnym agentem do analizy, tworzenia, transformacji danych, obrazów, dokumentów, stron WWW i innych zadań.";
+  return "Przyjąłem zadanie: " + t + ". Core Engine nie ma jeszcze skonfigurowanego dostawcy LLM dla tego typu pytania, dlatego nie będę udawał odpowiedzi. Dla zadań wykonawczych używam dostępnych capability i zwracam rzeczywisty artefakt.";
+}
+
 function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
   const [intent, capability, kind] = classifyTask(task);
   const needsAttachment = ["DOCUMENT_ANALYSIS", "DATA_VISUALIZATION", "DOCUMENT_TRANSFORM", "IMAGE_TASK", "IMAGE_EDIT", "IMAGE_TO_VIDEO"].includes(intent) && attachments.length === 0;
@@ -364,7 +378,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
     const resolvedIntent = String(parsed.intent || "GENERAL_AGENT");
     const resolvedNeedsAttachment = Boolean(parsed.needsAttachment);
-    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: buildTaskAnswer(resolvedIntent, task, documentContext) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
+    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: buildTaskAnswer(resolvedIntent, task, documentContext) || directFallbackAnswer(task) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
   } catch {
     return fallbackAgent(task, attachments);
   } finally { clearTimeout(timeout); }
