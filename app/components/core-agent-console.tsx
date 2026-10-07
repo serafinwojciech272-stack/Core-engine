@@ -124,7 +124,7 @@ export default function CoreAgentConsole() {
         domain: intent === "DOCUMENT_ANALYSIS" ? "document" : intent === "IMAGE_TASK" ? "creative" : intent === "RESEARCH" ? "research" : "general",
         signals: [{ name: "agent_task", value: text.slice(0, 200), source: "core-agent" }, { name: "intent", value: intent || "GENERAL_AGENT", source: "core-agent" }]
       })});
-      const data = await response.json();
+      const data = await response.json() as { mission: MissionState; error?: string };
       if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć misji.");
       let capabilityActionId: string | undefined;
       try {
@@ -160,7 +160,7 @@ export default function CoreAgentConsole() {
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId, gateCertificateId: nextOS.approvalCertificate, osRun: nextOS })
         });
-        const data = await response.json();
+        const data = await response.json() as { mission?: { state?: string; osRun?: OSRun }; error?: string };
         if (!response.ok) throw new Error(data.error || "Mission approval failed.");
 
         const approval = await fetch("/api/universal-agent/os", {
@@ -211,7 +211,7 @@ export default function CoreAgentConsole() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId, gateCertificateId: nextOS.approvalCertificate, osRun: nextOS })
       });
-      const data = await response.json();
+      const data = await response.json() as { mission?: { state?: string }; evidence?: unknown; outcome?: unknown; error?: string };
       if (!response.ok) throw new Error(data.error || "Mission execution failed.");
 
       let evidenceOS = nextOS;
