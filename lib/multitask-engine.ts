@@ -15,7 +15,6 @@ export type MultiTaskArtifact = {
   filename?: string;
   mimeType?: string;
   text?: string;
-  html?: string;
 };
 
 const actions: CapabilityAction[] = [
