@@ -13,6 +13,7 @@ import {resolveTenant} from "@/lib/commercial-runtime";
 import {missionBelongsToTenant, recordUsage, tenantMissionIds} from "@/lib/commercial-storage";
 import {resolveSaaSContext, consumeSaaSUsage} from "@/lib/saas-runtime";
 import {runMissionLearningLoop} from "@/lib/learning-loop";
+import {isMissionUAOSGateCertified} from "@/lib/mission-uaos-gate";
 
 const numericOrNull=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?value:null;
 const directionOrUndefined=(value:unknown):"higher"|"lower"|undefined=>value==="lower"?"lower":value==="higher"?"higher":undefined;
@@ -36,8 +37,9 @@ export async function POST(request:Request){
     const raw=await request.text();
     if(new TextEncoder().encode(raw).byteLength>MAX)return NextResponse.json({ok:false,error:"REQUEST_TOO_LARGE"},{status:413});
     const b=raw?JSON.parse(raw):{};
-    const id=String(b.id||""),action=String(b.action||""),key=String(b.idempotencyKey||""),capabilityActionId=String(b.capabilityActionId||"");
+    const id=String(b.id||""),action=String(b.action||""),key=String(b.idempotencyKey||""),capabilityActionId=String(b.capabilityActionId||""),gateCertificateId=String(b.gateCertificateId||"");
     if(!id||!action)return NextResponse.json({ok:false,error:"MISSION_ID_AND_ACTION_REQUIRED"},{status:400});
+    if((action==="execute"||action==="retry")&&!gateCertificateId)return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_REQUIRED"},{status:403});
     if(!key||key.length>200)return NextResponse.json({ok:false,error:"IDEMPOTENCY_KEY_REQUIRED"},{status:400});
     const next=nextByAction[action];if(!next)return NextResponse.json({ok:false,error:"UNKNOWN_ACTION"},{status:400});
     const outcome=b.outcome&&typeof b.outcome==="object"&&!Array.isArray(b.outcome)?b.outcome as Record<string,unknown>:{};
@@ -47,6 +49,7 @@ export async function POST(request:Request){
 
     if(storageMode()==="supabase"){
       const current=(await listPersistedMissions(100)).find(m=>m.id===id);if(!current)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
+      if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id}))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
       if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
       const policy=evaluateMissionAction(action,current.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
       const claimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
@@ -108,6 +111,7 @@ export async function POST(request:Request){
     }
 
     const m=missions.get(id);if(!m)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
+    if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id}))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
     if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
     const memoryClaimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
