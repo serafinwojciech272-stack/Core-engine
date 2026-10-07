@@ -101,13 +101,15 @@ export default function CoreAgentConsole() {
     try {
       let parsedContext = "";
       let imageData = "";
+      let imageDatas: string[] = [];
       if (attachments.length) {
         const form = new FormData();
         attachments.forEach((item) => form.append("file", item.file, item.name));
         const fileResponse = await fetch("/api/agent/file", { method: "POST", body: form });
         const fileData = await readJsonResponse<{ files?: Array<{name:string;stats:unknown;metadata:unknown;extractedText:string}>; error?: string }>(fileResponse);
         if (!fileResponse.ok) throw new Error(fileData.error || "Nie udało się przeanalizować pliku.");
-        imageData = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).find(Boolean) || "";
+        imageDatas = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) => String((item.metadata as {dataUrl?:string})?.dataUrl || "")).filter(Boolean);
+        imageData = imageDatas[0] || "";
         parsedContext = (fileData.files || []).map((item: {name:string;stats:unknown;metadata:unknown;extractedText:string}) =>
           "FILE: " + item.name + "\nSTATS: " + JSON.stringify(item.stats) + "\nMETADATA: " + JSON.stringify(item.metadata) + "\nEXTRACTED TEXT:\n" + item.extractedText
         ).join("\n\n");
@@ -116,7 +118,7 @@ export default function CoreAgentConsole() {
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000), imageData })
+        body: JSON.stringify({ task: value, attachments: attachments.map(({name,type,size}) => ({name,type,size})), documentContext: parsedContext.slice(0, 50000), imageData, imageDatas })
       });
       const data = await readJsonResponse<AgentResponse & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
