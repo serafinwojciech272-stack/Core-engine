@@ -461,7 +461,7 @@ export async function POST(request: Request) {
       measuredAt: new Date().toISOString(),
       streaming: false
     };
-    const intelligence = (result.intelligence || {}) as {
+    const intelligence = ((result as typeof result & { intelligence?: unknown }).intelligence || {}) as {
       mode?: string; domain?: string; complexity?: number; selectedModels?: string[]; judgeModel?: string;
     };
     const evidence = buildIntelligenceEvidence({
