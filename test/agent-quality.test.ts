@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { QUALITY_CASES, certifyQuality } from "@/lib/agent-quality";
 import { fallbackAgent } from "@/app/api/agent/route";
-import { createOSRun, transitionOS, attachApproval } from "@/lib/universal-agent-os";
+import { createOSRun, transitionOS, attachApproval, certifyApprovalGate } from "@/lib/universal-agent-os";
 
 test("Core Engine quality suite certifies deterministic fallback", () => {
   const outputs: Record<string, any> = {};
