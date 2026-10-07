@@ -425,37 +425,14 @@ export async function POST(request: Request) {
     const primaryImageData = imageDatas[0] || (typeof body.imageData === "string" ? body.imageData : "");
     let result = await generateAgentResponse(task, attachments, documentContext, primaryImageData);
     const imageData = primaryImageData;
-    const grayscaleTask = /(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/i.test(task);
-    const combineTask = imageDatas.length >= 2 && /(połącz|polacz|złącz|zlacz|razem|jedno zdjęcie|jedno zdjecie|combine|merge|join|collage|kolaż|kolaz)/i.test(task);
-    if (imageData && grayscaleTask) {
-      result = {
-        ...result,
-        intent: "IMAGE_EDIT",
-        capability: "Image Editing",
-        needsAttachment: false,
-        execution: "HUMAN_APPROVAL_REQUIRED",
-        executionState: buildExecutionState("IMAGE_EDIT", false),
-        preview: { ...buildDemoPreview("IMAGE_EDIT", task, documentContext), answer: buildTaskAnswer("IMAGE_EDIT", task, documentContext) }
-      };
-    }
     let artifact: AgentArtifact | undefined;
     try {
       const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
       if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
+      if (artifact) {
+        result = { ...result, preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy." } };
+      }
     } catch {}
-    if (artifact) {
-      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy." } };
-    }
-    if (!artifact && result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
-    if (combineTask) {
-      try { artifact = await executeImageCombine(imageDatas, task); } catch { artifact = { type: "image", title: "Połączenie zdjęć", status: "FAILED", provider: "core-local-sharp" }; }
-      result = { ...result, intent: "IMAGE_EDIT", capability: "Image Editing", needsAttachment: false, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine połączył przesłane zdjęcia i zwrócił gotowy plik wynikowy." : "Nie udało się wygenerować pliku wynikowego." } };
-    } else if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
-      try { artifact = await executeImageEdit(imageData, task); } catch (error) { artifact = { type: "image", title: "Edycja zdjęcia", status: "FAILED", provider: "image-provider" }; }
-    }
-    if (artifact) {
-      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine wykonał operację i zwrócił artefakt wynikowy." : "Operacja została przygotowana, ale provider wykonawczy nie jest jeszcze skonfigurowany." } };
-    }
     return NextResponse.json({ ok: true, ...result, artifact, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
