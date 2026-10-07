@@ -116,7 +116,7 @@ export default function CoreAgentConsole() {
     }
   }
 
-  async function createMission(messageIndex: number, intent: string | undefined, text: string, osRun: AgentMessage["osRun"], quality?: {score:number;certified:boolean}) {
+  async function createMission(messageIndex: number, intent: string | undefined, text: string, osRun: AgentMessage["osRun"], quality?: GateQuality) {
     if (missionBusy || mission) return;
     setMissionBusy(true); setError("");
     try {
