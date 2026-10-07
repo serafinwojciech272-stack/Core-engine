@@ -74,7 +74,8 @@ function openRouterFallbackModels(primary: string) {
   const models = (configured ? configured.split(",") : defaults).map(v => v.trim()).filter(Boolean);
   return Array.from(new Set(models.filter(m => m !== primary)));
 }
-\nasync function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string) {
+
+async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25000);
   try {
