@@ -21,7 +21,9 @@
     "lucide-react": "1.47.0",
     "@jose.espana/docstream": "0.1.3",
     "fflate": "0.8.2",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "ai": "7.0.123",
+    "@ai-sdk/gateway": "4.0.104"
   },
   "devDependencies": {
     "typescript": "6.0.3",
