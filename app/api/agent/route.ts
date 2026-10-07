@@ -13,6 +13,7 @@ import { saasStatus } from "@/lib/saas-runtime";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import sharp from "sharp";
+import { executeRoutedMultiTask } from "@/lib/multitask-engine";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -50,7 +51,7 @@ export async function GET() {
 
 
 type AgentAttachment = { name: string; type?: string; size?: number };
-type AgentArtifact = { type: "website" | "image"; title: string; html?: string; dataUrl?: string; provider?: string; status: string };
+type AgentArtifact = { type: "website" | "image" | "file" | "video" | "data"; title: string; html?: string; dataUrl?: string; provider?: string; status: string; filename?: string; mimeType?: string; text?: string };
 
 function taskImagePrompt(task: string) {
   const t = task.toLowerCase();
@@ -438,7 +439,14 @@ export async function POST(request: Request) {
       };
     }
     let artifact: AgentArtifact | undefined;
-    if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
+    try {
+      const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
+      if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
+    } catch {}
+    if (artifact) {
+      result = { ...result, preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy." } };
+    }
+    if (!artifact && result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
     if (combineTask) {
       try { artifact = await executeImageCombine(imageDatas, task); } catch { artifact = { type: "image", title: "Połączenie zdjęć", status: "FAILED", provider: "core-local-sharp" }; }
       result = { ...result, intent: "IMAGE_EDIT", capability: "Image Editing", needsAttachment: false, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine połączył przesłane zdjęcia i zwrócił gotowy plik wynikowy." : "Nie udało się wygenerować pliku wynikowego." } };
