@@ -5,9 +5,9 @@ import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, 
 
 type Attachment = { name: string; type: string; size: number; file: File };
 
-type OSRun = { runId:string; state:string; approvalId:string|null; approvalCertificate:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
+type OSRun = { runId:string; state:string; approvalId:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
 type GateQuality = { passed?: boolean; score?: number; certified?: boolean; status?: string };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; quality?: {score:number;certified:boolean}; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; quality?: GateQuality; };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; quality?: GateQuality; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -105,7 +105,7 @@ export default function CoreAgentConsole() {
         kpis: data.kpis,
         risks: data.risks,
         nextAction: data.nextAction,
-        quality: data.quality && typeof data.quality === "object" ? { score: Number(data.quality.score || 0), certified: Boolean(data.quality.certified) } : undefined,
+        quality: data.quality && typeof data.quality === "object" ? { score: Number(data.quality.score || 0), certified: Boolean(data.quality.certified ?? data.quality.passed) } : undefined,
         agentRunId: data.agentRunId,
         osRun: data.osRun,
       }]);
@@ -151,88 +151,56 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      let nextOS: AgentMessage["osRun"] = mission.osRun;
-
+      let nextOS = mission.osRun;
       if (action === "approve") {
-        if (!nextOS || nextOS.state !== "AWAITING_APPROVAL") {
-          throw new Error("OS_APPROVAL_GATE_REQUIRED");
-        }
+        if (!nextOS || nextOS.state !== "AWAITING_APPROVAL") throw new Error("OS_APPROVAL_GATE_REQUIRED");
         const response = await fetch("/api/mission", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
+          method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json"},
+          body:JSON.stringify({id:mission.id,action,idempotencyKey:crypto.randomUUID(),capabilityActionId:mission.capabilityActionId})
+        });
+        const data=await response.json();
+        if(!response.ok) throw new Error(data.error||"Mission approval failed.");
+        const approval=await fetch("/api/universal-agent/os",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({action:"approve",run:nextOS,approvalId:mission.id})
+        });
+        const approvedOS=await approval.json();
+        if(!approval.ok) throw new Error(approvedOS.error||"Universal Agent OS approval failed.");
+        nextOS=approvedOS.run;
+        const gate=await fetch("/api/mission-uaos-gate",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            qualityCertified:Boolean(mission.quality?.certified),
+            qualityScore:Number(mission.quality?.score||0),
+            missionState:data.mission?.state||"APPROVED",
+            osState:nextOS.state,
+            approvalId:nextOS.approvalId,
+            missionId:mission.id,
+            osRunId:nextOS.runId
           })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Mission approval failed.");
-
-        const approval = await fetch("/api/universal-agent/os", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
-        });
-        const approvedOS = await approval.json();
-        if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
-        nextOS = approvedOS.run;
-
-        setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "APPROVED", osRun: nextOS, gateCertificateId: gate.certificateId } : m);
+        const gateData=await gate.json();
+        if(!gate.ok||!gateData.certificateId) throw new Error(gateData.error||gateData.reasons?.join(",")||"Mission/UAOS gate certification failed.");
+        setMission(m=>m?{...m,state:data.mission?.state||"APPROVED",osRun:nextOS,gateCertificateId:gateData.certificateId}:m);
         return;
       }
-
-      if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId || !mission.gateCertificateId) {
-        throw new Error("OS_APPROVAL_REQUIRED");
-      }
-
-      const gate = await fetch("/api/universal-agent/os", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "certifyGate", run: nextOS, missionState: mission.state })
+      if(!nextOS||nextOS.state!=="AWAITING_APPROVAL"||!nextOS.approvalId||!mission.gateCertificateId) throw new Error("MISSION_UAOS_GATE_CERTIFICATION_REQUIRED");
+      const executing=await fetch("/api/universal-agent/os",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"transition",run:nextOS,next:"EXECUTING"})
       });
-      const gateData = await gate.json();
-      if (!gate.ok) throw new Error(gateData.error || "Mission/Universal Agent OS gate certification failed.");
-      nextOS = gateData.run;
-
-      const gate = await fetch("/api/universal-agent/os", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "certify_gate",
-          run: nextOS,
-          missionState: mission.state,
-          qualityCertified: Boolean(mission.quality?.certified),
-          qualityScore: Number(mission.quality?.score || 0)
-        })
+      const executingOS=await executing.json();
+      if(!executing.ok) throw new Error(executingOS.error||"Universal Agent OS execution transition failed.");
+      nextOS=executingOS.run;
+      const response=await fetch("/api/mission",{
+        method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({id:mission.id,action,idempotencyKey:crypto.randomUUID(),capabilityActionId:mission.capabilityActionId,gateCertificateId:mission.gateCertificateId})
       });
-      const gateData = await gate.json();
-      if (!gate.ok) throw new Error(gateData.error || "Mission/UAOS gate certification failed.");
-      nextOS = gateData.run;
-
-      const executing = await fetch("/api/universal-agent/os", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "transition", run: nextOS, next: "EXECUTING" })
-      });
-      const executingOS = await executing.json();
-      if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
-      nextOS = executingOS.run;
-
-      const response = await fetch("/api/mission", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Mission execution failed.");
-
-      setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || m.state, osRun: nextOS } : m);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Błąd misji.");
-    } finally {
-      setMissionBusy(false);
-    }
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"Mission execution failed.");
+      setMission(m=>m?{...m,state:data.mission?.state||m.state,osRun:nextOS}:m);
+    } catch(e) { setError(e instanceof Error?e.message:"Błąd misji."); }
+    finally { setMissionBusy(false); }
   }
 
   function addFiles(list: FileList | null) {
