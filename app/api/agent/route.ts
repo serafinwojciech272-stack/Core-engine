@@ -381,6 +381,18 @@ export async function POST(request: Request) {
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     let result = await generateAgentResponse(task, attachments, documentContext, typeof body.imageData === "string" ? body.imageData : "");
     const imageData = typeof body.imageData === "string" ? body.imageData : "";
+    const grayscaleTask = /(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/i.test(task);
+    if (imageData && grayscaleTask) {
+      result = {
+        ...result,
+        intent: "IMAGE_EDIT",
+        capability: "Image Editing",
+        needsAttachment: false,
+        execution: "HUMAN_APPROVAL_REQUIRED",
+        executionState: buildExecutionState("IMAGE_EDIT", false),
+        preview: { ...buildDemoPreview("IMAGE_EDIT", task, documentContext) }
+      };
+    }
     let artifact: AgentArtifact | undefined;
     if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
     if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
