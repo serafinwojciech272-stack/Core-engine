@@ -3,7 +3,9 @@
 import { FormEvent, useRef, useState } from "react";
 import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check } from "lucide-react";
 
-type Attachment = { name: string; type: string; size: number; file: File };\n\ntype OSRun = { runId:string; state:string; approvalId:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
+type Attachment = { name: string; type: string; size: number; file: File };
+
+type OSRun = { runId:string; state:string; approvalId:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
 type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; };
 type AgentResponse = {
   ok: boolean;
