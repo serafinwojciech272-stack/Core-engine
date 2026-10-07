@@ -77,8 +77,22 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
   }
   if(actionId==="multitask.image.edit"){
     const d=String(input.imageData||"");const m=d.match(/^data:[^;]+;base64,(.+)$/);if(!m)throw new Error("IMAGE_DATA_REQUIRED");
-    const task=String(input.task||"");const gray=/(czarno[- ]?biał|czarno[- ]?bial|black and white|grayscale|greyscale|desatur)/i.test(task);
-    const out=await sharp(Buffer.from(m[1],"base64")).rotate()[gray?"grayscale":"normalize"]()[gray?"png":"png"]({compressionLevel:9}).toBuffer();
+    const task=String(input.task||"");
+    const key=process.env.CORE_ENGINE_IMAGE_API_KEY?.trim();
+    if(key){
+      const url=process.env.CORE_ENGINE_IMAGE_API_URL?.trim() || "https://api.openai.com/v1/images/edits";
+      const model=process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "gpt-image-2";
+      const form=new FormData(); form.append("model",model); form.append("prompt",task);
+      form.append("image",new Blob([Buffer.from(m[1],"base64")],{type:"image/png"}),"source.png");
+      form.append("response_format","b64_json");
+      const response=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+key},body:form});
+      const body=await response.json().catch(()=>({}));
+      const b64=body?.data?.[0]?.b64_json;
+      if(response.ok && b64) return {type:"image",title:"Zdjęcie po edycji",status:"EXECUTED",provider:model,dataUrl:"data:image/png;base64,"+b64};
+    }
+    const gray=/(czarno[- ]?biał|czarno[- ]?bial|black and white|grayscale|greyscale|desatur)/i.test(task);
+    const pipeline=sharp(Buffer.from(m[1],"base64")).rotate();
+    const out=gray ? await pipeline.grayscale().png({compressionLevel:9}).toBuffer() : await pipeline.normalize().modulate({saturation:1.04,brightness:1.02}).sharpen({sigma:1.1}).png({compressionLevel:9}).toBuffer();
     return {type:"image",title:gray?"Zdjęcie czarno-białe":"Zdjęcie po edycji",status:"EXECUTED",provider:"core-local-sharp",dataUrl:"data:image/png;base64,"+out.toString("base64")};
   }
   if(actionId==="multitask.website.build"){
