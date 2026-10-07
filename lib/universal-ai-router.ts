@@ -68,7 +68,13 @@ function systemPrompt() {
   ].join("\n");
 }
 
-function openRouterFallbackModels(primary: string) {\n  const configured = env("OPENROUTER_FALLBACK_MODELS");\n  const defaults = ["anthropic/claude-sonnet-5.5", "openai/gpt-5.4-mini"];\n  const models = (configured ? configured.split(",") : defaults).map(v => v.trim()).filter(Boolean);\n  return Array.from(new Set(models.filter(m => m !== primary)));\n}\n\nasync function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string) {
+function openRouterFallbackModels(primary: string) {
+  const configured = env("OPENROUTER_FALLBACK_MODELS");
+  const defaults = ["anthropic/claude-sonnet-5.5", "openai/gpt-5.4-mini"];
+  const models = (configured ? configured.split(",") : defaults).map(v => v.trim()).filter(Boolean);
+  return Array.from(new Set(models.filter(m => m !== primary)));
+}
+\nasync function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25000);
   try {
