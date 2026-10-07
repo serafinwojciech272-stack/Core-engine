@@ -5,7 +5,7 @@ import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, 
 
 type Attachment = { name: string; type: string; size: number; file: File };
 
-type OSRun = { runId:string; state:string; approvalId:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
+type OSRun = { runId:string; state:string; approvalId:string|null; approvalCertificate:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
 type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; };
 type AgentResponse = {
   ok: boolean;
@@ -179,6 +179,15 @@ export default function CoreAgentConsole() {
       if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId) {
         throw new Error("OS_APPROVAL_REQUIRED");
       }
+
+      const gate = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "certifyGate", run: nextOS, missionState: mission.state })
+      });
+      const gateData = await gate.json();
+      if (!gate.ok) throw new Error(gateData.error || "Mission/Universal Agent OS gate certification failed.");
+      nextOS = gateData.run;
 
       const executing = await fetch("/api/universal-agent/os", {
         method: "POST",
