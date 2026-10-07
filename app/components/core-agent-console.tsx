@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, Sparkles, X, Play, Check, Target, BarChart3, AlertTriangle, FileCheck2, RotateCcw, Globe2, Image as ImageIcon, Video, Wand2 } from "lucide-react";
 
 type Attachment = { name: string; type: string; size: number; file: File };
@@ -20,6 +20,7 @@ type AgentResponse = {
   artifact?: { type:"website"|"image"|"file"|"video"|"data"; title:string; html?:string; dataUrl?:string; provider?:string; status:string; filename?:string; text?:string };
   evidence?: Array<{label:string;value:string;status:string}>;
   successCriteria?: string[];
+  performance?: { totalMs:number; totalSeconds:number; llmMs:number; llmSeconds:number; toolMs:number; toolSeconds:number; requestId:string; measuredAt:string; streaming:boolean };
 };
 
 const modes = [
@@ -84,13 +85,31 @@ export default function CoreAgentConsole() {
   const [activeStage, setActiveStage] = useState(1);
   const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);
   const [selectedMode, setSelectedMode] = useState("BUILD");
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!loading) return;
+    const tick = () => {
+      if (startedAtRef.current !== null) setElapsedMs(Math.max(0, performance.now() - startedAtRef.current));
+    };
+    tick();
+    const timer = window.setInterval(tick, 37);
+    return () => window.clearInterval(timer);
+  }, [loading]);
+
+  function formatElapsed(ms: number) {
+    return (ms / 1000).toFixed(3) + " s";
+  }
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
     const value = task.trim();
     if (!value || loading) return;
+    startedAtRef.current = performance.now();
+    setElapsedMs(0);
     setLoading(true);
     setError("");
     setRequestStatus("PRZYGOTOWUJĘ WYNIK…");
@@ -122,8 +141,10 @@ export default function CoreAgentConsole() {
       });
       const data = await readJsonResponse<AgentResponse & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
+      const clientElapsed = startedAtRef.current === null ? 0 : performance.now() - startedAtRef.current;
+      setElapsedMs(data.performance?.totalMs ?? clientElapsed);
       setLastResponse(data);
-      setRequestStatus("PRZYGOTOWUJĘ WYNIK…");
+      setRequestStatus("GOTOWE · " + formatElapsed(data.performance?.totalMs ?? clientElapsed));
       setActiveStage(data.executionState?.phase === "RESULT_READY" ? 8 : 4);
       setActiveStage(8);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
@@ -265,7 +286,7 @@ export default function CoreAgentConsole() {
     } finally { setMissionBusy(false); }
   }
 
-  function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setRequestStatus(""); setActiveStage(1); }
+  function resetDemo() { startedAtRef.current = null; setElapsedMs(0); setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setRequestStatus(""); setActiveStage(1); }
 
   function chooseMode(mode: typeof modes[number]) {
     setSelectedMode(mode.id);
@@ -325,14 +346,14 @@ export default function CoreAgentConsole() {
                   <p>{message.text}</p>
                 </div>
               ))}
-              {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> Przygotowuję wynik…</div></div>}
+              {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> <span>THINKING · {formatElapsed(elapsedMs)}</span></div></div>}
             </div>
 
               {lastResponse?.preview && (
                 <div ref={resultRef} className="agent-result" data-agent-result="true">
                   <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b>{lastResponse.artifact?.status === "EXECUTED" || lastResponse.preview.answer ? <><FileCheck2 size={12}/> GOTOWE</> : <>WYMAGA UZUPEŁNIENIA</>}</b></div>
 
-                  <p>{lastResponse.preview.summary}</p>{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
+                  <p>{lastResponse.preview.summary}</p>{lastResponse.performance && <div className="agent-performance"><span><small>TOTAL</small><b>{lastResponse.performance.totalSeconds.toFixed(3)} s</b></span><span><small>LLM</small><b>{lastResponse.performance.llmSeconds.toFixed(3)} s</b></span><span><small>TOOL</small><b>{lastResponse.performance.toolSeconds.toFixed(3)} s</b></span><span><small>REQUEST</small><b>{lastResponse.performance.requestId.slice(0, 14)}</b></span></div>}{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
 
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "image" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>IMAGE EDITED</b></div><img src={lastResponse.artifact.dataUrl} alt="Wynik edycji zdjęcia" style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download={lastResponse.artifact?.filename || "core-engine-edited.jpg"} className="agent-mission-button">POBIERZ WYNIK</a></div>}
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "file" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>FILE READY</b></div><a href={lastResponse.artifact.dataUrl} download={lastResponse.artifact.filename || "core-engine-result"} className="agent-mission-button">POBIERZ PLIK</a></div>}
