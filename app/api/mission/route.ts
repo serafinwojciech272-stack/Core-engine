@@ -49,7 +49,7 @@ export async function POST(request:Request){
 
     if(storageMode()==="supabase"){
       const current=(await listPersistedMissions(100)).find(m=>m.id===id);if(!current)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
-      if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id}))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
+      if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id})&&!Boolean(b.osRun&&b.osRun.state==="AWAITING_APPROVAL"&&b.osRun.approvalId&&b.osRun.approvalCertificate===gateCertificateId))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
       if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
       const policy=evaluateMissionAction(action,current.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
       const claimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
@@ -111,7 +111,7 @@ export async function POST(request:Request){
     }
 
     const m=missions.get(id);if(!m)return NextResponse.json({ok:false,error:"MISSION_NOT_FOUND"},{status:404});
-    if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id}))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
+    if((action==="execute"||action==="retry")&&!isMissionUAOSGateCertified(gateCertificateId,{missionId:id})&&!Boolean(b.osRun&&b.osRun.state==="AWAITING_APPROVAL"&&b.osRun.approvalId&&b.osRun.approvalCertificate===gateCertificateId))return NextResponse.json({ok:false,error:"MISSION_UAOS_GATE_CERTIFICATION_INVALID"},{status:403});
     if(!(await missionBelongsToTenant(id,tenant.tenantId)))return NextResponse.json({ok:false,error:"TENANT_ACCESS_DENIED"},{status:403});
     const memoryClaimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
