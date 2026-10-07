@@ -343,10 +343,32 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
   const reply = needsAttachment
     ? "Rozumiem zadanie: " + task + ". Do tego typu pracy potrzebuję materiału wejściowego. Dodaj plik, a Core Engine przejdzie do analizy."
     : "Rozumiem zadanie: " + task + ". Zaklasyfikowałem je jako " + kind.toLowerCase() + " i dobrałem capability „" + capability + "”. Najpierw przygotuję kontrolowany plan, a wykonanie działania powodującego efekt zewnętrzny wymaga Twojej akceptacji.";
-  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, preview: { ...buildDemoPreview(intent, task, documentContext), answer: buildTaskAnswer(intent, task, documentContext) }, executionState: buildExecutionState(intent, needsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
+  return { reply, intent, confidence: intent === "GENERAL_AGENT" ? 0.72 : 0.94, plan, requiresApproval: !needsAttachment, execution: "HUMAN_APPROVAL_REQUIRED", needsAttachment, capability, preview: { ...buildDemoPreview(intent, task, documentContext), answer: intent === "GENERAL_AGENT" ? directFallbackAnswer(task) : buildTaskAnswer(intent, task, documentContext) }, executionState: buildExecutionState(intent, needsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "", imageData = "") {
+  // Deterministic micro-tasks must never depend on an LLM.
+  // They are the runtime smoke-test for the Core Engine request/response path.
+  const direct = directFallbackAnswer(task);
+  if (/^\s*\d+(?:[.,]\d+)?\s*[+\-*x×÷/]\s*\d+(?:[.,]\d+)?\s*\??\s*$/.test(task) ||
+      /^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(task)) {
+    const [intent, capability, kind] = classifyTask(task);
+    const answer = direct;
+    return {
+      reply: answer,
+      intent,
+      confidence: 1,
+      plan: ["Rozpoznanie zadania", "Wykonanie deterministyczne", "Weryfikacja wyniku"],
+      requiresApproval: false,
+      execution: "SIMULATION_ONLY",
+      capability,
+      needsAttachment: false,
+      preview: { ...buildDemoPreview(intent, task), answer },
+      executionState: buildExecutionState(intent, false),
+      evidence: buildEvidencePreview(task, attachments, documentContext),
+      successCriteria: ["Wynik odpowiada dokładnie poleceniu użytkownika", "Brak zależności od zewnętrznego LLM"]
+    };
+  }
   const base = process.env.CORE_ENGINE_LLM_BASE_URL;
   const key = process.env.CORE_ENGINE_LLM_API_KEY;
   const model = process.env.CORE_ENGINE_LLM_MODEL;
@@ -378,7 +400,7 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
     const resolvedIntent = String(parsed.intent || "GENERAL_AGENT");
     const resolvedNeedsAttachment = Boolean(parsed.needsAttachment);
-    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: buildTaskAnswer(resolvedIntent, task, documentContext) || directFallbackAnswer(task) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
+    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: resolvedIntent === "GENERAL_AGENT" ? directFallbackAnswer(task) : buildTaskAnswer(resolvedIntent, task, documentContext) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
   } catch {
     return fallbackAgent(task, attachments);
   } finally { clearTimeout(timeout); }
