@@ -26,11 +26,11 @@ function providers(): UniversalProvider[] {
   const coreKey = env("CORE_ENGINE_LLM_API_KEY");
   const coreBase = env("CORE_ENGINE_LLM_BASE_URL");
   const coreModel = env("CORE_ENGINE_LLM_MODEL");
-  if (coreKey && coreBase && coreModel) list.push({ id: "core-configured", model: coreModel, baseUrl: coreBase, apiKey: coreKey, protocol: "openai-compatible", priority: 10 });
+  if (coreKey && coreBase && coreModel) list.push({ id: "core-configured", model: coreModel, baseUrl: coreBase, apiKey: coreKey, protocol: "openai-compatible", priority: 20 });
 
   const openRouterKey = env("OPENROUTER_API_KEY");
   const openRouterModel = env("OPENROUTER_MODEL") || "openai/gpt-5-mini";
-  if (openRouterKey) list.push({ id: "openrouter", model: openRouterModel, baseUrl: "https://openrouter.ai/api/v1", apiKey: openRouterKey, protocol: "openai-compatible", priority: 20 });
+  if (openRouterKey) list.push({ id: "openrouter", model: openRouterModel, baseUrl: "https://openrouter.ai/api/v1", apiKey: openRouterKey, protocol: "openai-compatible", priority: 10 });
 
   const xaiKey = env("XAI_API_KEY");
   if (xaiKey) list.push({ id: "xai", model: env("XAI_MODEL") || "grok-4.7", baseUrl: "https://api.x.ai/v1", apiKey: xaiKey, protocol: "openai-compatible", priority: 30 });
