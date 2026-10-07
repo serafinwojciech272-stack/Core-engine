@@ -17,7 +17,7 @@ type AgentResponse = {
   needsAttachment?: boolean;
   capability?: string;
   preview?: { title:string; summary:string; highlights:string[]; deliverable:string; quality:string; verified:boolean; disclaimer:string; answer?:string };
-  artifact?: { type:"website"|"image"; title:string; html?:string; dataUrl?:string; provider?:string; status:string };
+  artifact?: { type:"website"|"image"|"file"|"video"|"data"; title:string; html?:string; dataUrl?:string; provider?:string; status:string; filename?:string; text?:string };
   evidence?: Array<{label:string;value:string;status:string}>;
   successCriteria?: string[];
 };
@@ -334,7 +334,7 @@ export default function CoreAgentConsole() {
 
                   <p>{lastResponse.preview.summary}</p>{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
 
-                  {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "image" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>IMAGE EDITED</b></div><img src={lastResponse.artifact.dataUrl} alt="Wynik edycji zdjęcia" style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download="core-engine-edited.png" className="agent-mission-button">POBIERZ WYNIK</a></div>}
+                  {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "image" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>IMAGE EDITED</b></div><img src={lastResponse.artifact.dataUrl} alt="Wynik edycji zdjęcia" style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download={lastResponse.artifact?.filename || "core-engine-edited.jpg"} className="agent-mission-button">POBIERZ WYNIK</a></div>}
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "file" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>FILE READY</b></div><a href={lastResponse.artifact.dataUrl} download={lastResponse.artifact.filename || "core-engine-result"} className="agent-mission-button">POBIERZ PLIK</a></div>}
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "video" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>VIDEO READY</b></div><video src={lastResponse.artifact.dataUrl} controls style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download={lastResponse.artifact.filename || "core-engine-result.mp4"} className="agent-mission-button">POBIERZ WIDEO</a></div>}
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "data" && lastResponse.artifact.text && <div className="agent-answer"><small>RAPORT DANYCH</small><pre style={{whiteSpace:"pre-wrap",margin:0}}>{lastResponse.artifact.text}</pre></div>}
