@@ -84,13 +84,13 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
     if(process.env.AI_GATEWAY_API_KEY?.trim()){
       const images=datas.map(d=>Buffer.from(String(d).split(",")[1]||"","base64"));
       const result=await generateImage({
-        model:gateway(process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "openai/gpt-image-2.5-sunburst"),
+        model:gateway.imageModel(process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "openai/gpt-image-2.5-sunburst"),
         prompt:{text:semanticPrompt,images},
         n:1,
         maxRetries:1
       });
       const image=result.image;
-      if(image?.base64) return {type:"image",title:"Zdjęcie po inteligentnym połączeniu",status:"EXECUTED",provider:result.responses?.[0]?.modelId||"ai-gateway-image",dataUrl:"data:"+(image.mimeType||"image/png")+";base64,"+image.base64,filename:"core-engine-smart-composite.png",mimeType:image.mimeType||"image/png"};
+      if(image?.base64) return {type:"image",title:"Zdjęcie po inteligentnym połączeniu",status:"EXECUTED",provider:result.responses?.[0]?.modelId||"ai-gateway-image",dataUrl:"data:"+(image.mediaType||"image/png")+";base64,"+image.base64,filename:"core-engine-smart-composite.png",mimeType:image.mediaType||"image/png"};
     }
     const key=process.env.CORE_ENGINE_IMAGE_API_KEY?.trim();
     if(key){
