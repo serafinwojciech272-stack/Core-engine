@@ -42,7 +42,7 @@ export async function POST(request:Request){
     const next=nextByAction[action];if(!next)return NextResponse.json({ok:false,error:"UNKNOWN_ACTION"},{status:400});
     const outcome=b.outcome&&typeof b.outcome==="object"&&!Array.isArray(b.outcome)?b.outcome as Record<string,unknown>:{};
     const assessment=["measure","complete","learn"].includes(action)?assessOutcome(outcome):null;
-    if(action==="complete"&&assessment?.quality==="UNVERIFIED")return NextResponse.json({ok:false,error:"OUTCOME_UNVERIFIED",assessment},{status:422});
+    // Completion is the execution boundary, not a KPI gate. Qualitative/observational missions (for example research) may have a successful execution receipt without numeric before/after values. Numeric verification remains required for the explicit `learn` transition.
     let evidenceOutcome:null|{evidence:ReturnType<typeof buildExecutionEvidence>;outcome:ReturnType<typeof buildExecutionOutcome>}=null;
 
     if(storageMode()==="supabase"){
