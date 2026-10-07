@@ -52,19 +52,35 @@ export async function GET() {
 type AgentAttachment = { name: string; type?: string; size?: number };
 type AgentArtifact = { type: "website" | "image"; title: string; html?: string; dataUrl?: string; provider?: string; status: string };
 
-function taskImagePrompt(task: string) { return task.replace(/^(popraw|edytuj|zmień|zmien|retuszuj|ulepsz)\s+(tę|te|ten)?\s*(fotografię|zdjęcie|obraz)?/i, "").trim() || "Improve the photo naturally: correct exposure, color, sharpness and noise while preserving the subject and composition."; }
+function taskImagePrompt(task: string) {
+  const t = task.toLowerCase();
+  if (/(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/.test(t)) {
+    return "Convert the source photo to a natural black-and-white grayscale image. Preserve the exact person, facial features, composition, framing, lighting and details. Do not add or remove objects.";
+  }
+  return task.replace(/^(popraw|edytuj|zmień|zmien|retuszuj|ulepsz|zrób|zrob)\s+(tę|te|ten|je)?\s*(fotografię|zdjęcie|obraz|foto)?/i, "").trim() || "Improve the photo naturally while preserving the subject, facial features and composition.";
+}
 
-async function executeLocalPhotoEnhancement(imageData: string): Promise<AgentArtifact> {
+async function executeLocalPhotoEnhancement(imageData: string, task = ""): Promise<AgentArtifact> {
   const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) throw new Error("IMAGE_DATA_INVALID");
   const input = Buffer.from(match[2], "base64");
-  const output = await sharp(input).rotate().normalize().modulate({ saturation: 1.04, brightness: 1.02 }).sharpen({ sigma: 1.1, m1: 0.6, m2: 2.0 }).png({ compressionLevel: 9 }).toBuffer();
-  return { type: "image", title: "Zdjęcie po poprawie jakości", status: "EXECUTED", provider: "core-local-sharp", dataUrl: "data:image/png;base64," + output.toString("base64") };
+  const grayscale = /(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/i.test(task);
+  const pipeline = sharp(input).rotate();
+  const output = grayscale
+    ? await pipeline.grayscale().png({ compressionLevel: 9 }).toBuffer()
+    : await pipeline.normalize().modulate({ saturation: 1.04, brightness: 1.02 }).sharpen({ sigma: 1.1, m1: 0.6, m2: 2.0 }).png({ compressionLevel: 9 }).toBuffer();
+  return {
+    type: "image",
+    title: grayscale ? "Zdjęcie czarno-białe" : "Zdjęcie po poprawie jakości",
+    status: "EXECUTED",
+    provider: "core-local-sharp",
+    dataUrl: "data:image/png;base64," + output.toString("base64")
+  };
 }
 
 async function executeImageEdit(imageData: string, task: string): Promise<AgentArtifact> {
   const key = process.env.CORE_ENGINE_IMAGE_API_KEY?.trim();
-  if (!key) return executeLocalPhotoEnhancement(imageData);
+  if (!key) return executeLocalPhotoEnhancement(imageData, task);
   const url = process.env.CORE_ENGINE_IMAGE_API_URL?.trim() || "https://api.openai.com/v1/images/edits";
   const model = process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "gpt-image-2";
   const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
@@ -104,6 +120,7 @@ function classifyTask(task: string) {
   if (/(create image|stwórz obraz|utwórz obraz|wygeneruj obraz|generuj obraz)/.test(t)) return ["IMAGE_CREATE", "Image Generation", "CREATIVE"];
   if (/(change image|zmień obraz|edytuj obraz|edit image|retusz)/.test(t)) return ["IMAGE_EDIT", "Image Editing", "CREATIVE"];
   if (/(pdf|xls|xlsx|doc|docx|csv|plik|dokument|dane|analizuj|analiza|tabela)/.test(t)) return ["DOCUMENT_ANALYSIS", "Document Intelligence", "ANALYSIS"];
+  if (/(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/.test(t)) return ["IMAGE_EDIT", "Image Editing", "CREATIVE"];
   if (/(fotograf|zdję|obraz|image|png|jpg|jpeg|retusz|popraw)/.test(t)) return ["IMAGE_TASK", "Creative / Image Capability", "CREATIVE"];
   if (/(stronę|strona www|website|landing|witryn)/.test(t)) return ["WEB_BUILD", "Web Build", "BUILD"];
   if (/(aplikac|app|system|program|dashboard|narzędzi)/.test(t)) return ["APP_BUILD", "Application Build", "BUILD"];
