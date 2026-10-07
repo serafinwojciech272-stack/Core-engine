@@ -4,6 +4,7 @@ import { gateway } from "@ai-sdk/gateway";
 import { registerCapabilityAdapter, type CapabilityAdapter, type CapabilityAdapterReceipt } from "@/lib/capability-adapters";
 import { registerCapabilityPack, findCapabilities } from "@/lib/capability-registry";
 import type { CapabilityAction } from "@/lib/capability-contracts";
+import { gateToolEvidence } from "@/lib/tool-execution-gate";
 
 export type MultiTaskArtifact = {
   type: "image" | "website" | "file" | "video" | "data";
@@ -221,5 +222,7 @@ export async function executeRoutedMultiTask(task:string,input:Record<string,unk
   const route=routeMultiTask(task,input);
   if (!route.action) return {route,receipt:null,artifact:undefined};
   const receipt=await localAdapter.execute(route.action,{attempt:1,input});
-  return {route,receipt,artifact:receipt.output?.artifact as MultiTaskArtifact|undefined};
+  const artifact=receipt.output?.artifact as MultiTaskArtifact|undefined;
+  const toolEvidence=gateToolEvidence(task,{executed:receipt.status==="EXECUTED",artifactCreated:Boolean(artifact&&artifact.status==="EXECUTED"),tool:route.action.id,status:receipt.status});
+  return {route,receipt,artifact,toolEvidence};
 }
