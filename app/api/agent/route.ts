@@ -17,7 +17,7 @@ import { executeRoutedMultiTask } from "@/lib/multitask-engine";
 import { universalGenerate } from "@/lib/universal-ai-router";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
-import { recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
+import { buildIntelligenceEvidence, recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -461,8 +461,10 @@ export async function POST(request: Request) {
       measuredAt: new Date().toISOString(),
       streaming: false
     };
-    const intelligence = result.intelligence || {};
-    const evidence = await recordIntelligenceEvidence({
+    const intelligence = (result.intelligence || {}) as {
+      mode?: string; domain?: string; complexity?: number; selectedModels?: string[]; judgeModel?: string;
+    };
+    const evidence = buildIntelligenceEvidence({
       engineVersion: "M-AI-10",
       project: typeof body.project === "string" ? body.project : "core-engine",
       mode: intelligence.mode || "single",
@@ -476,7 +478,8 @@ export async function POST(request: Request) {
       sideEffects: result.requiresApproval ? "BLOCKED_UNTIL_APPROVED" : "NONE",
       latencyMs: performanceTelemetry.totalMs
     });
-    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
+    const evidencePersistence = await recordIntelligenceEvidence(evidence);
+    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, evidencePersistence, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
