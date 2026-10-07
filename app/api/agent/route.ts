@@ -14,6 +14,7 @@ import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import sharp from "sharp";
 import { executeRoutedMultiTask } from "@/lib/multitask-engine";
+import { universalGenerate } from "@/lib/universal-ai-router";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -366,63 +367,35 @@ function fallbackAgent(task: string, attachments: AgentAttachment[], documentCon
 }
 
 async function generateAgentResponse(task: string, attachments: AgentAttachment[], documentContext = "", imageData = "") {
-  // Deterministic micro-tasks must never depend on an LLM.
-  // They are the runtime smoke-test for the Core Engine request/response path.
   const direct = directFallbackAnswer(task);
-  const arithmeticTask = evaluateArithmeticExpression(task.replace(/^\s*(policz|oblicz|calculate|compute)\s*[:=]?\s*/i,"")) !== null;
+  const arithmeticTask = evaluateArithmeticExpression(task.replace(/^\s*(policz|oblicz|calculate|compute)\s*[:=]?\s*/i, "")) !== null;
   if (arithmeticTask || /^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(task)) {
-    const [intent, capability, kind] = classifyTask(task);
+    const [intent, capability] = classifyTask(task);
     const answer = direct;
+    return { reply: answer, intent, confidence: 1, plan: ["Rozpoznanie zadania", "Wykonanie deterministyczne", "Weryfikacja wyniku"], requiresApproval: false, execution: "SIMULATION_ONLY", capability, needsAttachment: false, preview: { ...buildDemoPreview(intent, task), answer }, executionState: buildExecutionState(intent, false), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Wynik odpowiada dokładnie poleceniu użytkownika", "Brak zależności od zewnętrznego LLM"] };
+  }
+
+  const universal = await universalGenerate(task, documentContext, imageData);
+  if (universal.ok && universal.text) {
+    const [intent, capability, kind] = classifyTask(task);
+    const needsAttachment = ["DOCUMENT_ANALYSIS","DATA_VISUALIZATION","DOCUMENT_TRANSFORM","IMAGE_TASK","IMAGE_EDIT","IMAGE_TO_VIDEO"].includes(intent) && attachments.length === 0;
     return {
-      reply: answer,
+      reply: universal.text,
       intent,
-      confidence: 1,
-      plan: ["Rozpoznanie zadania", "Wykonanie deterministyczne", "Weryfikacja wyniku"],
-      requiresApproval: false,
-      execution: "SIMULATION_ONLY",
-      capability,
-      needsAttachment: false,
-      preview: { ...buildDemoPreview(intent, task), answer },
-      executionState: buildExecutionState(intent, false),
+      confidence: 0.96,
+      plan: ["Universal Intelligence rozumie zadanie", "Dobór capability/tool", "Wykonanie i weryfikacja rezultatu"],
+      requiresApproval: !needsAttachment,
+      execution: "HUMAN_APPROVAL_REQUIRED",
+      capability: capability || kind,
+      needsAttachment,
+      preview: { ...buildDemoPreview(intent, task, documentContext), answer: universal.text },
+      executionState: buildExecutionState(intent, needsAttachment),
       evidence: buildEvidencePreview(task, attachments, documentContext),
-      successCriteria: ["Wynik odpowiada dokładnie poleceniu użytkownika", "Brak zależności od zewnętrznego LLM"]
+      successCriteria: ["Plan odpowiada intencji użytkownika", "Wynik jest rzeczywistą odpowiedzią lub artefaktem", "Ryzyko i approval gate są jawne", "Brak fałszywych deklaracji wykonania"]
     };
   }
-  const base = process.env.CORE_ENGINE_LLM_BASE_URL;
-  const key = process.env.CORE_ENGINE_LLM_API_KEY;
-  const model = process.env.CORE_ENGINE_LLM_MODEL;
-  if (!base || !key || !model) return fallbackAgent(task, attachments, documentContext);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
-  try {
-    const prompt = [
-      "You are Core Engine AI, a universal task-planning agent.",
-      "Return ONLY valid JSON with keys: reply, intent, confidence, plan, requiresApproval, execution, capability, needsAttachment.",
-      "Never claim an external side effect has already happened. Never invent attached file contents.",
-      "execution must be HUMAN_APPROVAL_REQUIRED or SIMULATION_ONLY. Plan must contain 2-5 concrete stages.",
-      "Task classes: BUILD, ANALYSIS, CREATIVE, RESEARCH, OPERATIONS, INTELLIGENCE.",
-      "TASK: " + task,
-      "ATTACHMENTS: " + JSON.stringify(attachments),
-      "DOCUMENT CONTEXT: " + documentContext.slice(0, 50000)
-    ].join("\\n");
-    const response = await fetch(base.replace(/\/$/, "") + "/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-      body: JSON.stringify({ model, temperature: 0.2, messages: [{ role: "system", content: "You are a strict JSON API." }, { role: "user", content: prompt }] }),
-      signal: controller.signal
-    });
-    if (!response.ok) return fallbackAgent(task, attachments, documentContext);
-    const body = await response.json();
-    const content = body?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return fallbackAgent(task, attachments, documentContext);
-    const parsed = JSON.parse(content.replace(/^\x60\x60\x60json\s*/i, "").replace(/\s*\x60\x60\x60$/, ""));
-    if (!parsed.reply || !Array.isArray(parsed.plan)) return fallbackAgent(task, attachments, documentContext);
-    const resolvedIntent = String(parsed.intent || "GENERAL_AGENT");
-    const resolvedNeedsAttachment = Boolean(parsed.needsAttachment);
-    return { reply: String(parsed.reply), intent: resolvedIntent, confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.8)), plan: parsed.plan.map(String).slice(0, 5), requiresApproval: parsed.requiresApproval !== false, execution: "HUMAN_APPROVAL_REQUIRED", capability: String(parsed.capability || "Core Intelligence"), needsAttachment: resolvedNeedsAttachment, preview: { ...buildDemoPreview(resolvedIntent, task, documentContext), answer: resolvedIntent === "GENERAL_AGENT" ? directFallbackAnswer(task) : buildTaskAnswer(resolvedIntent, task, documentContext) }, executionState: buildExecutionState(resolvedIntent, resolvedNeedsAttachment), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Plan odpowiada intencji użytkownika", "Wymagane dane wejściowe są jawne", "Ryzyko i approval gate są widoczne", "Rezultat jest weryfikowalny przed użyciem"] };
-  } catch {
-    return fallbackAgent(task, attachments);
-  } finally { clearTimeout(timeout); }
+
+  return fallbackAgent(task, attachments, documentContext);
 }
 
 export async function POST(request: Request) {
