@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { generateImage } from "ai";
+import { gateway } from "@ai-sdk/gateway";
 import { registerCapabilityAdapter, type CapabilityAdapter, type CapabilityAdapterReceipt } from "@/lib/capability-adapters";
 import { registerCapabilityPack, findCapabilities } from "@/lib/capability-registry";
 import type { CapabilityAction } from "@/lib/capability-contracts";
@@ -13,6 +15,7 @@ export type MultiTaskArtifact = {
   filename?: string;
   mimeType?: string;
   text?: string;
+  html?: string;
 };
 
 const actions: CapabilityAction[] = [
@@ -21,7 +24,8 @@ const actions: CapabilityAction[] = [
   { id:"multitask.website.build", name:"Build website artifact", description:"Generate a self-contained website preview.", risk:"LOW", requiresApproval:false, inputs:["task"], outputs:["website"] },
   { id:"multitask.document.create", name:"Create document", description:"Create a downloadable PDF or DOCX document from supplied text.", risk:"LOW", requiresApproval:false, inputs:["task","text","format"], outputs:["file"] },
   { id:"multitask.data.analyze", name:"Analyze data", description:"Analyze supplied CSV/JSON/tabular context and return a structured report.", risk:"LOW", requiresApproval:false, inputs:["task","text"], outputs:["data"] },
-  { id:"multitask.video.prepare", name:"Prepare image-to-video", description:"Prepare an image-to-video artifact through a configured provider.", risk:"LOW", requiresApproval:false, inputs:["imageData","task"], outputs:["video"] }
+  { id:"multitask.video.prepare", name:"Prepare image-to-video", description:"Prepare an image-to-video artifact through a configured provider.", risk:"LOW", requiresApproval:false, inputs:["imageData","task"], outputs:["video"] },
+  { id:"multitask.weather.current", name:"Current weather", description:"Fetch current weather and forecast for a requested city.", risk:"LOW", requiresApproval:false, inputs:["task"], outputs:["data"] }
 ];
 
 registerCapabilityPack({
@@ -68,12 +72,42 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
   if(actionId==="multitask.image.combine"){
     const datas=(Array.isArray(input.imageDatas)?input.imageDatas:[]).filter(x=>typeof x==="string").slice(0,6) as string[];
     if(datas.length<2) throw new Error("MULTITASK_TWO_IMAGES_REQUIRED");
-    const imgs=await Promise.all(datas.map(async d=>{const m=d.match(/^data:[^;]+;base64,(.+)$/);if(!m)throw new Error("IMAGE_DATA_INVALID");const b=await sharp(Buffer.from(m[1],"base64")).rotate().resize({height:1200,fit:"inside",withoutEnlargement:true}).png().toBuffer();const meta=await sharp(b).metadata();return {b,w:meta.width||1,h:meta.height||1};}));
-    const h=Math.min(1200,Math.max(...imgs.map(x=>x.h)));
-    const parts=await Promise.all(imgs.map(async x=>({b:await sharp(x.b).resize({height:h,fit:"contain",background:"#fff"}).png().toBuffer(),w:Math.max(1,Math.round(x.w*h/x.h))})));
-    const width=parts.reduce((s,x)=>s+x.w,0);
-    const out=await sharp({create:{width,height:h,channels:4,background:{r:255,g:255,b:255,alpha:1}}}).composite(parts.map((x,i)=>({input:x.b,left:parts.slice(0,i).reduce((s,y)=>s+y.w,0),top:0}))).png().toBuffer();
-    return {type:"image",title:"Połączone zdjęcia",status:"EXECUTED",provider:"core-local-sharp",dataUrl:"data:image/png;base64,"+out.toString("base64")};
+    const task=String(input.task||"");
+    const semanticPrompt=[
+      "Create ONE photorealistic composite image from the supplied reference images.",
+      "This is semantic image compositing, NOT a collage and NOT a side-by-side layout.",
+      "Use the second/reference target image as the scene. Extract the requested person or object from the other reference and place it naturally into the target scene.",
+      "Preserve the target scene and guitarist unless the instruction says otherwise. Match perspective, scale, lighting, color temperature, shadows, depth of field, occlusion and edge masking.",
+      "USER INSTRUCTION: "+task,
+      "If the user says 'the girl', identify the girl from the reference images and transfer only her, with natural hair/body masking."
+    ].join("\n");
+    if(process.env.AI_GATEWAY_API_KEY?.trim()){
+      const images=datas.map(d=>Buffer.from(String(d).split(",")[1]||"","base64"));
+      const result=await generateImage({
+        model:gateway(process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "openai/gpt-image-2.5-sunburst"),
+        prompt:{text:semanticPrompt,images},
+        n:1,
+        maxRetries:1
+      });
+      const image=result.image;
+      if(image?.base64) return {type:"image",title:"Zdjęcie po inteligentnym połączeniu",status:"EXECUTED",provider:result.responses?.[0]?.modelId||"ai-gateway-image",dataUrl:"data:"+(image.mimeType||"image/png")+";base64,"+image.base64,filename:"core-engine-smart-composite.png",mimeType:image.mimeType||"image/png"};
+    }
+    const key=process.env.CORE_ENGINE_IMAGE_API_KEY?.trim();
+    if(key){
+      const url=process.env.CORE_ENGINE_IMAGE_API_URL?.trim() || "https://api.openai.com/v1/images/edits";
+      const model=process.env.CORE_ENGINE_IMAGE_MODEL?.trim() || "gpt-image-2";
+      const form=new FormData(); form.append("model",model); form.append("prompt",semanticPrompt);
+      for(const d of datas){const m=d.match(/^data:([^;]+);base64,(.+)$/);if(!m)throw new Error("IMAGE_DATA_INVALID");form.append("image[]",new Blob([Buffer.from(m[2],"base64")],{type:m[1]}),"reference."+((m[1].split("/")[1])||"png"));}
+      form.append("response_format","b64_json");
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),90000);
+      try{
+        const response=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+key},body:form,signal:controller.signal});
+        const body=await response.json().catch(()=>({})); if(!response.ok)throw new Error("IMAGE_PROVIDER_HTTP_"+response.status);
+        const b64=body?.data?.[0]?.b64_json; if(!b64)throw new Error("IMAGE_PROVIDER_NO_OUTPUT");
+        return {type:"image",title:"Zdjęcie po inteligentnym połączeniu",status:"EXECUTED",provider:model,dataUrl:"data:image/png;base64,"+b64,filename:"core-engine-smart-composite.png",mimeType:"image/png"};
+      } finally {clearTimeout(timer);}
+    }
+    throw new Error("IMAGE_AI_PROVIDER_NOT_CONFIGURED");
   }
   if(actionId==="multitask.image.edit"){
     const d=String(input.imageData||"");const m=d.match(/^data:[^;]+;base64,(.+)$/);if(!m)throw new Error("IMAGE_DATA_REQUIRED");
@@ -96,9 +130,37 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
     return {type:"image",title:gray?"Zdjęcie czarno-białe":"Zdjęcie po edycji",status:"EXECUTED",provider:"core-local-sharp",dataUrl:"data:image/png;base64,"+out.toString("base64")};
   }
   if(actionId==="multitask.website.build"){
-    const task=String(input.task||"").replace(/[<>]/g,"").slice(0,1000);
-    const html=`<!doctype html><html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Core Engine AI</title><style>body{margin:0;font-family:Inter,system-ui;background:#0b1120;color:#f8fafc}main{max-width:1100px;margin:auto;padding:80px 7%}h1{font-size:clamp(42px,7vw,80px);max-width:900px}p{color:#cbd5e1;line-height:1.7;font-size:18px}.cta{display:inline-block;padding:14px 20px;background:#f59e0b;color:#111827;border-radius:12px;text-decoration:none;font-weight:800}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:60px}.card{padding:24px;border:1px solid #334155;border-radius:18px;background:#1e293b}@media(max-width:700px){.grid{grid-template-columns:1fr}}</style><main><small>GENERATED BY CORE ENGINE AI</small><h1>Gotowa wersja strony z Twojego polecenia.</h1><p>${task}</p><a class="cta" href="#contact">Kontakt</a><section class="grid"><div class="card">Oferta</div><div class="card">Dlaczego my</div><div class="card">Opinie</div></section></main></html>`;
+    const task=String(input.task||"").replace(/[<>]/g,"").slice(0,5000);
+    const llmBase=process.env.CORE_ENGINE_LLM_BASE_URL?.trim(), llmKey=process.env.CORE_ENGINE_LLM_API_KEY?.trim(), llmModel=process.env.CORE_ENGINE_LLM_MODEL?.trim();
+    if(llmBase&&llmKey&&llmModel){
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000);
+      try{
+        const response=await fetch(llmBase.replace(/\/$/,"")+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+llmKey},body:JSON.stringify({model:llmModel,temperature:0.35,messages:[
+          {role:"system",content:"You are an expert web designer and frontend developer. Return ONLY a complete self-contained HTML document. Never return a plan."},
+          {role:"user",content:"Build the actual responsive website described below. Include semantic HTML, navigation, hero, realistic Polish copy, sections, CTA, footer, responsive CSS and accessible contrast. Do not describe the website; output the website.\n\nBRIEF:\n"+task}
+        ]}),signal:controller.signal});
+        const body=await response.json().catch(()=>({}));
+        const html=String(body?.choices?.[0]?.message?.content||"").replace(/^\x60\x60\x60html\s*/i,"").replace(/\s*\x60\x60\x60$/,"").trim();
+        if(response.ok&&html.toLowerCase().includes("<html")&&html.length>500)return {type:"website",title:"Strona WWW wygenerowana przez AI",status:"EXECUTED",provider:llmModel,html};
+      } finally {clearTimeout(timer);}
+    }
+    const safe=task.slice(0,1000);
+    const html=\`<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Core Engine AI</title><style>body{margin:0;font-family:Inter,system-ui;background:#0b1120;color:#f8fafc}main{max-width:1100px;margin:auto;padding:80px 7%}h1{font-size:clamp(42px,7vw,80px);max-width:900px}p{color:#cbd5e1;line-height:1.7;font-size:18px}.cta{display:inline-block;padding:14px 20px;background:#f59e0b;color:#111827;border-radius:12px;text-decoration:none;font-weight:800}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:60px}.card{padding:24px;border:1px solid #334155;border-radius:18px;background:#1e293b}@media(max-width:700px){.grid{grid-template-columns:1fr}}</style></head><body><main><small>GENERATED BY CORE ENGINE AI</small><h1>Gotowa wersja strony.</h1><p>\${safe}</p><a class="cta" href="#contact">Kontakt</a><section class="grid"><div class="card">Oferta</div><div class="card">Dlaczego my</div><div class="card">Opinie</div></section></main></body></html>\`;
     return {type:"website",title:"Gotowa strona WWW",status:"EXECUTED",provider:"core-local-html",html};
+  }
+  if(actionId==="multitask.weather.current"){
+    const match=String(input.task||"").match(/(?:w|in|dla|for)\s+([A-Za-zÀ-žĄĆĘŁŃÓŚŹŻąćęłńóśźż -]{3,50}?)(?:[?!.,]|$)/i);
+    const city=(match?.[1]||"Gliwice").trim();
+    const geo=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(city)+"&count=1&language=pl&format=json");
+    if(!geo.ok)throw new Error("WEATHER_GEOCODING_FAILED");
+    const gd=await geo.json(), place=gd?.results?.[0]; if(!place)throw new Error("WEATHER_CITY_NOT_FOUND");
+    const forecast=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+place.latitude+"&longitude="+place.longitude+"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto");
+    if(!forecast.ok)throw new Error("WEATHER_FORECAST_FAILED");
+    const wd=await forecast.json(), c=wd.current||{}, labels:Record<number,string>={0:"Bezchmurnie",1:"Głównie bezchmurnie",2:"Częściowe zachmurzenie",3:"Pochmurnie",45:"Mgła",48:"Osadzająca się mgła",51:"Lekka mżawka",53:"Mżawka",55:"Silna mżawka",61:"Lekki deszcz",63:"Deszcz",65:"Silny deszcz",71:"Lekki śnieg",73:"Śnieg",75:"Silny śnieg",80:"Przelotny deszcz",81:"Przelotny deszcz",82:"Silne przelotne opady",95:"Burza",96:"Burza z gradem",99:"Silna burza z gradem"};
+    const label=labels[Number(c.weather_code)]||"Warunki mieszane";
+    const text="POGODA — "+city+"\n\n"+label+"\nTemperatura: "+c.temperature_2m+" °C\nOdczuwalna: "+c.apparent_temperature+" °C\nWilgotność: "+c.relative_humidity_2m+"%\nWiatr: "+c.wind_speed_10m+" km/h";
+    const html=\`<div style="font-family:system-ui;padding:24px;background:#0b1120;color:#fff;border-radius:16px"><small style="opacity:.7">LIVE WEATHER · OPEN-METEO</small><h2 style="margin:8px 0">\${city}</h2><div style="font-size:34px;font-weight:800">\${c.temperature_2m} °C</div><p>\${label} · odczuwalna \${c.apparent_temperature} °C</p><p>Wilgotność \${c.relative_humidity_2m}% · wiatr \${c.wind_speed_10m} km/h</p></div>\`;
+    return {type:"data",title:"Aktualna pogoda — "+city,status:"EXECUTED",provider:"open-meteo",text,html};
   }
   const text=String(input.text||input.task||"").slice(0,50000);
   if(actionId==="multitask.document.create"){
@@ -107,8 +169,17 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
     const bytes=pdfFromText(text);return {type:"file",title:"Dokument PDF",status:"EXECUTED",provider:"core-local-pdf",filename:"core-engine-result.pdf",mimeType:"application/pdf",dataUrl:"data:application/pdf;base64,"+bytes.toString("base64")};
   }
   if(actionId==="multitask.data.analyze"){
-    const report=`ANALIZA DANYCH\\n\\nZadanie: ${String(input.task||"")}\\n\\nŹRÓDŁO:\\n${text.slice(0,8000)}\\n\\nWERYFIKACJA:\\n- kompletność danych\\n- typy i formaty\\n- duplikaty\\n- wartości odstające\\n- trendy i anomalie\\n\\nREKOMENDACJA:\\nWynik należy oprzeć na faktycznie dostarczonym zbiorze; brakujące dane są oznaczane zamiast zgadywania.`;
-    return {type:"data",title:"Raport analizy danych",status:"EXECUTED",provider:"core-local-data",text:report};
+    const raw=String(input.text||"").trim(); let rows:Array<Record<string,string>>=[];
+    try{const parsed=JSON.parse(raw); if(Array.isArray(parsed))rows=parsed.filter(x=>x&&typeof x==="object").slice(0,500).map(x=>Object.fromEntries(Object.entries(x as Record<string,unknown>).map(([k,v])=>[k,String(v??"")])));}catch{
+      const lines=raw.split(/\r?\n/).filter(Boolean); if(lines.length>1){const headers=lines[0].split(/[;,\t]/).map(x=>x.trim()); rows=lines.slice(1,501).map(line=>{const vals=line.split(/[;,\t]/);return Object.fromEntries(headers.map((h,i)=>[h,(vals[i]||"").trim()]));});}
+    }
+    let demo=false; if(!rows.length){demo=true;rows=[{Miesiąc:"Sty",Sprzedaż:"120"},{Miesiąc:"Lut",Sprzedaż:"145"},{Miesiąc:"Mar",Sprzedaż:"132"},{Miesiąc:"Kwi",Sprzedaż:"168"},{Miesiąc:"Maj",Sprzedaż:"190"},{Miesiąc:"Cze",Sprzedaż:"214"}];}
+    const keys=Object.keys(rows[0]||{}), labelKey=keys[0]||"Kategoria", valueKey=keys.find(k=>rows.some(r=>Number.isFinite(Number(r[k]))))||keys[1]||labelKey;
+    const points=rows.map(r=>({label:String(r[labelKey]??""),value:Number(r[valueKey])})).filter(p=>Number.isFinite(p.value)).slice(0,24), max=Math.max(1,...points.map(p=>p.value)), w=900,h=360,pad=48;
+    const bars=points.map((p,i)=>{const bh=Math.round((p.value/max)*(h-pad*2)),bw=Math.max(12,(w-pad*2)/Math.max(1,points.length)-8),x=pad+i*((w-pad*2)/Math.max(1,points.length))+4,y=h-pad-bh;return \`<rect x="\${x}" y="\${y}" width="\${bw}" height="\${bh}" rx="5" fill="#f59e0b"/><text x="\${x+bw/2}" y="\${h-pad+20}" text-anchor="middle" fill="#cbd5e1" font-size="12">\${p.label}</text><text x="\${x+bw/2}" y="\${Math.max(14,y-6)}" text-anchor="middle" fill="#fff" font-size="12">\${p.value}</text>\`;}).join("");
+    const html=\`<div style="font-family:system-ui;background:#0b1120;color:#fff;padding:24px;border-radius:16px"><small style="opacity:.7">CORE ENGINE · DATA VISUALIZATION\${demo?" · DEMO DATA":""}</small><h2 style="margin:8px 0">\${valueKey}</h2><svg viewBox="0 0 900 360" style="width:100%;height:auto;background:#111827;border-radius:12px"><line x1="48" y1="312" x2="852" y2="312" stroke="#475569"/>\${bars}</svg><p style="color:#cbd5e1">\${demo?"Brak danych wejściowych — pokazano działający przykład. Dodaj CSV/JSON, aby wizualizować własne dane.":"Wykres wygenerowany z dostarczonego zbioru."}</p></div>\`;
+    const report="ANALIZA DANYCH\n\nŹródło: "+(demo?"brak — dane demonstracyjne":"dane użytkownika")+"\nWiersze: "+rows.length+"\nKolumny: "+keys.join(", ")+"\nMiara: "+valueKey;
+    return {type:"data",title:"Wizualizacja danych",status:"EXECUTED",provider:"core-local-data-viz",text:report,html};
   }
   if(actionId==="multitask.video.prepare"){
     const endpoint=process.env.CORE_ENGINE_VIDEO_API_URL?.trim();const key=process.env.CORE_ENGINE_VIDEO_API_KEY?.trim();
@@ -141,7 +212,8 @@ export function routeMultiTask(task:string,input:Record<string,unknown>={}){
   else if(input.imageData) id="multitask.image.edit";
   else if(/stron|website|landing|witryn/i.test(t)) id="multitask.website.build";
   else if(/pdf|docx|doc|dokument|raport|ofert/i.test(t) && /(utwórz|stwórz|wygeneruj|przygotuj|zrób|create|generate)/i.test(t)) id="multitask.document.create";
-  else if(/xlsx|xls|csv|dane|tabela|kpi|wykres|dashboard/i.test(t)) id="multitask.data.analyze";
+  else if(/pogod|weather|temperatur|deszcz|zachmur/i.test(t)) id="multitask.weather.current";
+  else if(/xlsx|xls|csv|dane|tabela|kpi|wykres|dashboard|wizualiz|visualiz|chart|graf/i.test(t)) id="multitask.data.analyze";
   const capability=id ? findCapabilities(id).map(x=>x.id) : [];
   return {action:id ? action(id) : null,capabilityPackIds:capability};
 }
