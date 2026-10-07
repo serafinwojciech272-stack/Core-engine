@@ -16,6 +16,8 @@ import sharp from "sharp";
 import { executeRoutedMultiTask } from "@/lib/multitask-engine";
 import { universalGenerate } from "@/lib/universal-ai-router";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
+import { verifyResult } from "@/lib/result-verification";
+import { recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -435,6 +437,18 @@ export async function POST(request: Request) {
         };
       }
     } catch {}
+    const verification = verifyResult(task, result.reply || result.preview?.answer || "", {
+      toolExecuted: Boolean(artifact),
+      artifactCreated: Boolean(artifact),
+      approvalRequired: result.requiresApproval
+    });
+    if (!verification.passed && !artifact) {
+      result = {
+        ...result,
+        reply: result.reply + "\n\nWERYFIKACJA: wynik wymaga dodatkowej kontroli przed uznaniem go za wykonany rezultat.",
+        preview: { ...result.preview, verified: false }
+      };
+    }
     const totalMs = performance.now() - requestStartedAt;
     const performanceTelemetry = {
       totalMs: Math.round(totalMs),
@@ -447,7 +461,24 @@ export async function POST(request: Request) {
       measuredAt: new Date().toISOString(),
       streaming: false
     };
-    return NextResponse.json({ ok: true, ...result, artifact, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
+    const intelligence = result.intelligence || {};
+    const evidence = await recordIntelligenceEvidence({
+      requestId: performanceTelemetry.requestId,
+      task,
+      mode: intelligence.mode || "single",
+      domain: intelligence.domain || "general",
+      complexity: Number(intelligence.complexity || 1),
+      models: intelligence.selectedModels || (intelligence.model ? [intelligence.model] : []),
+      selectedModel: intelligence.model,
+      judgeModel: intelligence.judgeModel,
+      toolRuns: artifact ? [artifact.type + ":" + artifact.status] : [],
+      verification: { score: verification.score, passed: verification.passed, confidence: verification.confidence },
+      latencyMs: performanceTelemetry.totalMs,
+      approvalState: result.requiresApproval ? "HUMAN_APPROVAL_REQUIRED" : "NOT_REQUIRED",
+      artifactCreated: Boolean(artifact),
+      provider: intelligence.provider
+    });
+    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
