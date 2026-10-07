@@ -147,39 +147,64 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      let nextOS: AgentMessage["osRun"] = (mission as any).osRun;
-      if (action === "approve" && nextOS) {
+      let nextOS: AgentMessage["osRun"] = mission.osRun;
+
+      if (action === "approve") {
+        if (!nextOS || nextOS.state !== "AWAITING_APPROVAL") {
+          throw new Error("OS_APPROVAL_GATE_REQUIRED");
+        }
+        const response = await fetch("/api/mission", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Mission approval failed.");
+
         const approval = await fetch("/api/universal-agent/os", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
         });
         const approvedOS = await approval.json();
         if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
         nextOS = approvedOS.run;
+
+        setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "APPROVED", osRun: nextOS } : m);
+        return;
       }
-      const response = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
-        id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
-      })});
+
+      if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId) {
+        throw new Error("OS_APPROVAL_REQUIRED");
+      }
+
+      const executing = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transition", run: nextOS, next: "EXECUTING" })
+      });
+      const executingOS = await executing.json();
+      if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
+      nextOS = executingOS.run;
+
+      const response = await fetch("/api/mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
+        })
+      });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Mission action failed.");
-      if (action === "execute" && nextOS && nextOS.state === "AWAITING_APPROVAL") {
-        const approval = await fetch("/api/universal-agent/os", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
-        });
-        const approvedOS = await approval.json();
-        if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
-        const executing = await fetch("/api/universal-agent/os", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "transition", run: approvedOS.run, next: "EXECUTING" })
-        });
-        const executingOS = await executing.json();
-        if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
-        nextOS = executingOS.run;
-      }
+      if (!response.ok) throw new Error(data.error || "Mission execution failed.");
+
       setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || m.state, osRun: nextOS } : m);
-    } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
-    finally { setMissionBusy(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Błąd misji.");
+    } finally {
+      setMissionBusy(false);
+    }
   }
 
   function addFiles(list: FileList | null) {
