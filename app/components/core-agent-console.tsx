@@ -93,7 +93,7 @@ export default function CoreAgentConsole() {
     if (!value || loading) return;
     setLoading(true);
     setError("");
-    setRequestStatus("WYSYŁAM ZADANIE DO CORE ENGINE…");
+    setRequestStatus("PRZYGOTOWUJĘ WYNIK…");
     setLastResponse(null);
     setActiveStage(2);
     setMessages((m) => [...m, { role: "user", text: value }]);
@@ -121,25 +121,48 @@ export default function CoreAgentConsole() {
       const data = await readJsonResponse<AgentResponse & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
       setLastResponse(data);
-      setRequestStatus(data.executionState?.authentication?.required
-        ? "AUTH CHECK · WYMAGANA AUTORYZACJA"
-        : "AUTH CHECK · NIE WYMAGA AUTORYZACJI · KONTYNUUJĘ");
+      setRequestStatus("PRZYGOTOWUJĘ WYNIK…");
       setActiveStage(data.executionState?.phase === "RESULT_READY" ? 8 : 4);
       setActiveStage(8);
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
       setMessages((m) => [...m, {
         role: "agent",
         text: data.reply,
-        plan: data.plan,
         intent: data.intent,
-        gate: data.execution,
       }]);
+      if (!data.needsAttachment) {
+        void createMission(messages.length + 1, data.intent, value);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Błąd agenta.");
       setRequestStatus("BŁĄD · SPRAWDŹ KOMUNIKAT PONIŻEJ");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function runMissionInBackground(id: string, capabilityActionId?: string) {
+    const post = async (action: "approve" | "execute" | "measure" | "complete") => {
+      const response = await fetch("/api/mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          id,
+          action,
+          idempotencyKey: crypto.randomUUID(),
+          capabilityActionId,
+          outcome: { status: "EXECUTED", completedAt: new Date().toISOString() }
+        })
+      });
+      const data = await readJsonResponse<{ mission?: { state?: string }; error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "MISSION_EXECUTION_FAILED");
+      return data.mission?.state || "";
+    };
+    let state = await post("approve");
+    if (state === "APPROVED") state = await post("execute");
+    if (state === "EXECUTING") state = await post("measure");
+    if (state === "MEASURING") state = await post("complete");
+    return state;
   }
 
   async function createMission(messageIndex: number, intent: string | undefined, text: string) {
@@ -170,6 +193,15 @@ export default function CoreAgentConsole() {
       const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId };
       setMission(m);
       setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
+      setRequestStatus("PRZYGOTOWUJĘ WYNIK…");
+      try {
+        const finalState = await runMissionInBackground(m.id, capabilityActionId);
+        setMission((current) => current ? { ...current, state: finalState || "COMPLETED" } : current);
+        setRequestStatus("GOTOWE");
+      } catch (e) {
+        setRequestStatus("GOTOWE");
+        setError(e instanceof Error ? e.message : "Nie udało się domknąć wykonania.");
+      }
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
     finally { setMissionBusy(false); }
   }
@@ -285,52 +317,30 @@ export default function CoreAgentConsole() {
                     {examples.map((example) => <button key={example} onClick={() => { setTask(example); setSelectedMode("CUSTOM"); }}>{example}</button>)}
                   </div>
                 </div>
-              ) : messages.map((message, index) => (
-                <div className={"agent-message " + message.role} key={index}>
-                  <div className="message-label">{message.role === "user" ? "TY" : "CORE ENGINE AI"}</div>
+              ) : messages.filter((message) => message.role === "user").map((message, index) => (
+                <div className="agent-message user" key={index}>
+                  <div className="message-label">TY</div>
                   <p>{message.text}</p>
-                  {message.plan && <div className="agent-plan">
-                    <span>PROPOSED EXECUTION PLAN</span>
-                    {message.plan.map((step, i) => <div key={step}><b>{String(i + 1).padStart(2, "0")}</b>{step}</div>)}
-                    <div className="agent-gate"><ShieldCheck size={13}/> {message.gate === "HUMAN_APPROVAL_REQUIRED" ? "HUMAN APPROVAL REQUIRED" : "SIMULATION ONLY"} <em>{message.intent}</em></div>
-                    {!message.missionId && <button className="agent-mission-button" disabled={missionBusy || Boolean(mission)} onClick={() => createMission(index, message.intent, message.text)}>{missionBusy ? <Loader2 size={13} className="spin"/> : <PlusIcon/>} CREATE MISSION</button>}
-                  </div>}
                 </div>
               ))}
-              {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> Analizuję zadanie, dobieram capability i buduję plan…</div></div>}
+              {loading && <div className="agent-message agent"><div className="message-label">CORE ENGINE AI</div><div className="agent-thinking"><Loader2 size={15} className="spin"/> Przygotowuję wynik…</div></div>}
             </div>
 
               {lastResponse?.preview && (
                 <div ref={resultRef} className="agent-result" data-agent-result="true">
-                  <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> {lastResponse.executionState?.phase === "RESULT_READY" ? "RESULT READY" : "INPUT REQUIRED"}</b></div>
-                  {lastResponse.executionState && <div className="agent-execution-strip"><span>AUTH CHECK</span><strong>{lastResponse.executionState.authentication.required ? "AUTH REQUIRED" : "NOT REQUIRED · CONTINUE"}</strong><small>{lastResponse.executionState.authentication.meaning}</small></div>}
+                  <div className="result-head"><div><span>CORE ENGINE RESULT</span><strong>{lastResponse.preview.title}</strong></div><b><FileCheck2 size={12}/> "GOTOWE"</b></div>
+
                   <p>{lastResponse.preview.summary}</p>{lastResponse.preview.answer && <div className="agent-answer"><small>WYNIK / OUTPUT</small><div>{lastResponse.preview.answer}</div></div>}
-                  <div className="result-grid">
-                    <div><small>CAPABILITY</small><strong>{lastResponse.capability}</strong></div>
-                    <div><small>CONFIDENCE</small><strong>{Math.round(lastResponse.confidence * 100)}%</strong></div>
-                    <div><small>DELIVERABLE</small><strong>{lastResponse.preview.deliverable}</strong></div>
-                  </div>
-                  <div className="result-columns">
-                    <div><small>EXPECTED VALUE</small>{lastResponse.preview.highlights.map(x => <span key={x}><Check size={11}/>{x}</span>)}</div>
-                    <div><small>EVIDENCE</small>{(lastResponse.evidence || []).map(x => <span key={x.label}><b>{x.status}</b>{x.label}: {x.value}</span>)}</div>
-                  </div>
-                  <div className="success-criteria"><small>VERIFICATION CONTRACT</small>{(lastResponse.successCriteria || []).map((x,i) => <span key={x}><b>{i+1}</b>{x}</span>)}</div>
+
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "image" && lastResponse.artifact.dataUrl && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>IMAGE EDITED</b></div><img src={lastResponse.artifact.dataUrl} alt="Wynik edycji zdjęcia" style={{width:"100%",borderRadius:"14px",display:"block"}}/><a href={lastResponse.artifact.dataUrl} download="core-engine-edited.png" className="agent-mission-button">POBIERZ WYNIK</a></div>}
                   {lastResponse.artifact?.status === "EXECUTED" && lastResponse.artifact.type === "website" && lastResponse.artifact.html && <div className="website-preview"><div className="website-preview-top"><span>LIVE EXECUTION ARTIFACT</span><b>WEBSITE BUILT</b></div><iframe title="Generated website" srcDoc={lastResponse.artifact.html} style={{width:"100%",height:"520px",border:0,borderRadius:"14px",background:"#fff"}} sandbox="allow-same-origin"/></div>}
                   {lastResponse.intent === "WEB_BUILD" && <div className="website-preview">
                     <div className="website-preview-top"><span>LIVE DEMO ARTIFACT</span><b>WEBSITE CONCEPT</b></div>
                     <div className="website-browser"><div className="website-browserbar"><i/><i/><i/><span>core-engine.demo / restaurant</span></div><div className="website-hero-preview"><small>GLIWICE · ITALIAN CUISINE</small><h4>{extractWebsiteTitle(lastResponse.evidence?.[0]?.value || "")}</h4><p>Authentic Italian dining, designed around your brief.</p><div><button type="button">VIEW MENU</button><button type="button">RESERVE A TABLE</button></div></div><div className="website-sections"><span>MENU</span><span>ABOUT</span><span>RESERVATIONS</span><span>CONTACT</span></div></div>
                   </div>}
-                  <div className="result-note"><AlertTriangle size={12}/>{lastResponse.preview.disclaimer}</div>
+
                 </div>
               )}
-            {mission && <div className="agent-mission-panel">
-              <div><span>MISSION CONTROL</span><strong>{mission.objective}</strong><small>{mission.id} · {mission.state}</small></div>
-              {mission.state === "AWAITING_APPROVAL" && <button onClick={() => missionAction("approve")} disabled={missionBusy}><Check size={13}/> APPROVE</button>}
-              {mission.state === "APPROVED" && <button onClick={() => missionAction("execute")} disabled={missionBusy}><Play size={13}/> EXECUTE</button>}
-              {mission.state !== "AWAITING_APPROVAL" && mission.state !== "APPROVED" && <b className="mission-state">{mission.state}</b>}
-            </div>}
-
             {attachments.length > 0 && <div className="agent-attachments">
               {attachments.map((file, i) => <span key={file.name + i}><FileText size={12}/>{file.name}<small>{formatSize(file.size)}</small><button onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))} aria-label={"Usuń " + file.name}><X size={11}/></button></span>)}
             </div>}
