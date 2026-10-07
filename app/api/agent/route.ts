@@ -399,6 +399,9 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
 }
 
 export async function POST(request: Request) {
+  const requestStartedAt = performance.now();
+  let llmMs = 0;
+  let toolMs = 0;
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > 8 * 1024 * 1024) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
@@ -410,11 +413,15 @@ export async function POST(request: Request) {
     const imageDatas = Array.isArray(body.imageDatas) ? body.imageDatas.filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/")).slice(0, 6) : [];
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     const primaryImageData = imageDatas[0] || (typeof body.imageData === "string" ? body.imageData : "");
+    const llmStartedAt = performance.now();
     let result = await generateAgentResponse(task, attachments, documentContext, primaryImageData);
+    llmMs = performance.now() - llmStartedAt;
     const imageData = primaryImageData;
     let artifact: AgentArtifact | undefined;
     try {
+      const toolStartedAt = performance.now();
       const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
+      toolMs = performance.now() - toolStartedAt;
       if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
       if (artifact) {
         const artifactAnswer = artifact.text || (artifact.type === "website" ? "Strona WWW została wygenerowana." : artifact.type === "image" ? "Obraz został przetworzony." : "Zadanie zostało wykonane.");
@@ -425,7 +432,19 @@ export async function POST(request: Request) {
         };
       }
     } catch {}
-    return NextResponse.json({ ok: true, ...result, artifact, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
+    const totalMs = performance.now() - requestStartedAt;
+    const performanceTelemetry = {
+      totalMs: Math.round(totalMs),
+      totalSeconds: Number((totalMs / 1000).toFixed(3)),
+      llmMs: Math.round(llmMs),
+      llmSeconds: Number((llmMs / 1000).toFixed(3)),
+      toolMs: Math.round(toolMs),
+      toolSeconds: Number((toolMs / 1000).toFixed(3)),
+      requestId: "ce-" + crypto.randomUUID(),
+      measuredAt: new Date().toISOString(),
+      streaming: false
+    };
+    return NextResponse.json({ ok: true, ...result, artifact, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
