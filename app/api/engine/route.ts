@@ -24,6 +24,7 @@ import { resolveSaaSContext, consumeSaaSUsage } from "@/lib/saas-runtime";
 import { recallIntelligence } from "@/lib/intelligence-core";
 import { getWorldContext } from "@/lib/world-model";
 import { buildIntelligenceContext } from "@/lib/intelligence-context";
+import { buildCommercialOffer } from "@/lib/commercial-offer";
 
 const MAX_BODY_BYTES = 64000;
 const MAX_SIGNALS = 30;
@@ -58,6 +59,10 @@ export async function POST(request: Request) {
     try { body = raw ? JSON.parse(raw) : {}; }
     catch { return NextResponse.json({ ok: false, error: "INVALID_JSON" }, { status: 400 }); }
 
+    const isCommercialOffer = typeof body.domain === "string" && body.domain.trim() === "commercial-offer";
+    const commercialRequest = typeof body.request === "string" ? body.request.trim() : "";
+    if (isCommercialOffer && !commercialRequest) return NextResponse.json({ ok: false, error: "COMMERCIAL_REQUEST_REQUIRED" }, { status: 400 });
+
     const arr = body.signals === undefined
       ? [
           { name: "conversion_rate", value: "2.8%", source: "demo" },
@@ -69,8 +74,15 @@ export async function POST(request: Request) {
     if (!Array.isArray(arr) || !arr.length) return NextResponse.json({ ok: false, error: "SIGNALS_REQUIRED" }, { status: 400 });
     if (arr.length > MAX_SIGNALS || !arr.every(signal)) return NextResponse.json({ ok: false, error: "INVALID_SIGNAL_SET" }, { status: 400 });
 
-    const signals = arr.map((s) => ({ name: s.name.trim(), value: s.value.trim(), source: s.source.trim() }));
+    const signals = isCommercialOffer && commercialRequest
+      ? [{ name: "commercial_request", value: commercialRequest.slice(0, 200), source: "user" }]
+      : arr.map((s) => ({ name: s.name.trim(), value: s.value.trim(), source: s.source.trim() }));
     const domain = typeof body.domain === "string" ? body.domain.trim().slice(0, 40) : undefined;
+    const commercialOffer = isCommercialOffer ? buildCommercialOffer({
+      request: commercialRequest,
+      customer: typeof body.customer === "string" ? body.customer : null,
+      pricing: body.pricing && typeof body.pricing === "object" ? body.pricing as Record<string, number> : undefined
+    }) : null;
 
     let contextEvidence: ReturnType<typeof buildContextEvidence>;
     try {
@@ -192,6 +204,7 @@ export async function POST(request: Request) {
       intelligenceContext,
       mission,
       growthMission,
+      commercialOffer,
       trace,
       quota,
       identity: runtime.identity ? { userId: runtime.identity.userId, tenantId: runtime.identity.tenantId, workspaceId: runtime.identity.workspaceId, role: runtime.identity.role } : null,
