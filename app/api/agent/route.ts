@@ -390,7 +390,7 @@ export async function POST(request: Request) {
         needsAttachment: false,
         execution: "HUMAN_APPROVAL_REQUIRED",
         executionState: buildExecutionState("IMAGE_EDIT", false),
-        preview: { ...buildDemoPreview("IMAGE_EDIT", task, documentContext) }
+        preview: { ...buildDemoPreview("IMAGE_EDIT", task, documentContext), answer: buildTaskAnswer("IMAGE_EDIT", task, documentContext) }
       };
     }
     let artifact: AgentArtifact | undefined;
