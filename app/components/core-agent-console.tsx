@@ -134,8 +134,8 @@ export default function CoreAgentConsole() {
         });
         capabilityActionId = preferred?.id;
       } catch {}
-      const m = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, osRun };
-      setMission(m as MissionState);
+      const m: MissionState = { id: data.mission.id, state: data.mission.state, objective: data.mission.objective, capabilityActionId, osRun };
+      setMission(m);
       setMessages((items) => items.map((item, i) => i === messageIndex ? { ...item, missionId: m.id, missionState: m.state, capabilityActionId } : item));
     } catch (e) { setError(e instanceof Error ? e.message : "Błąd tworzenia misji."); }
     finally { setMissionBusy(false); }
