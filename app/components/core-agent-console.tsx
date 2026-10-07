@@ -56,7 +56,7 @@ export default function CoreAgentConsole() {
     state: string;
     objective: string;
     capabilityActionId?: string;
-    quality?: {score:number;certified:boolean};
+    quality?: GateQuality;
     osRun?: AgentMessage["osRun"];
   };
   const [mission, setMission] = useState<MissionState | null>(null);
@@ -151,56 +151,133 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      let nextOS = mission.osRun;
+      let nextOS: AgentMessage["osRun"] = mission.osRun;
+
       if (action === "approve") {
         if (!nextOS || nextOS.state !== "AWAITING_APPROVAL") throw new Error("OS_APPROVAL_GATE_REQUIRED");
         const response = await fetch("/api/mission", {
-          method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json"},
-          body:JSON.stringify({id:mission.id,action,idempotencyKey:crypto.randomUUID(),capabilityActionId:mission.capabilityActionId})
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId })
         });
-        const data=await response.json();
-        if(!response.ok) throw new Error(data.error||"Mission approval failed.");
-        const approval=await fetch("/api/universal-agent/os",{
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({action:"approve",run:nextOS,approvalId:mission.id})
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Mission approval failed.");
+
+        const approval = await fetch("/api/universal-agent/os", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve", run: nextOS, approvalId: mission.id })
         });
-        const approvedOS=await approval.json();
-        if(!approval.ok) throw new Error(approvedOS.error||"Universal Agent OS approval failed.");
-        nextOS=approvedOS.run;
-        const gate=await fetch("/api/mission-uaos-gate",{
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            qualityCertified:Boolean(mission.quality?.certified),
-            qualityScore:Number(mission.quality?.score||0),
-            missionState:data.mission?.state||"APPROVED",
-            osState:nextOS.state,
-            approvalId:nextOS.approvalId,
-            missionId:mission.id,
-            osRunId:nextOS.runId
-          })
-        });
-        const gateData=await gate.json();
-        if(!gate.ok||!gateData.certificateId) throw new Error(gateData.error||gateData.reasons?.join(",")||"Mission/UAOS gate certification failed.");
-        setMission(m=>m?{...m,state:data.mission?.state||"APPROVED",osRun:nextOS,gateCertificateId:gateData.certificateId}:m);
+        const approvedOS = await approval.json();
+        if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
+        nextOS = approvedOS.run;
+
+        setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "APPROVED", osRun: nextOS } : m);
         return;
       }
-      if(!nextOS||nextOS.state!=="AWAITING_APPROVAL"||!nextOS.approvalId||!mission.gateCertificateId) throw new Error("MISSION_UAOS_GATE_CERTIFICATION_REQUIRED");
-      const executing=await fetch("/api/universal-agent/os",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({action:"transition",run:nextOS,next:"EXECUTING"})
+
+      if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId || mission.state !== "APPROVED") {
+        throw new Error("OS_APPROVAL_REQUIRED");
+      }
+
+      const quality = mission.quality || {};
+      const gate = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "certifyGate",
+          run: nextOS,
+          missionState: mission.state,
+          qualityCertified: Boolean(quality.certified),
+          qualityScore: Number(quality.score || 0),
+          qualityStatus: String(quality.status || "")
+        })
       });
-      const executingOS=await executing.json();
-      if(!executing.ok) throw new Error(executingOS.error||"Universal Agent OS execution transition failed.");
-      nextOS=executingOS.run;
-      const response=await fetch("/api/mission",{
-        method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({id:mission.id,action,idempotencyKey:crypto.randomUUID(),capabilityActionId:mission.capabilityActionId,gateCertificateId:mission.gateCertificateId})
+      const gateData = await gate.json();
+      if (!gate.ok) throw new Error(gateData.error || "Mission/UAOS gate certification failed.");
+      nextOS = gateData.run;
+
+      const executing = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transition", run: nextOS, next: "EXECUTING" })
       });
-      const data=await response.json();
-      if(!response.ok) throw new Error(data.error||"Mission execution failed.");
-      setMission(m=>m?{...m,state:data.mission?.state||m.state,osRun:nextOS}:m);
-    } catch(e) { setError(e instanceof Error?e.message:"Błąd misji."); }
-    finally { setMissionBusy(false); }
+      const executingOS = await executing.json();
+      if (!executing.ok) throw new Error(executingOS.error || "Universal Agent OS execution transition failed.");
+      nextOS = executingOS.run;
+
+      const response = await fetch("/api/mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Mission execution failed.");
+
+      let evidenceOS = nextOS;
+      const evidenceText = data.evidence ? JSON.stringify(data.evidence) : "";
+      if (!evidenceText) throw new Error("EXECUTION_EVIDENCE_REQUIRED");
+      const evidence = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "evidence", run: evidenceOS, evidence: evidenceText })
+      });
+      const evidenceData = await evidence.json();
+      if (!evidence.ok) throw new Error(evidenceData.error || "Evidence recording failed.");
+      evidenceOS = evidenceData.run;
+
+      const verifying = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transition", run: evidenceOS, next: "VERIFYING" })
+      });
+      const verifyingData = await verifying.json();
+      if (!verifying.ok) throw new Error(verifyingData.error || "Verification transition failed.");
+      evidenceOS = verifyingData.run;
+
+      const verification = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", run: evidenceOS })
+      });
+      const verificationData = await verification.json();
+      if (!verification.ok || !verificationData.result?.verified) throw new Error(verificationData.error || "EVIDENCE_VERIFICATION_FAILED");
+
+      const measuring = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transition", run: evidenceOS, next: "MEASURING" })
+      });
+      const measuringData = await measuring.json();
+      if (!measuring.ok) throw new Error(measuringData.error || "Outcome transition failed.");
+      evidenceOS = measuringData.run;
+
+      const outcomeText = data.outcome ? JSON.stringify(data.outcome) : "";
+      if (!outcomeText) throw new Error("EXECUTION_OUTCOME_REQUIRED");
+      const outcome = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "outcome", run: evidenceOS, outcome: outcomeText })
+      });
+      const outcomeData = await outcome.json();
+      if (!outcome.ok) throw new Error(outcomeData.error || "Outcome recording failed.");
+      evidenceOS = outcomeData.run;
+
+      const completed = await fetch("/api/universal-agent/os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "transition", run: evidenceOS, next: "COMPLETED" })
+      });
+      const completedData = await completed.json();
+      if (!completed.ok) throw new Error(completedData.error || "Completion transition failed.");
+      evidenceOS = completedData.run;
+
+      setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "EXECUTING", osRun: evidenceOS } : m);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Błąd misji.");
+    } finally {
+      setMissionBusy(false);
+    }
   }
 
   function addFiles(list: FileList | null) {
