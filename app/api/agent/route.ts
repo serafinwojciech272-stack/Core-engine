@@ -463,20 +463,18 @@ export async function POST(request: Request) {
     };
     const intelligence = result.intelligence || {};
     const evidence = await recordIntelligenceEvidence({
-      requestId: performanceTelemetry.requestId,
-      task,
+      engineVersion: "M-AI-10",
+      project: typeof body.project === "string" ? body.project : "core-engine",
       mode: intelligence.mode || "single",
       domain: intelligence.domain || "general",
       complexity: Number(intelligence.complexity || 1),
-      models: intelligence.selectedModels || (intelligence.model ? [intelligence.model] : []),
-      selectedModel: intelligence.model,
+      selectedModels: intelligence.selectedModels || [],
       judgeModel: intelligence.judgeModel,
-      toolRuns: artifact ? [artifact.type + ":" + artifact.status] : [],
-      verification: { score: verification.score, passed: verification.passed, confidence: verification.confidence },
-      latencyMs: performanceTelemetry.totalMs,
-      approvalState: result.requiresApproval ? "HUMAN_APPROVAL_REQUIRED" : "NOT_REQUIRED",
-      artifactCreated: Boolean(artifact),
-      provider: intelligence.provider
+      toolRuns: artifact ? [{tool: artifact.type, status: artifact.status, latencyMs: Math.round(toolMs)}] : [],
+      verification,
+      approvalState: result.requiresApproval ? "REQUIRED" : "NOT_REQUIRED",
+      sideEffects: result.requiresApproval ? "BLOCKED_UNTIL_APPROVED" : "NONE",
+      latencyMs: performanceTelemetry.totalMs
     });
     return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
