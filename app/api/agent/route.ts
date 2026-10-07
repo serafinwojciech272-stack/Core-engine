@@ -310,18 +310,37 @@ function buildEvidencePreview(task: string, attachments: AgentAttachment[], docu
   ];
 }
 
+function evaluateArithmeticExpression(input: string): number | null {
+  let s = input.trim().replace(/,/g, ".").replace(/×/g, "*").replace(/÷/g, "/").replace(/\s+/g, "");
+  s = s.replace(/(\d+(?:\.\d+)?)%/g, "($1/100)");
+  if (!/^[0-9.+\-*/%()^]+$/.test(s) || !/[+\-*/^()]/.test(s)) return null;
+  const tokens = s.match(/(?:\d+(?:\.\d+)?|[()+\-*/^])/g);
+  if (!tokens || tokens.join("") !== s) return null;
+  const values:number[] = [], ops:string[] = [];
+  const prec:Record<string,number> = {"+":1,"-":1,"*":2,"/":2,"^":3};
+  const apply=()=>{ const op=ops.pop(); if(!op) return false; const b=values.pop(), a=values.pop(); if(a===undefined||b===undefined)return false; let v=0; if(op==="+")v=a+b; else if(op==="-")v=a-b; else if(op==="*")v=a*b; else if(op==="/")v=a/b; else v=Math.pow(a,b); values.push(v); return true; };
+  for(let i=0;i<tokens.length;i++){
+    const tok=tokens[i];
+    if(/^\d/.test(tok)){ values.push(Number(tok)); continue; }
+    if(tok==="("){ops.push(tok);continue;}
+    if(tok===")"){while(ops.length&&ops[ops.length-1]!=="("){if(!apply())return null;}if(ops.pop()!=="(")return null;continue;}
+    if((tok==="-"||tok==="+")&&(i===0||["(","+","-","*","/","^"].includes(tokens[i-1]))) values.push(0);
+    while(ops.length&&ops[ops.length-1]!=="("&&((prec[ops[ops.length-1]]||0)>(prec[tok]||0)||((prec[ops[ops.length-1]]||0)===(prec[tok]||0)&&tok!=="^"))){if(!apply())return null;}
+    ops.push(tok);
+  }
+  while(ops.length){if(ops[ops.length-1]==="("||!apply())return null;}
+  const value=values.length===1?values[0]:NaN;
+  return Number.isFinite(value)?value:null;
+}
+
 function directFallbackAnswer(task: string) {
   const t = task.trim();
   const lower = t.toLowerCase();
-  const arithmetic = t.match(/^\s*(\d+(?:[.,]\d+)?)\s*([+\-*x×÷/])\s*(\d+(?:[.,]\d+)?)\s*\??\s*$/);
-  if (arithmetic) {
-    const a=Number(arithmetic[1].replace(",", ".")), b=Number(arithmetic[3].replace(",", ".")), op=arithmetic[2];
-    const value = op==="+"?a+b:op==="-"?a-b:op==="*"||op==="x"||op==="×"?a*b:op==="÷"||op==="/"?a/b:NaN;
-    if(Number.isFinite(value)) return "Wynik: " + value;
-  }
+  const arithmetic = evaluateArithmeticExpression(t.replace(/^\s*(policz|oblicz|calculate|compute)\s*[:=]?\s*/i,""));
+  if (arithmetic !== null) return "Wynik: " + Number(arithmetic.toFixed(10));
   if (/^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(t)) return "Cześć. Core Engine AI działa. Napisz zadanie, które mam wykonać.";
   if (/^\s*(kim jesteś|kim jestes|co potrafisz)[?.!]*$/i.test(lower)) return "Jestem Core Engine AI — centralnym agentem do analizy, tworzenia, transformacji danych, obrazów, dokumentów, stron WWW i innych zadań.";
-  return "Przyjąłem zadanie: " + t + ". Core Engine nie ma jeszcze skonfigurowanego dostawcy LLM dla tego typu pytania, dlatego nie będę udawał odpowiedzi. Dla zadań wykonawczych używam dostępnych capability i zwracam rzeczywisty artefakt.";
+  return "Przyjąłem zadanie: " + t + ". Dla tego typu pytania potrzebny jest skonfigurowany dostawca LLM; zadania wykonawcze obsługuję przez dostępne capability i zwracam rzeczywisty artefakt.";
 }
 
 function fallbackAgent(task: string, attachments: AgentAttachment[], documentContext = "") {
@@ -350,8 +369,8 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
   // Deterministic micro-tasks must never depend on an LLM.
   // They are the runtime smoke-test for the Core Engine request/response path.
   const direct = directFallbackAnswer(task);
-  if (/^\s*\d+(?:[.,]\d+)?\s*[+\-*x×÷/]\s*\d+(?:[.,]\d+)?\s*\??\s*$/.test(task) ||
-      /^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(task)) {
+  const arithmeticTask = evaluateArithmeticExpression(task.replace(/^\s*(policz|oblicz|calculate|compute)\s*[:=]?\s*/i,"")) !== null;
+  if (arithmeticTask || /^\s*(cześć|czesc|hej|hello|hi)[!.?]*$/i.test(task)) {
     const [intent, capability, kind] = classifyTask(task);
     const answer = direct;
     return {
@@ -425,7 +444,12 @@ export async function POST(request: Request) {
       const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
       if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
       if (artifact) {
-        result = { ...result, preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy." } };
+        const artifactAnswer = artifact.text || (artifact.type === "website" ? "Strona WWW została wygenerowana." : artifact.type === "image" ? "Obraz został przetworzony." : "Zadanie zostało wykonane.");
+        result = {
+          ...result,
+          reply: artifact.type === "data" && artifact.text ? artifact.text : result.reply,
+          preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy.", answer: artifactAnswer }
+        };
       }
     } catch {}
     return NextResponse.json({ ok: true, ...result, artifact, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
