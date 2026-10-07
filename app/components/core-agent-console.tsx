@@ -178,14 +178,57 @@ export default function CoreAgentConsole() {
     if (!mission || missionBusy) return;
     setMissionBusy(true); setError("");
     try {
-      const response = await fetch("/api/mission", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({
-        id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId
-      })});
-      const data = await readJsonResponse<{ mission?: { state?: string }; error?: string }>(response);
-      if (!response.ok) throw new Error(data.error || "Mission action failed.");
-      setMission((m) => m ? { ...m, state: data.mission?.state || m.state } : m);
-    } catch (e) { setError(e instanceof Error ? e.message : "Błąd misji."); }
-    finally { setMissionBusy(false); }
+      const postMission = async (nextAction: "approve" | "execute" | "measure" | "complete", outcome?: Record<string, unknown>) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch("/api/mission", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              id: mission.id,
+              action: nextAction,
+              idempotencyKey: crypto.randomUUID(),
+              capabilityActionId: mission.capabilityActionId,
+              outcome: outcome ?? {}
+            })
+          });
+          const data = await readJsonResponse<{ mission?: { state?: string }; error?: string; receipt?: Record<string, unknown>; evidence?: Record<string, unknown> | null; outcome?: Record<string, unknown> | null; assessment?: Record<string, unknown> | null }>(response);
+          if (!response.ok) throw new Error(data.error || "Mission action failed.");
+          return data;
+        } finally { clearTimeout(timer); }
+      };
+
+      const data = await postMission(action);
+      let currentState = data.mission?.state || mission.state;
+      setMission((m) => m ? { ...m, state: currentState } : m);
+
+      // Execute is intentionally followed through the durable lifecycle so the
+      // user never gets stranded on EXECUTING after a successful capability run.
+      if (action === "execute" && currentState === "EXECUTING") {
+        const executionOutcome = data.outcome && typeof data.outcome === "object"
+          ? data.outcome
+          : data.receipt && typeof data.receipt === "object"
+            ? data.receipt
+            : { status: "EXECUTED", completedAt: new Date().toISOString() };
+
+        const measured = await postMission("measure", executionOutcome);
+        currentState = measured.mission?.state || currentState;
+        setMission((m) => m ? { ...m, state: currentState } : m);
+
+        if (currentState === "MEASURING") {
+          const completed = await postMission("complete", executionOutcome);
+          currentState = completed.mission?.state || currentState;
+          setMission((m) => m ? { ...m, state: currentState } : m);
+        }
+      }
+    } catch (e) {
+      const message = e instanceof DOMException && e.name === "AbortError"
+        ? "Execution przekroczył limit 30 s. Sprawdź log wykonania i spróbuj ponownie."
+        : e instanceof Error ? e.message : "Błąd misji.";
+      setError(message);
+    } finally { setMissionBusy(false); }
   }
 
   function resetDemo() { setMessages([]); setAttachments([]); setTask(""); setMission(null); setLastResponse(null); setError(""); setRequestStatus(""); setActiveStage(1); }
