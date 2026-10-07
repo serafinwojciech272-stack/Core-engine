@@ -49,7 +49,7 @@ export function buildCommercialOffer(input: { request: string; customer?: string
     add("catering", "Catering", people * days, "osobodzień", prices.cateringPerPersonDay, source);
     if (!input.pricing?.cateringPerPersonDay) assumptions.push("Catering: 180 PLN netto za osobodzień.");
   }
-  if (/av|a\\/v|technika|nagłoś|projektor|technical|technology/i.test(lower)) {
+  if (/(?:av|a\/v|technika|nagłoś|projektor|technical|technology)/i.test(lower)) {
     add("av", "Technika AV", days, "dzień", prices.avPerDay, source);
     if (!input.pricing?.avPerDay) assumptions.push("Technika AV: 1200 PLN netto za dzień.");
   }
