@@ -33,7 +33,7 @@ test("Universal Agent OS blocks execution before approval", () => {
   run = attachApproval(run, "approval_test_1");
   assert.equal(run.approvalId, "approval_test_1");
   assert.throws(() => transitionOS(run, "EXECUTING"), /OS_GATE_CERTIFICATION_REQUIRED/);
-  run = certifyApprovalGate(run, "APPROVED");
+  run = certifyApprovalGate(run, "APPROVED", true, 100, "qa-v1");
   assert.ok(run.approvalCertificate);
   run = transitionOS(run, "EXECUTING");
   assert.equal(run.state, "EXECUTING");
