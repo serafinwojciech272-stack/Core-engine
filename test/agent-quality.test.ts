@@ -28,7 +28,10 @@ test("Universal Agent OS blocks execution before approval", () => {
   run = transitionOS(run, "PLANNED");
   run = transitionOS(run, "AWAITING_APPROVAL");
   assert.throws(() => transitionOS(run, "EXECUTING"), /OS_APPROVAL_REQUIRED/);
+  assert.equal(run.approvalId, null);
+
   run = attachApproval(run, "approval_test_1");
+  assert.equal(run.approvalId, "approval_test_1");
   run = transitionOS(run, "EXECUTING");
   assert.equal(run.state, "EXECUTING");
 });
