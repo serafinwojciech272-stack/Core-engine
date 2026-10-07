@@ -11,6 +11,6 @@ export function certifyApprovalGate(r:OSRun,missionState:string){if(r.state!=="A
 export function addEvidence(r:OSRun,evidence:string){return{...r,evidence:[...r.evidence,c(evidence,300)].filter(Boolean).slice(-100),updatedAt:new Date().toISOString()}}
 export function setOutcome(r:OSRun,outcome:string){if(r.state!=="MEASURING"&&r.state!=="LEARNING")throw new Error("OS_OUTCOME_STATE_INVALID");return{...r,outcome:c(outcome,1000),updatedAt:new Date().toISOString()}}
 export function recoverOS(r:OSRun){if(r.state!=="RECOVERING")throw new Error("OS_NOT_RECOVERING");return{...r,state:"AWAITING_APPROVAL" as OSState,approvalId:null,updatedAt:new Date().toISOString()}}
-export function verifyOS(r:OSRun){return{verified:r.evidence.length>0&&!!r.outcome,runDigest:r.digest,state:r.state}}
+export function verifyOS(r:OSRun){return{verified:r.state==="VERIFYING"&&r.evidence.length>0,runDigest:r.digest,state:r.state,evidenceCount:r.evidence.length}}
 export function certifyOS(r:OSRun){const verified=verifyOS(r);return{certified:verified.verified&&r.state==="COMPLETED",certificate:verified.verified&&r.state==="COMPLETED"?"uaosc_"+h(r).slice(0,24):null}}
 export function osControlPlane(r:OSRun){if(r.state==="INTENT")return{decision:"PLAN"};if(r.state==="PLANNED")return{decision:"REQUEST_APPROVAL"};if(r.state==="AWAITING_APPROVAL")return{decision:"WAIT_APPROVAL"};if(r.state==="RECOVERING")return{decision:"REAPPROVE"};if(r.state==="COMPLETED")return{decision:"CERTIFY"};return{decision:"CONTINUE",state:r.state}}
