@@ -6,7 +6,8 @@ import { ArrowUp, Bot, CheckCircle2, FileText, Loader2, Paperclip, ShieldCheck, 
 type Attachment = { name: string; type: string; size: number; file: File };
 
 type OSRun = { runId:string; state:string; approvalId:string|null; approvalCertificate:string|null; objective:string; skillIds:string[]; toolIds:string[]; agentIds:string[]; evidence:string[]; outcome:string|null; createdAt:string; updatedAt:string; digest:string };
-type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; quality?: {score:number;certified:boolean}; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; };
+type GateQuality = { passed?: boolean; score?: number; certified?: boolean; status?: string };
+type AgentMessage = { role: "user" | "agent"; text: string; plan?: string[]; intent?: string; gate?: string; confidence?: number; capability?: string; deliverables?: string[]; assumptions?: string[]; kpis?: string[]; risks?: string[]; nextAction?: string; quality?: {score:number;certified:boolean}; missionId?: string; missionState?: string; capabilityActionId?: string; agentRunId?: string; osRun?: OSRun; quality?: GateQuality; };
 type AgentResponse = {
   ok: boolean;
   reply: string;
@@ -175,11 +176,11 @@ export default function CoreAgentConsole() {
         if (!approval.ok) throw new Error(approvedOS.error || "Universal Agent OS approval failed.");
         nextOS = approvedOS.run;
 
-        setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "APPROVED", osRun: nextOS } : m);
+        setMission((m: MissionState | null) => m ? { ...m, state: data.mission?.state || "APPROVED", osRun: nextOS, gateCertificateId: gate.certificateId } : m);
         return;
       }
 
-      if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId) {
+      if (!nextOS || nextOS.state !== "AWAITING_APPROVAL" || !nextOS.approvalId || !mission.gateCertificateId) {
         throw new Error("OS_APPROVAL_REQUIRED");
       }
 
