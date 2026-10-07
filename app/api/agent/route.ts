@@ -407,10 +407,13 @@ export async function POST(request: Request) {
     if (!task) return NextResponse.json({ ok: false, error: "TASK_REQUIRED" }, { status: 400 });
     if (task.length > MAX_TASK) return NextResponse.json({ ok: false, error: "TASK_TOO_LONG" }, { status: 400 });
     const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
+    const imageDatas = Array.isArray(body.imageDatas) ? body.imageDatas.filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/")).slice(0, 6) : [];
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
-    let result = await generateAgentResponse(task, attachments, documentContext, typeof body.imageData === "string" ? body.imageData : "");
-    const imageData = typeof body.imageData === "string" ? body.imageData : "";
+    const primaryImageData = imageDatas[0] || (typeof body.imageData === "string" ? body.imageData : "");
+    let result = await generateAgentResponse(task, attachments, documentContext, primaryImageData);
+    const imageData = primaryImageData;
     const grayscaleTask = /(czarno[- ]?biał|czarno[- ]?bial|black and white|black & white|grayscale|greyscale|odbarw|desatur)/i.test(task);
+    const combineTask = imageDatas.length >= 2 && /(połącz|polacz|złącz|zlacz|razem|jedno zdjęcie|jedno zdjecie|combine|merge|join|collage|kolaż|kolaz)/i.test(task);
     if (imageData && grayscaleTask) {
       result = {
         ...result,
@@ -424,7 +427,10 @@ export async function POST(request: Request) {
     }
     let artifact: AgentArtifact | undefined;
     if (result.intent === "WEB_BUILD") artifact = buildWebsiteArtifact(task);
-    if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
+    if (combineTask) {
+      try { artifact = await executeImageCombine(imageDatas, task); } catch { artifact = { type: "image", title: "Połączenie zdjęć", status: "FAILED", provider: "core-local-sharp" }; }
+      result = { ...result, intent: "IMAGE_EDIT", capability: "Image Editing", needsAttachment: false, preview: { ...result.preview, title: artifact.title, summary: artifact.status === "EXECUTED" ? "Core Engine połączył przesłane zdjęcia i zwrócił gotowy plik wynikowy." : "Nie udało się wygenerować pliku wynikowego." } };
+    } else if (["IMAGE_TASK","IMAGE_EDIT"].includes(result.intent) && imageData) {
       try { artifact = await executeImageEdit(imageData, task); } catch (error) { artifact = { type: "image", title: "Edycja zdjęcia", status: "FAILED", provider: "image-provider" }; }
     }
     if (artifact) {
