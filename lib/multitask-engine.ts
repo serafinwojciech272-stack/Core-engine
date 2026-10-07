@@ -121,19 +121,20 @@ try{registerCapabilityAdapter(localAdapter)}catch{}
 
 export function routeMultiTask(task:string,input:Record<string,unknown>={}){
   const t=task.toLowerCase();
-  let id="multitask.data.analyze";
+  let id="";
   if(Array.isArray(input.imageDatas)&&input.imageDatas.length>=2 && /(połącz|polacz|złącz|zlacz|razem|jedno zdjęcie|combine|merge|join|collage)/i.test(t)) id="multitask.image.combine";
   else if(input.imageData && /(wideo|video|film)/i.test(t)) id="multitask.video.prepare";
   else if(input.imageData) id="multitask.image.edit";
   else if(/stron|website|landing|witryn/i.test(t)) id="multitask.website.build";
   else if(/pdf|docx|doc|dokument|raport|ofert/i.test(t) && /(utwórz|stwórz|wygeneruj|przygotuj|zrób|create|generate)/i.test(t)) id="multitask.document.create";
   else if(/xlsx|xls|csv|dane|tabela|kpi|wykres|dashboard/i.test(t)) id="multitask.data.analyze";
-  const capability=findCapabilities(id).map(x=>x.id);
-  return {action:action(id),capabilityPackIds:capability};
+  const capability=id ? findCapabilities(id).map(x=>x.id) : [];
+  return {action:id ? action(id) : null,capabilityPackIds:capability};
 }
 
 export async function executeRoutedMultiTask(task:string,input:Record<string,unknown>={}){
-  const route=routeMultiTask(task,input);const adapter=localAdapter;
-  const receipt=await adapter.execute(route.action,{attempt:1,input});
+  const route=routeMultiTask(task,input);
+  if (!route.action) return {route,receipt:null,artifact:undefined};
+  const receipt=await localAdapter.execute(route.action,{attempt:1,input});
   return {route,receipt,artifact:receipt.output?.artifact as MultiTaskArtifact|undefined};
 }
