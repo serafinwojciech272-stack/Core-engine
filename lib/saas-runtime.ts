@@ -3,8 +3,9 @@ import { resolveTenant, type TenantContext } from "@/lib/commercial-runtime";
 type SupabaseConfig={url:string; serviceKey:string; publishableKey:string};
 export type SaaSIdentity={userId:string; email:string|null; tenantId:string; tenantKey:string; tenantName:string; workspaceId:string; workspaceSlug:string; role:"owner"|"admin"|"member"|"viewer"};
 
+function normalizeSupabaseUrl(value:string|undefined){let raw=(value||"").trim();if(raw.toUpperCase().startsWith("SUPABASE_URL")){const i=raw.indexOf("=");if(i>=0)raw=raw.slice(i+1).trim();}const quote=String.fromCharCode(34);const apostrophe=String.fromCharCode(39);if((raw.startsWith(quote)&&raw.endsWith(quote))||(raw.startsWith(apostrophe)&&raw.endsWith(apostrophe)))raw=raw.slice(1,-1).trim();try{return raw?new URL(raw).origin:"";}catch{return"";}}
 function cfg():SupabaseConfig|null{
-  const url=process.env.SUPABASE_URL;
+  const url=normalizeSupabaseUrl(process.env.SUPABASE_URL);
   const serviceKey=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;
   const publishableKey=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.SUPABASE_ANON_KEY||"";
   return url&&serviceKey&&publishableKey?{url,serviceKey,publishableKey}:null;
