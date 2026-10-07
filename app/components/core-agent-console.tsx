@@ -209,7 +209,7 @@ export default function CoreAgentConsole() {
       const response = await fetch("/api/mission", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId })
+        body: JSON.stringify({ id: mission.id, action, idempotencyKey: crypto.randomUUID(), capabilityActionId: mission.capabilityActionId, gateCertificateId: nextOS.approvalCertificate, osRun: nextOS })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Mission execution failed.");
