@@ -28,9 +28,11 @@ async function db(path: string, init: RequestInit = {}) {
 }
 
 const mem = globalThis as typeof globalThis & {
-  __mastery?: Map<string, { profile: MasteryProfile; roadmap: MasteryRoadmap }>;\n  __masteryEvidence?: Map<string, EvidenceRecord[]>;
+  __mastery?: Map<string, { profile: MasteryProfile; roadmap: MasteryRoadmap }>;
+  __masteryEvidence?: Map<string, EvidenceRecord[]>;
 };
-mem.__mastery ??= new Map();\nmem.__masteryEvidence ??= new Map();
+mem.__mastery ??= new Map();
+mem.__masteryEvidence ??= new Map();
 
 export async function loadMastery(tenantId: string) {
   const local = mem.__mastery?.get(tenantId);
@@ -278,6 +280,56 @@ export async function verifyMasteryEvidence(tenantId:string,input:{skillId:strin
     await persist(tenantId,"MASTERY_PROFILE",profile as unknown as Record<string,unknown>);
   }
   return evidence;
+}
+
+export async function applyMasteryDecay(tenantId:string, now=new Date()) {
+  const current=await loadMastery(tenantId);
+  const profile={...current.profile,skills:current.profile.skills.map(skill=>{
+    const last=skill.lastVerifiedAt ? new Date(skill.lastVerifiedAt).getTime() : 0;
+    const ageDays=last ? Math.max(0,(now.getTime()-last)/86400000) : 9999;
+    const decay=ageDays>180 ? 0.5 : ageDays>90 ? 0.25 : ageDays>30 ? 0.1 : 0;
+    const confidence=Math.max(0,Math.min(1,skill.confidence-decay));
+    return {...skill,confidence,nextReviewAt:new Date(now.getTime()+Math.max(7,Math.min(90,Math.round(30+ageDays/3)))*86400000).toISOString()};
+  }),updatedAt:now.toISOString()};
+  mem.__mastery!.set(tenantId,{profile,roadmap:current.roadmap});
+  if(cfg()) await persist(tenantId,"MASTERY_PROFILE",profile as unknown as Record<string,unknown>);
+  return profile;
+}
+
+export async function setMasteryGoals(tenantId:string, goals:LearningGoal[]) {
+  const current=await loadMastery(tenantId);
+  const normalized=goals.slice(0,20).map(g=>({...g,priority:Math.max(1,Math.min(10,g.priority))}));
+  const roadmap={...current.roadmap,changes:[...current.roadmap.changes,"Goals updated"],nextAction:normalized[0]?.title||current.roadmap.nextAction,generatedAt:new Date().toISOString()};
+  mem.__mastery!.set(tenantId,{profile:current.profile,roadmap});
+  if(cfg()) await persist(tenantId,"MASTERY_ROADMAP",roadmap as unknown as Record<string,unknown>);
+  return {goals:normalized,roadmap};
+}
+
+export async function createMasteryMission(tenantId:string, action:import("./contracts").LearningAction) {
+  const current=await loadMastery(tenantId);
+  const skill=current.profile.skills.find(s=>s.id===action.skillId);
+  if(!skill) throw new Error("MASTERY_SKILL_NOT_FOUND");
+  return {
+    id:"mission-"+randomUUID(),tenantId,skillId:action.skillId,kind:action.kind,title:action.title,
+    objective:action.title,steps:["Learn","Build","Test","Submit evidence","Verify","Update mastery"],
+    evidenceRequired:true,status:"READY",createdAt:new Date().toISOString()
+  };
+}
+
+export async function researchAndAdaptMastery(tenantId:string,topic:string) {
+  const research=await researchMastery(tenantId,topic);
+  const current=await loadMastery(tenantId);
+  const adaptation=await adaptMastery(tenantId,"research");
+  if(cfg()) await persist(tenantId,"MASTERY_ADAPTATION",{...adaptation,researchTopic:topic,researchRequestId:research.requestId} as unknown as Record<string,unknown>);
+  return {research,adaptation,current};
+}
+
+export async function createProjectLab(tenantId:string,input:{title:string;objective:string;skills?:string[];repoUrl?:string}) {
+  const current=await loadMastery(tenantId);
+  const skills=(input.skills||[]).filter(id=>current.profile.skills.some(s=>s.id===id)).slice(0,12);
+  const project={id:"project-"+randomUUID(),tenantId,title:input.title.slice(0,200),objective:input.objective.slice(0,1000),skills,repoUrl:input.repoUrl?.slice(0,500),status:"PLANNED",milestones:["Define","Build MVP","Test","Verify evidence","Ship"],evidence:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  if(cfg()) await persist(tenantId,"MASTERY_EVIDENCE",{project,type:"project",status:"pending",rubricVersion:"project-v1",submittedAt:project.createdAt} as unknown as Record<string,unknown>);
+  return project;
 }
 
 export async function adaptMastery(tenantId:string,reason:AdaptationDecision["reason"]="evidence"):Promise<AdaptationDecision>{
