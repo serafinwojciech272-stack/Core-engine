@@ -9,8 +9,8 @@ export interface RoadmapStage{id:string;year:number;quarter:string;title:string;
 export interface MasteryRoadmap{version:string;horizon:string;generatedAt:string;strategy:string;stages:RoadmapStage[];nextAction:string;assumptions:string[];changes:string[];}
 export interface EvidenceRecord{id:string;tenantId:string;skillId:string;type:EvidenceType;status:EvidenceStatus;score?:number;confidence?:number;artifactRef?:string;evaluator?:string;rubricVersion:string;submittedAt:string;verifiedAt?:string;expiresAt?:string;feedback?:string;}
 export interface LearningGoal{id:string;title:string;targetLevel:MasteryLevel;priority:number;targetDate?:string;}
-export interface LearningAction{id:string;skillId:string;kind:"learn"|"practice"|"build"|"research"|"review"|"ship";title:string;reason:string;estimatedMinutes:number;priorityScore:number;evidenceRequired:boolean;}
+export interface LearningAction{id:string;skillId:string;kind:"learn"|"practice"|"build"|"research"|"review"|"ship";title:string;reason:string;estimatedMinutes:number;priorityScore:number;evidenceRequired:boolean;}\nexport type LearningActionInput=Omit<LearningAction,"id">;
 export interface AssessmentResult{attemptId:string;skillId:string;score:number;confidence:number;levelBefore:MasteryLevel;levelAfter:MasteryLevel;gaps:string[];recommendedActions:LearningAction[];evidenceId:string;}
 export interface AdaptationDecision{id:string;tenantId:string;reason:AdaptationReason;selectedSkillIds:string[];actions:LearningAction[];score:number;createdAt:string;}
 export interface SkillNode{id:string;name:string;domain:string;difficulty:number;dependencies:string[];tags:string[];}
-export type MasteryAction="bootstrap"|"roadmap"|"assess"|"daily"|"research"|"verify"|"adapt"|"decay"|"goals"|"mission"|"research_adapt"|"project";
+export type MasteryAction="bootstrap"|"roadmap"|"assess"|"daily"|"research"|"verify"|"adapt"|"decay"|"goals"|"mission"|"research_adapt"|"project"|"project_update";
