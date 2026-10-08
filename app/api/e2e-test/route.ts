@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok:false, error:"E2E_AUTH_REQUIRED" }, { status:401 });
   }
 
-  const task = "E2E verification: przygotuj krótką, konkretną rekomendację testową dla Core Engine AI i wyjaśnij, że jest to test end-to-end.";
+  const task = "E2E verification: zaprojektuj i porównaj architekturę Core Engine AI, przeanalizuj routing modeli oraz zaproponuj konkretną implementację testu end-to-end; wskaż ryzyka i sposób weryfikacji.";
   const started = Date.now();
   const route = adaptiveRoute(task);
   const multi = await multiModelGenerate(task);
