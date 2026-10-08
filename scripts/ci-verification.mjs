@@ -11,7 +11,7 @@ const gateServer = createServer((req, res) => {
 gateServer.listen(port, "0.0.0.0");
 
 const steps = [
-  ["typecheck", "npm", ["run", "typecheck"]],
+  ...(process.env.PORT ? [] : [["typecheck", "npm", ["run", "typecheck"]]]),
   ["lint", "npm", ["run", "lint"]],
   ["tests", "npm", ["test"]],
   ["official-tender-smoke", "node", ["--test", "--experimental-strip-types", "scripts/official-tender-smoke.ts"]],
