@@ -85,3 +85,11 @@ alter table public.ce_tool_events enable row level security;
 alter table public.ce_evaluations enable row level security;
 alter table public.ce_learning_signals enable row level security;
 alter table public.ce_optimization_runs enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['ce_agent_runs','ce_agent_steps','ce_memory','ce_tool_events','ce_evaluations','ce_learning_signals','ce_optimization_runs'] loop
+    execute format('drop policy if exists %I on public.%I', 'ce_internal_only_'||t, t);
+    execute format('create policy %I on public.%I for all to anon, authenticated using (false) with check (false)', 'ce_internal_only_'||t, t);
+  end loop;
+end $$;
