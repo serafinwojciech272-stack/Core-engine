@@ -46,3 +46,58 @@ export async function getPersistedMissionSnapshot(missionId:string){
  const missions=await mr.json() as Record<string,unknown>[];
  return {mission:missions[0]||null,events:await er.json(),learning:await lr.json()};
 }
+
+export type PersistedAgentStep={stepIndex:number;kind:string;status:"PENDING"|"RUNNING"|"SUCCEEDED"|"FAILED";input?:unknown;output?:unknown;error?:string};
+export async function persistAgentFabricRun(input:{
+ tenantId:string;project:string;goal:string;status:"PLANNED"|"RUNNING"|"COMPLETED"|"FAILED";
+ metadata?:Record<string,unknown>;steps:PersistedAgentStep[];
+}){
+ const c=cfg(); if(!c) return {persisted:false,reason:"SUPABASE_SERVER_CONFIG_MISSING"} as const;
+ try{
+  const runResponse=await sf(c.url+"/rest/v1/ce_agent_runs",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({tenant_id:input.tenantId,project:input.project,goal:input.goal,status:input.status,metadata:input.metadata||{}})});
+  if(!runResponse.ok) return {persisted:false,reason:"AGENT_RUN_"+runResponse.status} as const;
+  const runs=await runResponse.json() as Array<{id:string}>;
+  const runId=runs[0]?.id; if(!runId) return {persisted:false,reason:"AGENT_RUN_ID_MISSING"} as const;
+  if(input.steps.length){
+   const stepResponse=await sf(c.url+"/rest/v1/ce_agent_steps",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(input.steps.map(s=>({run_id:runId,step_index:s.stepIndex,kind:s.kind,status:s.status,input:s.input??null,output:s.output??null,error:s.error??null,started_at:s.status==="PENDING"?null:new Date().toISOString(),finished_at:s.status==="SUCCEEDED"||s.status==="FAILED"?new Date().toISOString():null})))});
+   if(!stepResponse.ok) return {persisted:false,runId,reason:"AGENT_STEPS_"+stepResponse.status} as const;
+  }
+  return {persisted:true,runId} as const;
+ }catch(error){return {persisted:false,reason:String(error).slice(0,240)} as const}
+}
+export async function persistAgentToolEvent(input:{
+ tenantId:string;project:string;runId?:string;toolId:string;action:string;status:string;approvalRequired:boolean;input?:unknown;output?:unknown;error?:string;
+}){
+ const c=cfg(); if(!c) return false;
+ try{
+  const r=await sf(c.url+"/rest/v1/ce_tool_events",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({tenant_id:input.tenantId,project:input.project,run_id:input.runId||null,tool_id:input.toolId,action:input.action,status:input.status,approval_required:input.approvalRequired,input:input.input??null,output:input.output??null,error:input.error??null})});
+  return r.ok;
+ }catch{return false}
+}
+export async function persistAgentEvaluation(input:{
+ tenantId:string;project:string;runId?:string;score:number;criteria:Record<string,unknown>;notes:string[];
+}){
+ const c=cfg(); if(!c) return false;
+ try{
+  const r=await sf(c.url+"/rest/v1/ce_evaluations",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({tenant_id:input.tenantId,project:input.project,run_id:input.runId||null,score:Math.max(0,Math.min(1,input.score)),criteria:input.criteria,notes:input.notes})});
+  return r.ok;
+ }catch{return false}
+}
+export async function persistAgentLearning(input:{
+ tenantId:string;project:string;runId?:string;signalType:string;value:Record<string,unknown>;
+}){
+ const c=cfg(); if(!c) return false;
+ try{
+  const r=await sf(c.url+"/rest/v1/ce_learning_signals",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({tenant_id:input.tenantId,project:input.project,run_id:input.runId||null,signal_type:input.signalType,value:input.value})});
+  return r.ok;
+ }catch{return false}
+}
+export async function persistAgentOptimization(input:{
+ tenantId:string;project:string;config:Record<string,unknown>;objective:number;decision:string;
+}){
+ const c=cfg(); if(!c) return false;
+ try{
+  const r=await sf(c.url+"/rest/v1/ce_optimization_runs",{method:"POST",headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({tenant_id:input.tenantId,project:input.project,config:input.config,objective:input.objective,decision:input.decision})});
+  return r.ok;
+ }catch{return false}
+}
