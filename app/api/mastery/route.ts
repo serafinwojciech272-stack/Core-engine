@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence, applyMasteryDecay, setMasteryGoals, createMasteryMission, researchAndAdaptMastery, createProjectLab, updateProjectLab } from "@/lib/mastery-engine/runtime";
-import type { MasteryAction, LearningGoal } from "@/lib/mastery-engine/contracts";
+import type { MasteryAction, LearningGoal, LearningActionInput } from "@/lib/mastery-engine/contracts";
 
 export async function GET(request: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const runtime = await resolveSaaSContext(request);
     const tenantId = runtime.identity?.tenantId || runtime.legacyTenant?.tenantId;
     if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_NOT_CONFIGURED" }, { status: 401 });
-    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; goals?: LearningGoal[]; mission?: { id:string; skillId:string; kind:"learn"|"practice"|"build"|"research"|"review"|"ship"; title:string; reason:string; estimatedMinutes:number; priorityScore:number; evidenceRequired:boolean }; project?: { title:string; objective:string; skills?:string[]; repoUrl?:string; status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED" }; projectUpdate?: { projectId:string; status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED"; milestone?:string; evidence?:string }; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
+    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; goals?: LearningGoal[]; mission?: LearningActionInput; project?: { title:string; objective:string; skills?:string[]; repoUrl?:string; status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED" }; projectUpdate?: { projectId:string; status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED"; milestone?:string; evidence?:string }; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
     const action = body.action || "bootstrap";
     if (action === "bootstrap") return NextResponse.json({ ok: true, state: await loadMastery(tenantId) });
     if (action === "roadmap") return NextResponse.json({ ok: true, roadmap: await generateRoadmap(tenantId) });
