@@ -18,7 +18,7 @@ import { universalGenerate } from "@/lib/universal-ai-router";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
 import { buildIntelligenceEvidence, recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
-import { persistAgentFabricRun, persistAgentToolEvent, persistAgentEvaluation, persistAgentLearning, persistAgentOptimization } from "@/lib/storage";
+import { persistAgentFabricRun, persistAgentToolEvent, persistAgentEvaluation, persistAgentLearning, persistAgentOptimization, recallAgentMemory, upsertAgentMemory } from "@/lib/storage";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -418,14 +418,23 @@ export async function POST(request: Request) {
     if (new TextEncoder().encode(raw).byteLength > 8 * 1024 * 1024) return NextResponse.json({ ok: false, error: "REQUEST_TOO_LARGE" }, { status: 413 });
     const body = raw ? JSON.parse(raw) : {};
     const task = typeof body.task === "string" ? body.task.trim() : "";
+    const memoryKey = typeof body.memoryKey === "string" ? body.memoryKey.trim().slice(0,180) : "";
+    const tenantId = process.env.CORE_ENGINE_TENANT_ID?.trim() || "core-engine";
+    const project = typeof body.project === "string" && body.project.trim() ? body.project.trim() : "core-engine";
     if (!task) return NextResponse.json({ ok: false, error: "TASK_REQUIRED" }, { status: 400 });
     if (task.length > MAX_TASK) return NextResponse.json({ ok: false, error: "TASK_TOO_LONG" }, { status: 400 });
     const documentContext = typeof body.documentContext === "string" ? body.documentContext.slice(0, 50000) : "";
+    let memoryContext = "";
+    if (memoryKey) {
+      const recalled = await recallAgentMemory({tenantId, project, key:memoryKey});
+      if (recalled) memoryContext = "PERSISTED MEMORY:\n" + JSON.stringify(recalled.value).slice(0,12000);
+    }
+    const effectiveContext = [documentContext, memoryContext].filter(Boolean).join("\n\n");
     const imageDatas = Array.isArray(body.imageDatas) ? body.imageDatas.filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/")).slice(0, 6) : [];
     const attachments = (Array.isArray(body.attachments) ? body.attachments : []).slice(0, 6).map((x: AgentAttachment) => ({ name: String(x.name || "").slice(0, 180), type: String(x.type || "application/octet-stream").slice(0, 120), size: Math.max(0, Math.min(Number(x.size) || 0, 50000000)) })).filter((x: AgentAttachment) => x.name);
     const primaryImageData = imageDatas[0] || (typeof body.imageData === "string" ? body.imageData : "");
     const llmStartedAt = performance.now();
-    let result = await generateAgentResponse(task, attachments, documentContext, primaryImageData);
+    let result = await generateAgentResponse(task, attachments, effectiveContext, primaryImageData);
     llmMs = performance.now() - llmStartedAt;
     const imageData = primaryImageData;
     let artifact: AgentArtifact | undefined;
@@ -506,8 +515,6 @@ export async function POST(request: Request) {
       latencyMs: performanceTelemetry.totalMs
     });
     const evidencePersistence = await recordIntelligenceEvidence(evidence);
-    const tenantId = process.env.CORE_ENGINE_TENANT_ID?.trim() || "core-engine";
-    const project = typeof body.project === "string" && body.project.trim() ? body.project.trim() : "core-engine";
     const runStatus = verification.passed && (artifact || !result.requiresApproval) ? "COMPLETED" : "RUNNING";
     const persistedRun = await persistAgentFabricRun({
       tenantId,
@@ -540,6 +547,11 @@ export async function POST(request: Request) {
       value: { model: universalModelName((result as { intelligence?: unknown }).intelligence), score: evalScore, domain: intelligence.domain || "general", complexity: Number(intelligence.complexity || 1) }
     });
     const objective = evalScore * 0.7 + (1 - Math.min(performanceTelemetry.totalMs / 10000, 1)) * 0.2;
+    if (memoryKey) await upsertAgentMemory({
+      tenantId, project, key:memoryKey,
+      value:{task,reply:result.reply,verification,model:intelligence.selectedModels?.[0]||null,updatedAt:new Date().toISOString()},
+      importance:verification.passed?0.8:0.4
+    });
     const optimizationPersistence = await persistAgentOptimization({
       tenantId, project,
       config: { model: universalModelName((result as { intelligence?: unknown }).intelligence), latencyMs: performanceTelemetry.totalMs, quality: evalScore },
