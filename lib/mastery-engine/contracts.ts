@@ -70,3 +70,5 @@ export interface AdaptationDecision {
   score: number;
   createdAt: string;
 }
+
+export interface SkillNode { id:string; name:string; domain:string; difficulty:number; dependencies:string[]; tags:string[]; }
