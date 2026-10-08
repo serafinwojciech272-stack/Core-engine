@@ -17,6 +17,14 @@ type GatewayBody = {
   model?: unknown;
 };
 
+type GatewayAttempt = {
+  provider: string;
+  model: string;
+  ok: boolean;
+  latencyMs: number;
+  verification: ReturnType<typeof verifyResult> | undefined;
+};
+
 export async function POST(request: Request) {
   const guard = guardMutation(request, "agent");
   if (guard) return guard;
@@ -37,8 +45,11 @@ export async function POST(request: Request) {
     }
 
     let body: GatewayBody;
-    try { body = raw ? JSON.parse(raw) : {}; }
-    catch { return NextResponse.json({ ok: false, error: "INVALID_JSON", requestId }, { status: 400 }); }
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return NextResponse.json({ ok: false, error: "INVALID_JSON", requestId }, { status: 400 });
+    }
 
     const task = typeof body.task === "string" ? body.task.trim() : "";
     const context = typeof body.context === "string" ? body.context.slice(0, MAX_CONTEXT) : "";
@@ -51,12 +62,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "TASK_TOO_LARGE", requestId }, { status: 413 });
     }
 
-    const verification = { enabled: true, policy: "result-verification-v1" };
     let result = await multiModelGenerate(task, context);
     let provider = "openrouter-multi";
     let model = result.selectedModel;
     let text = result.text;
-    let attempts = result.candidates.map((candidate) => ({
+
+    let attempts: GatewayAttempt[] = result.candidates.map((candidate) => ({
       provider: "openrouter",
       model: candidate.model,
       ok: true,
@@ -77,15 +88,35 @@ export async function POST(request: Request) {
             selectedProvider: null,
             selectedModel: null,
             fallbackUsed: true,
-            attempts: [...attempts, ...(fallback.attempts || [])]
+            attempts: [
+              ...attempts,
+              ...(fallback.attempts || []).map((attempt) => ({
+                provider: attempt.provider,
+                model: attempt.model,
+                ok: attempt.ok,
+                latencyMs: attempt.latencyMs,
+                verification: undefined
+              }))
+            ]
           },
           errors: result.errors
         }, { status: 503 });
       }
+
       provider = fallback.provider || "unknown";
       model = fallback.model;
       text = fallback.text;
-      attempts = [...attempts, ...(fallback.attempts || [])];
+
+      attempts = [
+        ...attempts,
+        ...(fallback.attempts || []).map((attempt) => ({
+          provider: attempt.provider,
+          model: attempt.model,
+          ok: attempt.ok,
+          latencyMs: attempt.latencyMs,
+          verification: undefined
+        }))
+      ];
     }
 
     const resultVerification = verifyResult(task, text);
