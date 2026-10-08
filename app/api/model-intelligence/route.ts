@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { intelligenceReadiness, modelRegistry } from "@/lib/model-intelligence";
 import { intelligenceRouterReadiness, routeIntelligenceTask } from "@/lib/m12-intelligence-router";
+import { contextReadiness } from "@/lib/m13-context-engine";
 
 export async function GET() {
   return NextResponse.json({
@@ -9,7 +10,8 @@ export async function GET() {
     version: "M12",
     readiness: {
       ...intelligenceReadiness(),
-      router: intelligenceRouterReadiness()
+      router: intelligenceRouterReadiness(),
+      context: contextReadiness()
     },
     models: modelRegistry(),
     sideEffects: "APPROVAL_REQUIRED"
