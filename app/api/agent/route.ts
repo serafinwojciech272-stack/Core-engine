@@ -532,7 +532,7 @@ export async function POST(request: Request) {
       tenantId, project, runId: persistedRun.persisted ? persistedRun.runId : undefined,
       score: evalScore,
       criteria: { verification: verification.score / 100, artifact: artifact ? 1 : 0, approvalGate: result.requiresApproval ? 1 : 0 },
-      notes: verification.failures || []
+      notes: verification.issues.map(issue => issue.code + ":" + issue.message)
     });
     const learningPersistence = await persistAgentLearning({
       tenantId, project, runId: persistedRun.persisted ? persistedRun.runId : undefined,
