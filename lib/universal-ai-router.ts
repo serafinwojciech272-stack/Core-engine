@@ -62,7 +62,8 @@ function toolManifest() {
     "multitask.image.edit — image transformation",
     "multitask.image.combine — semantic image compositing",
     "multitask.video.prepare — image-to-video preparation/provider"
-  ].join("\n");
+  ].join("
+");
 }
 
 function systemPrompt() {
@@ -76,15 +77,20 @@ function systemPrompt() {
     "For calculations, solve exactly.",
     "For live/current information, say when external/live tooling is required.",
     "For side effects such as sending, deploying, publishing or changing external systems, require human approval.",
-    "Available tools:\n" + toolManifest()
-  ].join("\n");
+    "Available tools:
+" + toolManifest()
+  ].join("
+");
 }
 
 async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string, modelOverride?: string, timeoutMs = 25000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const content: Array<Record<string, unknown>> = [{ type: "text", text: task + (context ? "\n\nCONTEXT:\n" + context.slice(0, 50000) : "") }];
+    const content: Array<Record<string, unknown>> = [{ type: "text", text: task + (context ? "
+
+CONTEXT:
+" + context.slice(0, 50000) : "") }];
     if (imageData.startsWith("data:image/")) content.push({ type: "image_url", image_url: { url: imageData } });
     const response = await fetch(p.baseUrl.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
@@ -133,7 +139,8 @@ export async function universalGenerate(task: string, context = "", imageData = 
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
   const route = routeIntelligenceTask(task);
-  const contextEnvelope = buildContextEnvelope(task, context);\n  const boundedContext = serializeContextEnvelope(contextEnvelope);
+  const contextEnvelope = buildContextEnvelope(task, context);
+  const boundedContext = serializeContextEnvelope(contextEnvelope);
   if (!list.length) return { ok: false, attempts, requestId, routing: routingFrom(route) };
 
   const openRouter = list.find(p => p.id === "openrouter");
@@ -153,10 +160,17 @@ export async function universalGenerate(task: string, context = "", imageData = 
     });
     if (answers.length >= 2) {
       const judgeModel = route.judgeModel || route.consensusModels[1];
-      const judgeContext = "CANDIDATE ANSWERS:\n\n" + answers.map((answer, i) => "ANSWER " + (i + 1) + ":\n" + answer).join("\n\n");
+      const judgeContext = "CANDIDATE ANSWERS:
+
+" + answers.map((answer, i) => "ANSWER " + (i + 1) + ":
+" + answer).join("
+
+");
       const judgeStarted = Date.now();
       try {
-        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", boundedContext + "\n\n" + judgeContext, "", judgeModel, timeoutMs);
+        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", boundedContext + "
+
+" + judgeContext, "", judgeModel, timeoutMs);
         attempts.push({ provider: "openrouter", model: judgeModel, ok: true, latencyMs: Date.now() - judgeStarted });
         return { ok: true, provider: "openrouter", model: judgeModel, text: judged, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
       } catch (e) {
