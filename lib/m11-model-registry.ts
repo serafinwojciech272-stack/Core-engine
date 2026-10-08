@@ -15,7 +15,10 @@ const DEFAULT_MODELS:ModelProfile[]=[
 
 function env(name:string){return process.env[name]?.trim()||"";}
 function configuredIds(){return [env("OPENROUTER_MODEL"),...env("OPENROUTER_FALLBACK_MODELS").split(",")].map(v=>v.trim()).filter(Boolean);}
-function customProfile(id:string):ModelProfile{return{id,provider:"openrouter",family:id.split("/")[0]||"custom",role:"balanced",capabilities:["general","reasoning","structured"],complexityMin:1,complexityMax:8,costClass:"medium",contextWindow:128000,supportsVision:false,supportsStructuredOutput:true,enabled:true};}
+function customProfile(id:string):ModelProfile{
+  const capabilities:ModelCapability[]=["general","reasoning","structured"];
+  return{id,provider:"openrouter",family:id.split("/")[0]||"custom",role:"balanced",capabilities,strengths:[...capabilities],complexityMin:1,complexityMax:8,costClass:"medium",contextWindow:128000,supportsVision:false,supportsStructuredOutput:true,enabled:true};
+}
 
 export function modelRegistry(){
   const configured=configuredIds();
