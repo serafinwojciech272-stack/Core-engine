@@ -15,6 +15,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import sharp from "sharp";
 import { executeOperationalRun } from "@/lib/operational-runtime";
 import { universalGenerate } from "@/lib/universal-ai-router";
+import { runOpenRouterToolLoop, type NativeToolExecution } from "@/lib/openrouter-tool-loop";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
 import { buildIntelligenceEvidence, recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
@@ -384,6 +385,31 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
     return { reply: answer, intent, confidence: 1, plan: ["Rozpoznanie zadania", "Wykonanie deterministyczne", "Weryfikacja wyniku"], requiresApproval: false, execution: "SIMULATION_ONLY", capability, needsAttachment: false, preview: { ...buildDemoPreview(intent, task), answer }, executionState: buildExecutionState(intent, false), evidence: buildEvidencePreview(task, attachments, documentContext), successCriteria: ["Wynik odpowiada dokładnie poleceniu użytkownika", "Brak zależności od zewnętrznego LLM"] };
   }
 
+  const toolIntent = /stron|website|landing|witryn|pdf|docx|dokument|raport|ofert|pogod|weather|temperatur|csv|xlsx|xls|dane|tabela|kpi|wykres|dashboard|wizualiz|image|obraz|zdjęc|fotograf|video|wideo|film/i.test(task) || Boolean(imageData);
+  if (toolIntent && process.env.OPENROUTER_API_KEY?.trim()) {
+    const native = await runOpenRouterToolLoop({ task, context: documentContext, imageData });
+    if (native.ok && native.text) {
+      const [intent, capability, kind] = classifyTask(task);
+      const needsAttachment = ["DOCUMENT_ANALYSIS","DATA_VISUALIZATION","DOCUMENT_TRANSFORM","IMAGE_TASK","IMAGE_EDIT","IMAGE_TO_VIDEO"].includes(intent) && attachments.length === 0;
+      return {
+        reply: native.text,
+        intent,
+        confidence: 0.98,
+        plan: ["OpenRouter rozpoznaje zadanie", "Native tool call", "Execute", "Verify", "Artifact", "Outcome"],
+        requiresApproval: !needsAttachment,
+        execution: "NATIVE_TOOL_EXECUTED",
+        capability: capability || kind,
+        needsAttachment,
+        nativeToolExecution: native.execution,
+        preview: { ...buildDemoPreview(intent, task, documentContext), answer: native.text },
+        executionState: buildExecutionState(intent, needsAttachment),
+        evidence: buildEvidencePreview(task, attachments, documentContext),
+        successCriteria: ["Native tool call został wykonany", "Receipt i artifact są dostępne", "Wynik przechodzi verification", "Brak fałszywej deklaracji wykonania"],
+        intelligence: { mode: "native-tool", selectedModels: native.model ? [native.model] : [] }
+      };
+    }
+  }
+
   const multi = await multiModelGenerate(task, documentContext);
   const universal = multi.ok && multi.text ? { ok: true, text: multi.text, provider: "openrouter-multi", model: multi.selectedModel, latencyMs: multi.candidates.reduce((sum, c) => sum + c.latencyMs, 0), attempts: multi.candidates.map(c => ({ provider: "openrouter", model: c.model, ok: true, latencyMs: c.latencyMs })), requestId: multi.requestId, routing: { mode: multi.mode, complexity: multi.complexity, domain: multi.domain, reasons: [], selectedModels: multi.candidates.map(c => c.model), fallbackModels: [], consensusModels: multi.mode === "consensus" ? multi.candidates.map(c => c.model) : undefined, judgeModel: multi.judgeModel } } : await universalGenerate(task, documentContext, imageData);
   if (universal.ok && universal.text) {
@@ -434,7 +460,8 @@ export async function POST(request: Request) {
     let operationalRun: Awaited<ReturnType<typeof executeOperationalRun>> | undefined;
     try {
       const toolStartedAt = performance.now();
-      operationalRun = await executeOperationalRun(task, { imageData, imageDatas, text: documentContext });
+      const nativeToolExecution = (result as typeof result & { nativeToolExecution?: NativeToolExecution }).nativeToolExecution;
+      operationalRun = await executeOperationalRun(task, { imageData, imageDatas, text: documentContext, _nativeToolExecution: nativeToolExecution });
       toolMs = performance.now() - toolStartedAt;
       routedToolId = operationalRun.tool?.id || null;
       routedToolStatus = operationalRun.tool?.status || "NOT_EXECUTED";
