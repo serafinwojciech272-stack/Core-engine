@@ -153,7 +153,7 @@ test("real HTTP API executes the complete mission lifecycle", async () => {
   assert.ok(missionPayload.missions.some((m: Record<string, any>) => m.id === missionId));
 });
 
-test("real HTTP API blocks completion when KPI outcome is unverifiable", async () => {
+test("real HTTP API keeps completion as the execution boundary and blocks unverifiable learning", async () => {
   const engine = await api("/api/engine", {
     domain: "business",
     signals: [
@@ -179,17 +179,28 @@ test("real HTTP API blocks completion when KPI outcome is unverifiable", async (
     assert.equal(result.response.status, 200, `${action}: ${JSON.stringify(result.json)}`);
   }
 
-  const result = await api("/api/mission", {
+  const complete = await api("/api/mission", {
     id: missionId,
     action: "complete",
     idempotencyKey: `unverified-${missionId}-complete`,
     outcome: { before: 10, direction: "higher" }
   });
 
-  assert.equal(result.response.status, 422);
-  assert.equal(result.json.ok, false);
-  assert.equal(result.json.error, "OUTCOME_UNVERIFIED");
-  assert.equal(result.json.assessment?.quality, "UNVERIFIED");
+  assert.equal(complete.response.status, 200);
+  assert.equal(complete.json.ok, true);
+  assert.equal(complete.json.mission.state, "COMPLETED");
+
+  const learn = await api("/api/mission", {
+    id: missionId,
+    action: "learn",
+    idempotencyKey: `unverified-${missionId}-learn`,
+    outcome: { before: 10, direction: "higher" }
+  });
+
+  assert.equal(learn.response.status, 422);
+  assert.equal(learn.json.ok, false);
+  assert.equal(learn.json.error, "LEARNING_UNVERIFIED");
+  assert.equal(learn.json.assessment?.quality, "UNVERIFIED");
 });
 
 
