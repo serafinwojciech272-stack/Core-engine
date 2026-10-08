@@ -13,4 +13,4 @@ export interface LearningAction{id:string;skillId:string;kind:"learn"|"practice"
 export interface AssessmentResult{attemptId:string;skillId:string;score:number;confidence:number;levelBefore:MasteryLevel;levelAfter:MasteryLevel;gaps:string[];recommendedActions:LearningAction[];evidenceId:string;}
 export interface AdaptationDecision{id:string;tenantId:string;reason:AdaptationReason;selectedSkillIds:string[];actions:LearningAction[];score:number;createdAt:string;}
 export interface SkillNode{id:string;name:string;domain:string;difficulty:number;dependencies:string[];tags:string[];}
-export type MasteryAction="bootstrap"|"roadmap"|"assess"|"daily"|"research"|"verify"|"adapt";
+export type MasteryAction="bootstrap"|"roadmap"|"assess"|"daily"|"research"|"verify"|"adapt"|"decay"|"goals"|"mission"|"research_adapt"|"project";
