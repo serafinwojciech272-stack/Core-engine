@@ -1,16 +1,16 @@
 export type ModelRole = "fast" | "balanced" | "expert" | "judge";
 export type ModelCapability = "general" | "reasoning" | "coding" | "research" | "documents" | "structured" | "multimodal" | "agentic" | "long-context";
 export type ModelProfile = {
-  id:string; provider:"openrouter"; family:string; role:ModelRole; capabilities:ModelCapability[];
+  id:string; provider:"openrouter"; family:string; role:ModelRole; capabilities:ModelCapability[]; strengths:string[];
   complexityMin:number; complexityMax:number; costClass:"low"|"medium"|"high"; contextWindow:number;
   supportsVision:boolean; supportsStructuredOutput:boolean; enabled:boolean;
 };
 
 const DEFAULT_MODELS:ModelProfile[]=[
-{id:"openai/gpt-5-mini",provider:"openrouter",family:"openai",role:"balanced",capabilities:["general","reasoning","structured"],complexityMin:1,complexityMax:8,costClass:"medium",contextWindow:128000,supportsVision:true,supportsStructuredOutput:true,enabled:true},
-{id:"anthropic/claude-sonnet-5.5",provider:"openrouter",family:"anthropic",role:"expert",capabilities:["general","reasoning","coding","research","documents","structured","agentic","long-context"],complexityMin:5,complexityMax:10,costClass:"high",contextWindow:200000,supportsVision:true,supportsStructuredOutput:true,enabled:true},
-{id:"x-ai/grok-4.7",provider:"openrouter",family:"xai",role:"expert",capabilities:["general","reasoning","coding","research","agentic","long-context"],complexityMin:5,complexityMax:10,costClass:"high",contextWindow:131072,supportsVision:true,supportsStructuredOutput:true,enabled:true},
-{id:"openai/gpt-5.4-mini",provider:"openrouter",family:"openai",role:"fast",capabilities:["general","reasoning","coding","structured"],complexityMin:2,complexityMax:7,costClass:"low",contextWindow:128000,supportsVision:true,supportsStructuredOutput:true,enabled:true}
+{id:"openai/gpt-5-mini",provider:"openrouter",family:"openai",role:"balanced",capabilities:["general","reasoning","structured"],strengths:["general","reasoning","structured"],complexityMin:1,complexityMax:8,costClass:"medium",contextWindow:128000,supportsVision:true,supportsStructuredOutput:true,enabled:true},
+{id:"anthropic/claude-sonnet-5.5",provider:"openrouter",family:"anthropic",role:"expert",capabilities:["general","reasoning","coding","research","documents","structured","agentic","long-context"],strengths:["general","reasoning","coding","research","documents","agentic","long-context"],complexityMin:5,complexityMax:10,costClass:"high",contextWindow:200000,supportsVision:true,supportsStructuredOutput:true,enabled:true},
+{id:"x-ai/grok-4.7",provider:"openrouter",family:"xai",role:"expert",capabilities:["general","reasoning","coding","research","agentic","long-context"],strengths:["general","reasoning","coding","research","agentic","long-context"],complexityMin:5,complexityMax:10,costClass:"high",contextWindow:131072,supportsVision:true,supportsStructuredOutput:true,enabled:true},
+{id:"openai/gpt-5.4-mini",provider:"openrouter",family:"openai",role:"fast",capabilities:["general","reasoning","coding","structured"],strengths:["general","reasoning","coding","structured"],complexityMin:2,complexityMax:7,costClass:"low",contextWindow:128000,supportsVision:true,supportsStructuredOutput:true,enabled:true}
 ];
 
 function env(name:string){return process.env[name]?.trim()||"";}
