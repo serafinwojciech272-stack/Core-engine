@@ -112,6 +112,7 @@ export async function POST(request:Request){
     const memoryClaimKey=capabilityActionId&&["approve","execute","retry"].includes(action)?`${key}:${capabilityActionId}`:key;
     if(!claimMemoryAction(id,action,memoryClaimKey))return NextResponse.json({ok:true,duplicate:true,mission:m,action,capabilityActionId:capabilityActionId||undefined,persistence:"in-memory-runtime",durable:false});
     const policy=evaluateMissionAction(action,m.state);if(!policy.allowed)return NextResponse.json({ok:false,error:"POLICY_DENIED",reason:policy.reason},{status:403});
+    if(action==="learn"&&(!assessment||assessment.quality==="UNVERIFIED"))return NextResponse.json({ok:false,error:"LEARNING_UNVERIFIED",assessment},{status:422});
 
     const quota=await consumeSaaSUsage(tenant.tenantId,1);if(!quota.allowed)return NextResponse.json({ok:false,error:"USAGE_LIMIT_EXCEEDED",quota},{status:402});
     let capabilityReceipt=null;let capabilityApproval=null;let capabilityOutcome=null;
