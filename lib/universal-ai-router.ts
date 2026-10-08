@@ -85,9 +85,9 @@ function openRouterFallbackModels(primary: string) {
   return Array.from(new Set(models.filter(m => m !== primary)));
 }
 
-async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string) {
+async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string, timeoutMs = 25000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const content: Array<Record<string, unknown>> = [{ type: "text", text: task + (context ? "\n\nCONTEXT:\n" + context.slice(0, 50000) : "") }];
     if (imageData.startsWith("data:image/")) content.push({ type: "image_url", image_url: { url: imageData } });
@@ -110,7 +110,7 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
   } finally { clearTimeout(timer); }
 }
 
-export async function universalGenerate(task: string, context = "", imageData = ""): Promise<UniversalResult> {
+export async function universalGenerate(task: string, context = "", imageData = "", timeoutMs = 25000): Promise<UniversalResult> {
   const requestId = "ce-" + randomUUID();
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
@@ -119,7 +119,7 @@ export async function universalGenerate(task: string, context = "", imageData = 
   for (const p of list) {
     const started = Date.now();
     try {
-      const text = await callOpenAICompatible(p, task, context, imageData);
+      const text = await callOpenAICompatible(p, task, context, imageData, timeoutMs);
       const latencyMs = Date.now() - started;
       attempts.push({ provider: p.id, model: p.model, ok: true, latencyMs });
       return { ok: true, provider: p.id, model: p.model, text, latencyMs, attempts, requestId };
