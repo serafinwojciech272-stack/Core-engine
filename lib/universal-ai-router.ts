@@ -123,7 +123,8 @@ export async function universalGenerate(task: string, context = "", imageData = 
   const startedTotal = Date.now();
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
-  const route = routeIntelligenceTask(task);\n  const contextEnvelope = buildContextEnvelope(task, context);\n  const boundedContext = serializeContextEnvelope(contextEnvelope);
+  const route = routeIntelligenceTask(task);
+  const contextEnvelope = buildContextEnvelope(task, context);\n  const boundedContext = serializeContextEnvelope(contextEnvelope);
   if (!list.length) return { ok: false, attempts, requestId, routing: routingFrom(route) };
 
   const openRouter = list.find(p => p.id === "openrouter");
