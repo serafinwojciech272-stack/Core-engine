@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { seedMasteryProfile, seedMasteryRoadmap } from "./seed";
-import type { MasteryProfile, MasteryRoadmap } from "./contracts";
+import type { MasteryProfile, MasteryRoadmap, EvidenceRecord, LearningGoal, SkillNode, SkillState, AdaptationDecision } from "./contracts";
+import { verifyEvidence, recomputeSkillState } from "./evidence";
+import { adaptLearning } from "./adaptive";
 
 function cfg() {
   const url = (process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
@@ -57,7 +59,7 @@ export async function loadMastery(tenantId: string) {
   return value;
 }
 
-async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP", payload: Record<string, unknown>) {
+async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP" | "MASTERY_EVIDENCE", payload: Record<string, unknown>) {
   const row = {
     tenant_id: tenantId,
     request_id: "mastery-" + randomUUID(),
@@ -223,3 +225,24 @@ export async function researchMastery(tenantId: string, topic: string) {
   };
 }
 
+
+export async function verifyMasteryEvidence(tenantId:string,input:{skillId:string;type:EvidenceRecord["type"];score:number;confidence:number;artifactRef?:string;feedback?:string}) {
+  const current=await loadMastery(tenantId);
+  const evidence=verifyEvidence({tenantId,skillId:input.skillId,type:input.type,rubricVersion:"evidence-v1",submittedAt:new Date().toISOString(),score:input.score,confidence:input.confidence,artifactRef:input.artifactRef,feedback:input.feedback});
+  const skill=current.profile.skills.find(s=>s.id===input.skillId);
+  if(skill){
+    const next=recomputeSkillState(skill,[evidence]);
+    const profile={...current.profile,skills:current.profile.skills.map(s=>s.id===input.skillId?{...s,...next,gap:Math.max(0,next.target-next.level),nextAction:next.level>=4?"Build production evidence":"Complete next verification"}:s),updatedAt:new Date().toISOString()};
+    mem.__mastery!.set(tenantId,{profile,roadmap:current.roadmap});
+    if(cfg()) await persist(tenantId,"MASTERY_PROFILE",profile as unknown as Record<string,unknown>);
+  }
+  if(cfg()) await persist(tenantId,"MASTERY_EVIDENCE",evidence as unknown as Record<string,unknown>);
+  return evidence;
+}
+export async function adaptMastery(tenantId:string):Promise<AdaptationDecision>{
+  const current=await loadMastery(tenantId);
+  const skills:SkillNode[]=current.profile.skills.map(s=>({id:s.id,name:s.name,domain:s.domain,difficulty:Math.max(1,6-s.level),dependencies:s.prerequisites,tags:[s.domain]}));
+  const states:SkillState[]=current.profile.skills;
+  const goals:LearningGoal[]=current.profile.skills.map(s=>({id:s.id,title:s.name,targetLevel:s.target,priority:Math.max(1,s.gap)}));
+  return adaptLearning({tenantId,skills,states,goals});
+}
