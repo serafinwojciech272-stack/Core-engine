@@ -1,5 +1,5 @@
 export type VerificationIssue={code:string;severity:"info"|"warning"|"error";message:string};
-export type VerificationResult={score:number;passed:boolean;confidence:number;issues:VerificationIssue[];checks:{nonEmpty:boolean;taskCoverage:boolean;uncertaintyHandled:boolean;noFalseExecutionClaim:boolean}};
+export type VerificationResult={score:number;passed:boolean;confidence:number;issues:VerificationIssue[];checks:{nonEmpty:boolean;taskCoverage:boolean;uncertaintyHandled:boolean;noFalseExecutionClaim:boolean;executionEvidence:boolean}};
 
 const CLAIMS=/(done|completed|executed|sent|submitted|deployed|created|saved|booked|wysłano|wykonano|utworzono|zapisano|wdrożono|zarezerwowano)/i;
 const STOPWORDS=new Set([
@@ -33,13 +33,20 @@ export function verifyResult(task:string,result:string,meta?:{toolExecuted?:bool
  const nonEmpty=r.length>=20;
  const taskCoverage=taskCoverageScore(t,r);
  const uncertaintyHandled=!/(I am not sure|nie wiem|can't verify|nie mogę zweryfikować)/i.test(r)||/verify|source|źród|sprawdź|nie mam dostępu|wymaga weryfikacji/i.test(r);
- const falseExecutionClaim=hasUnnegatedExecutionClaim(r)&&!meta?.toolExecuted&&!meta?.artifactCreated;
+ const executionEvidence=Boolean(meta?.toolExecuted&&meta?.artifactCreated);
+ const falseExecutionClaim=hasUnnegatedExecutionClaim(r)&&!executionEvidence;
  const noFalseExecutionClaim=!falseExecutionClaim;
  if(!nonEmpty)issues.push({code:"EMPTY_OR_TOO_SHORT",severity:"error",message:"Result is empty or too short."});
+ if(executionEvidence)issues.push({code:"EXECUTION_EVIDENCE_PRESENT",severity:"info",message:"Tool execution and artifact evidence are present."});
  if(!taskCoverage)issues.push({code:"LOW_TASK_COVERAGE",severity:"warning",message:"Result has weak semantic/lexical coverage of the requested task."});
  if(!uncertaintyHandled)issues.push({code:"UNQUALIFIED_UNCERTAINTY",severity:"warning",message:"Uncertainty is not explicitly qualified."});
  if(falseExecutionClaim)issues.push({code:"UNVERIFIED_EXECUTION_CLAIM",severity:"error",message:"Response appears to claim external execution without verified tool/artifact evidence."});
- const score=Math.max(0,Math.min(100,(nonEmpty?35:0)+(taskCoverage?30:0)+(uncertaintyHandled?15:0)+(noFalseExecutionClaim?20:0)));
+ const score=executionEvidence&&nonEmpty&&noFalseExecutionClaim
+   ? Math.max(85,(nonEmpty?35:0)+(taskCoverage?30:0)+(uncertaintyHandled?15:0)+(noFalseExecutionClaim?20:0))
+   : Math.max(0,Math.min(100,(nonEmpty?35:0)+(taskCoverage?30:0)+(uncertaintyHandled?15:0)+(noFalseExecutionClaim?20:0)));
  const confidence=Math.round(score);
- return{score,passed:score>=75&&noFalseExecutionClaim,confidence,issues,checks:{nonEmpty,taskCoverage,uncertaintyHandled,noFalseExecutionClaim}};
+ const passed=executionEvidence
+   ? nonEmpty&&noFalseExecutionClaim
+   : score>=75&&noFalseExecutionClaim;
+ return{score,passed,confidence,issues,checks:{nonEmpty,taskCoverage,uncertaintyHandled,noFalseExecutionClaim,executionEvidence}};
 }
