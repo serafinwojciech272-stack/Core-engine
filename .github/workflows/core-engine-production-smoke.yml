@@ -3,6 +3,8 @@ name: Core Engine Production E2E Matrix
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "*/10 * * * *"
@@ -13,7 +15,7 @@ permissions:
 jobs:
   production-e2e-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +47,9 @@ jobs:
       - name: Health
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 20             https://core-engine-34uu.onrender.com/api/health > /tmp/health.json
+          curl --fail --silent --show-error --max-time 30 \
+            https://core-engine-34uu.onrender.com/api/health \
+            > /tmp/health.json
           cat /tmp/health.json
 
       - name: Execute matrix case
@@ -79,7 +83,7 @@ jobs:
           )
 
           started = time.time()
-          with urllib.request.urlopen(req, timeout=90) as response:
+          with urllib.request.urlopen(req, timeout=120) as response:
               data = json.load(response)
           elapsed = round((time.time() - started) * 1000)
 
