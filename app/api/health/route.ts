@@ -1,1 +1,42 @@
-import{NextResponse}from"next/server";import{checkStorageHealth,storageMode}from"@/lib/storage";import{authStatus}from"@/lib/auth";import{ENGINE_VERSION}from"@/lib/engine";export async function GET(request:Request){const detail=new URL(request.url).searchParams.get("detail")==="full"&&Boolean(process.env.HEALTH_DETAIL_TOKEN)&&request.headers.get("x-health-token")===process.env.HEALTH_DETAIL_TOKEN;if(!detail)return NextResponse.json({ok:true,service:"core-engine",version:ENGINE_VERSION,status:"ready",detail_requires_auth:true,openrouter:{configured:Boolean(process.env.OPENROUTER_API_KEY?.trim()),model:process.env.OPENROUTER_MODEL?.trim()||"openai/gpt-5-mini"}});const persistence=storageMode(),storage=await checkStorageHealth(),ai=Boolean(process.env.AI_DECISION_ENDPOINT&&process.env.AI_DECISION_API_KEY&&process.env.AI_DECISION_MODEL),auth=authStatus();return NextResponse.json({ok:true,service:"core-engine",version:ENGINE_VERSION,status:storage==="pass"?"healthy":"degraded",production_ready:storage==="pass"&&ai&&auth.enforced,checks:{api:"pass",mission_state_machine:"pass",persistent_storage:storage,ai_provider:ai?"configured":"fallback",audit_verification:process.env.AUDIT_SIGNING_KEY?"hmac":"unsigned",authorization_policy:auth,recovery_idempotency:"pass"},capabilities:{persistence,durable:persistence==="supabase"},openrouter:{configured:Boolean(process.env.OPENROUTER_API_KEY?.trim()),model:process.env.OPENROUTER_MODEL?.trim()||"openai/gpt-5-mini"}})}
+import{NextResponse}from"next/server";
+import{checkStorageHealth,storageMode}from"@/lib/storage";
+import{authStatus}from"@/lib/auth";
+import{ENGINE_VERSION}from"@/lib/engine";
+
+export async function GET(request:Request){
+  const url=new URL(request.url);
+  const detail=url.searchParams.get("detail")==="full";
+  const detailToken=process.env.HEALTH_DETAIL_TOKEN?.trim();
+  const authorizedDetail=!detailToken||request.headers.get("x-health-token")===detailToken;
+  const openrouterConfigured=Boolean(process.env.OPENROUTER_API_KEY?.trim());
+  const storage=storageMode();
+  const storageHealth=await checkStorageHealth();
+  const auth=authStatus();
+  const auditSigning=Boolean(process.env.AUDIT_SIGNING_KEY?.trim());
+  const productionReady=storageHealth==="pass"&&openrouterConfigured&&auth.enforced&&auditSigning;
+  const base={
+    ok:true,
+    service:"core-engine",
+    version:ENGINE_VERSION,
+    status:productionReady?"healthy":storageHealth==="pass"&&openrouterConfigured?"degraded":"not_ready",
+    production_ready:productionReady,
+    checks:{
+      api:"pass",
+      persistent_storage:storageHealth,
+      ai_provider:openrouterConfigured?"openrouter":"missing",
+      authorization_policy:auth,
+      audit_verification:auditSigning?"hmac":"unsigned",
+      recovery_idempotency:"pass"
+    },
+    capabilities:{persistence:storage,durable:storage==="supabase"},
+    openrouter:{configured:openrouterConfigured,model:process.env.OPENROUTER_MODEL?.trim()||"openai/gpt-5-mini"}
+  };
+  if(!detail||!authorizedDetail){
+    return NextResponse.json({...base,detail_requires_auth:Boolean(detailToken)});
+  }
+  return NextResponse.json({
+    ...base,
+    detail_requires_auth:false,
+    ai_decision_legacy:Boolean(process.env.AI_DECISION_ENDPOINT&&process.env.AI_DECISION_API_KEY&&process.env.AI_DECISION_MODEL)
+  });
+}
