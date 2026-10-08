@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { routeIntelligenceTask, type IntelligenceRoute } from "@/lib/m12-intelligence-router";
 
 export type UniversalProvider = {
   id: string;
@@ -78,14 +79,7 @@ function systemPrompt() {
   ].join("\n");
 }
 
-function openRouterFallbackModels(primary: string) {
-  const configured = env("OPENROUTER_FALLBACK_MODELS");
-  const defaults = ["anthropic/claude-sonnet-5.5", "openai/gpt-5.4-mini"];
-  const models = (configured ? configured.split(",") : defaults).map(v => v.trim()).filter(Boolean);
-  return Array.from(new Set(models.filter(m => m !== primary)));
-}
-
-async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string, timeoutMs = 25000) {
+async function callOpenAICompatible(p: UniversalProvider, task: string, context: string, imageData: string, modelOverride?: string, timeoutMs = 25000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -95,7 +89,7 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey },
       body: JSON.stringify({
-        model: p.model,
+        model: modelOverride || p.model,
         temperature: 0.2,
         messages: [{ role: "system", content: systemPrompt() }, { role: "user", content }]
       }),
@@ -110,25 +104,73 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
   } finally { clearTimeout(timer); }
 }
 
+function routingFrom(route: IntelligenceRoute) {
+  return {
+    mode: route.mode,
+    complexity: route.complexity,
+    domain: route.domain,
+    reasons: route.reasons,
+    selectedModels: route.candidateModels,
+    fallbackModels: route.fallbackModels,
+    consensusModels: route.consensusModels,
+    judgeModel: route.judgeModel || undefined
+  };
+}
+
 export async function universalGenerate(task: string, context = "", imageData = "", timeoutMs = 25000): Promise<UniversalResult> {
   const requestId = "ce-" + randomUUID();
+  const startedTotal = Date.now();
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
-  if (!list.length) return { ok: false, attempts, requestId };
+  const route = routeIntelligenceTask(task);
+  if (!list.length) return { ok: false, attempts, requestId, routing: routingFrom(route) };
 
-  for (const p of list) {
-    const started = Date.now();
-    try {
-      const text = await callOpenAICompatible(p, task, context, imageData, timeoutMs);
-      const latencyMs = Date.now() - started;
-      attempts.push({ provider: p.id, model: p.model, ok: true, latencyMs });
-      return { ok: true, provider: p.id, model: p.model, text, latencyMs, attempts, requestId };
-    } catch (e) {
-      const latencyMs = Date.now() - started;
-      attempts.push({ provider: p.id, model: p.model, ok: false, error: e instanceof Error ? e.message : "PROVIDER_FAILED", latencyMs });
+  const openRouter = list.find(p => p.id === "openrouter");
+  if (openRouter && route.mode === "consensus" && route.consensusModels.length >= 2) {
+    const consensusStarted = Date.now();
+    const results = await Promise.allSettled(route.consensusModels.map(model => callOpenAICompatible(openRouter, task, context, imageData, model, timeoutMs)));
+    const answers: string[] = [];
+    results.forEach((result, index) => {
+      const model = route.consensusModels[index];
+      const latencyMs = Date.now() - consensusStarted;
+      if (result.status === "fulfilled") {
+        answers.push(result.value);
+        attempts.push({ provider: "openrouter", model, ok: true, latencyMs });
+      } else {
+        attempts.push({ provider: "openrouter", model, ok: false, error: result.reason instanceof Error ? result.reason.message : "PROVIDER_FAILED", latencyMs });
+      }
+    });
+    if (answers.length >= 2) {
+      const judgeModel = route.judgeModel || route.consensusModels[1];
+      const judgeContext = "CANDIDATE ANSWERS:\n\n" + answers.map((answer, i) => "ANSWER " + (i + 1) + ":\n" + answer).join("\n\n");
+      const judgeStarted = Date.now();
+      try {
+        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", judgeContext, "", judgeModel, timeoutMs);
+        attempts.push({ provider: "openrouter", model: judgeModel, ok: true, latencyMs: Date.now() - judgeStarted });
+        return { ok: true, provider: "openrouter", model: judgeModel, text: judged, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
+      } catch (e) {
+        attempts.push({ provider: "openrouter", model: judgeModel, ok: false, error: e instanceof Error ? e.message : "JUDGE_FAILED", latencyMs: Date.now() - judgeStarted });
+      }
     }
   }
-  return { ok: false, attempts, requestId };
+
+  const orderedModels = route.mode === "single" ? route.candidateModels.slice(0, 1) : route.candidateModels;
+  for (const p of list) {
+    const models = p.id === "openrouter" && orderedModels.length ? orderedModels : [p.model];
+    for (const model of models) {
+      const started = Date.now();
+      try {
+        const text = await callOpenAICompatible(p, task, context, imageData, model, timeoutMs);
+        const latencyMs = Date.now() - started;
+        attempts.push({ provider: p.id, model, ok: true, latencyMs });
+        return { ok: true, provider: p.id, model, text, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
+      } catch (e) {
+        attempts.push({ provider: p.id, model, ok: false, error: e instanceof Error ? e.message : "PROVIDER_FAILED", latencyMs: Date.now() - started });
+      }
+    }
+  }
+
+  return { ok: false, attempts, requestId, routing: routingFrom(route) };
 }
 
 export function universalProviderReadiness() {
