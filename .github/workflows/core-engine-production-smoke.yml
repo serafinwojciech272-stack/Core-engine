@@ -60,3 +60,27 @@ jobs:
           assert ep.get("persisted") is True, f"AI evidence persistence failed: {ep}"
           print("CORE_ENGINE_AI_SMOKE_PASS")
           PY
+      - name: Real tool execution E2E
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 90 \
+            -H "content-type: application/json" \
+            -d '{"task":"stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem","project":"core-engine-smoke"}' \
+            https://core-engine-34uu.onrender.com/api/agent > /tmp/tool.json
+          cat /tmp/tool.json
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/tool.json"))
+          assert d.get("ok") is True, "tool agent ok=false"
+          artifact=d.get("artifact") or {}
+          assert artifact.get("status") == "EXECUTED", f"artifact not executed: {artifact}"
+          assert artifact.get("type") == "website", f"unexpected artifact: {artifact}"
+          v=d.get("verification",{})
+          assert v.get("passed") is True, f"tool verification failed: {v}"
+          assert v.get("checks",{}).get("executionEvidence") is True, f"missing execution evidence: {v}"
+          runs=(d.get("evidence",{}) or {}).get("toolRuns") or []
+          assert runs and runs[0].get("status") == "EXECUTED", f"toolRuns invalid: {runs}"
+          ep=d.get("evidencePersistence",{})
+          assert ep.get("persisted") is True, f"tool evidence persistence failed: {ep}"
+          print("CORE_ENGINE_M_AI_08_TOOL_E2E_PASS", d.get("performance",{}).get("requestId"), runs[0].get("tool"))
+          PY
