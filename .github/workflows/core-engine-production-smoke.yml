@@ -1,4 +1,4 @@
-name: Core Engine Production E2E Matrix
+name: Core Engine Production E2E
 
 on:
   push:
@@ -13,121 +13,117 @@ permissions:
   contents: read
 
 jobs:
-  production-e2e-matrix:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - id: deterministic
-            task: "oblicz 2+2"
-            expect_artifact: "none"
-          - id: universal-ai
-            task: "Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI."
-            expect_artifact: "none"
-          - id: website
-            task: "stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem"
-            expect_artifact: "website"
-            expect_tool: "multitask.website.build"
-          - id: data
-            task: "przygotuj wykres KPI dla sprzedaży miesięcznej"
-            expect_artifact: "data"
-            expect_tool: "multitask.data.analyze"
-          - id: document
-            task: "utwórz dokument PDF z krótkim raportem o Core Engine AI"
-            expect_artifact: "file"
-            expect_tool: "multitask.document.create"
-          - id: weather
-            task: "sprawdź pogodę w Krakowie"
-            expect_artifact: "data"
-            expect_tool: "multitask.weather.current"
+  production-e2e:
+    # Run the full smoke suite on one hosted runner. This avoids matrix-wide
+    # runner allocation failures and makes the first failing case observable.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Health
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 30 \
-            https://core-engine-34uu.onrender.com/api/health \
-            > /tmp/health.json
-          cat /tmp/health.json
+          for attempt in 1 2 3; do
+            if curl --fail --silent --show-error --max-time 30               https://core-engine-34uu.onrender.com/api/health               > /tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "Health attempt $attempt failed; retrying..."
+            sleep 5
+          done
+          exit 1
 
-      - name: Execute matrix case
+      - name: Execute production E2E suite
         env:
-          CASE_ID: ${{ matrix.id }}
-          TASK: ${{ matrix.task }}
-          EXPECT_ARTIFACT: ${{ matrix.expect_artifact }}
-          EXPECT_TOOL: ${{ matrix.expect_tool }}
           CORE_ENGINE_URL: https://core-engine-34uu.onrender.com
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json, os, time, urllib.request
+          import json, os, time, urllib.error, urllib.request
 
-          case_id = os.environ["CASE_ID"]
-          task = os.environ["TASK"]
-          expected_artifact = os.environ["EXPECT_ARTIFACT"]
-          expected_tool = os.environ.get("EXPECT_TOOL", "")
-          url = os.environ["CORE_ENGINE_URL"].rstrip("/") + "/api/agent"
+          cases = [
+              ("deterministic", "oblicz 2+2", "none", ""),
+              ("universal-ai", "Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI.", "none", ""),
+              ("website", "stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem", "website", "multitask.website.build"),
+              ("data", "przygotuj wykres KPI dla sprzedaży miesięcznej", "data", "multitask.data.analyze"),
+              ("document", "utwórz dokument PDF z krótkim raportem o Core Engine AI", "file", "multitask.document.create"),
+              ("weather", "sprawdź pogodę w Krakowie", "data", "multitask.weather.current"),
+          ]
 
-          payload = json.dumps({
-              "task": task,
-              "project": "core-engine-production-matrix"
-          }).encode()
+          base = os.environ["CORE_ENGINE_URL"].rstrip("/")
+          url = base + "/api/agent"
 
-          req = urllib.request.Request(
-              url,
-              data=payload,
-              headers={"content-type": "application/json"},
-              method="POST"
-          )
+          def call(task):
+              payload = json.dumps({
+                  "task": task,
+                  "project": "core-engine-production-e2e"
+              }).encode()
+              req = urllib.request.Request(
+                  url,
+                  data=payload,
+                  headers={"content-type": "application/json"},
+                  method="POST",
+              )
+              last = None
+              for attempt in range(1, 4):
+                  try:
+                      with urllib.request.urlopen(req, timeout=150) as response:
+                          return json.load(response)
+                  except urllib.error.HTTPError as exc:
+                      body = exc.read().decode("utf-8", "replace")
+                      last = RuntimeError(f"HTTP {exc.code}: {body[:1000]}")
+                      if exc.code < 500 and exc.code != 429:
+                          raise last
+                  except (urllib.error.URLError, TimeoutError) as exc:
+                      last = exc
+                  if attempt < 3:
+                      time.sleep(5 * attempt)
+              raise last
 
-          started = time.time()
-          with urllib.request.urlopen(req, timeout=120) as response:
-              data = json.load(response)
-          elapsed = round((time.time() - started) * 1000)
+          failures = []
+          for case_id, task, expected_artifact, expected_tool in cases:
+              started = time.time()
+              try:
+                  data = call(task)
+                  elapsed = round((time.time() - started) * 1000)
+                  artifact = data.get("artifact") or {}
+                  verification = data.get("verification") or {}
+                  persistence = data.get("evidencePersistence") or {}
+                  runs = (data.get("evidence") or {}).get("toolRuns") or []
 
-          print(json.dumps({
-              "case": case_id,
-              "elapsedMs": elapsed,
-              "requestId": (data.get("performance") or {}).get("requestId"),
-              "model": (data.get("intelligence") or {}).get("selectedModels"),
-              "artifactType": (data.get("artifact") or {}).get("type"),
-              "artifactStatus": (data.get("artifact") or {}).get("status"),
-              "verification": data.get("verification"),
-              "evidencePersistence": data.get("evidencePersistence"),
-              "toolRuns": (data.get("evidence") or {}).get("toolRuns")
-          }, ensure_ascii=False, indent=2))
+                  print(json.dumps({
+                      "case": case_id,
+                      "elapsedMs": elapsed,
+                      "requestId": (data.get("performance") or {}).get("requestId"),
+                      "artifactType": artifact.get("type"),
+                      "artifactStatus": artifact.get("status"),
+                      "verification": verification,
+                      "evidencePersistence": persistence,
+                      "toolRuns": runs,
+                  }, ensure_ascii=False, indent=2))
 
-          assert data.get("ok") is True, f"{case_id}: ok=false"
-          assert (data.get("performance") or {}).get("requestId"), f"{case_id}: missing requestId"
-          assert data.get("verification", {}).get("passed") is True, f"{case_id}: verification failed"
-          assert data.get("evidencePersistence", {}).get("persisted") is True, f"{case_id}: evidence persistence failed"
+                  assert data.get("ok") is True, "ok=false"
+                  assert (data.get("performance") or {}).get("requestId"), "missing requestId"
+                  assert verification.get("passed") is True, "verification failed"
+                  assert persistence.get("persisted") is True, "evidence persistence failed"
 
-          artifact = data.get("artifact") or {}
-          if expected_artifact == "none":
-              assert not artifact or artifact.get("status") != "FAILED", f"{case_id}: unexpected failed artifact"
-          else:
-              assert artifact.get("type") == expected_artifact, f"{case_id}: expected {expected_artifact}, got {artifact}"
-              assert artifact.get("status") == "EXECUTED", f"{case_id}: artifact not executed"
-              checks = data.get("verification", {}).get("checks", {})
-              assert checks.get("executionEvidence") is True, f"{case_id}: missing executionEvidence"
-              runs = (data.get("evidence") or {}).get("toolRuns") or []
-              assert runs and runs[0].get("status") == "EXECUTED", f"{case_id}: missing executed tool run"
-              if expected_tool:
-                  assert runs[0].get("tool") == expected_tool, f"{case_id}: expected tool {expected_tool}, got {runs}"
+                  if expected_artifact == "none":
+                      assert not artifact or artifact.get("status") != "FAILED", "unexpected failed artifact"
+                  else:
+                      assert artifact.get("type") == expected_artifact, f"expected artifact {expected_artifact}"
+                      assert artifact.get("status") == "EXECUTED", "artifact not executed"
+                      assert (verification.get("checks") or {}).get("executionEvidence") is True, "missing executionEvidence"
+                      assert runs and runs[0].get("status") == "EXECUTED", "missing executed tool run"
+                      assert runs[0].get("tool") == expected_tool, f"expected tool {expected_tool}, got {runs}"
+              except Exception as exc:
+                  failures.append(f"{case_id}: {exc}")
+                  print(f"CORE_ENGINE_E2E_FAIL case={case_id} error={exc}")
+                  break
+              else:
+                  print(f"CORE_ENGINE_E2E_PASS case={case_id}")
 
-          print(f"CORE_ENGINE_MATRIX_PASS case={case_id} requestId={(data.get('performance') or {}).get('requestId')}")
+          if failures:
+              raise SystemExit("\n".join(failures))
+
+          print("CORE_ENGINE_PRODUCTION_E2E_PASS")
           PY
-
-  summary:
-    if: always()
-    needs: production-e2e-matrix
-    runs-on: ubuntu-latest
-    steps:
-      - name: Matrix result
-        env:
-          RESULTS: ${{ toJSON(needs.production-e2e-matrix.result) }}
-        run: |
-          echo "CORE_ENGINE_PRODUCTION_E2E_MATRIX_RESULT=$RESULTS"
-          test "$RESULTS" = "success"
