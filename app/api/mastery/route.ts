@@ -50,11 +50,7 @@ export async function POST(request: Request) {
       if (!body.topic?.trim()) return NextResponse.json({ ok:false, error:"TOPIC_REQUIRED" }, { status:400 });
       return NextResponse.json({ ok:true, ...(await researchAndAdaptMastery(tenantId, body.topic.slice(0,300))) });
     }
-    if (action === "project_update") {
-      if (!body.project?.title?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_ID_REQUIRED" }, { status:400 });
-      return NextResponse.json({ ok:true, project: await updateProjectLab(tenantId, { projectId: body.project.title, status: body.project.status, milestone: body.project.objective, evidence: body.project.repoUrl }) });
-    }
-    if (action === "project") {
+    if (action === "project_update") {\n      if (!body.projectUpdate?.projectId?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_ID_REQUIRED" }, { status:400 });\n      return NextResponse.json({ ok:true, project: await updateProjectLab(tenantId, body.projectUpdate) });\n    }\n    if (action === "project") {
       if (!body.project?.title?.trim() || !body.project.objective?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_TITLE_AND_OBJECTIVE_REQUIRED" }, { status:400 });
       return NextResponse.json({ ok:true, project: await createProjectLab(tenantId, body.project) });
     }
