@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 
 const cronMode = process.env.CI_GATE_MODE === "cron";
@@ -13,7 +13,11 @@ const gateServer = cronMode
     });
 
 if (gateServer) {
-  gateServer.listen(port, "0.0.0.0");
+  await new Promise((resolve, reject) => {
+    gateServer.once("error", reject);
+    gateServer.listen(port, "0.0.0.0", resolve);
+  });
+  console.log(`[CI] gate server listening on 0.0.0.0:${port}`);
 }
 
 const steps = [
@@ -24,22 +28,45 @@ const steps = [
   ["build", "npm", ["run", "build"]],
 ];
 
-for (const [name, command, args] of steps) {
-  console.log(`[CI] >>> ${name}`);
-  const result = spawnSync(command, args, {
-    stdio: "inherit",
-    env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=384" },
+const run = (name, command, args) =>
+  new Promise((resolve) => {
+    const child = spawn(command, args, {
+      stdio: "inherit",
+      env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=384" },
+    });
+    child.once("error", (error) => {
+      console.error(`[CI] ${name} failed to start:`, error);
+      resolve(1);
+    });
+    child.once("exit", (code, signal) => {
+      if (signal) {
+        console.error(`[CI] ${name} terminated by signal ${signal}`);
+        resolve(1);
+        return;
+      }
+      resolve(code ?? 1);
+    });
   });
-  if (result.error) {
-    console.error(`[CI] ${name} failed to start:`, result.error);
-    process.exit(1);
-  }
-  if (result.status !== 0) {
-    console.error(`[CI] ${name} failed with exit code ${result.status}`);
-    process.exit(result.status ?? 1);
-  }
-  console.log(`[CI] <<< ${name} OK`);
-}
 
-if (gateServer) gateServer.close();
-console.log("[CI] ALL CHECKS PASSED");
+try {
+  for (const [name, command, args] of steps) {
+    console.log(`[CI] >>> ${name}`);
+    const exitCode = await run(name, command, args);
+    if (exitCode !== 0) {
+      console.error(`[CI] ${name} failed with exit code ${exitCode}`);
+      process.exitCode = exitCode;
+      break;
+    }
+    console.log(`[CI] <<< ${name} OK`);
+  }
+
+  if (process.exitCode) {
+    process.exit(process.exitCode);
+  }
+
+  console.log("[CI] ALL CHECKS PASSED");
+} finally {
+  if (gateServer) {
+    await new Promise((resolve) => gateServer.close(resolve));
+  }
+}
