@@ -87,13 +87,21 @@ export default function CoreAgentConsole() {
   const [selectedMode, setSelectedMode] = useState("BUILD");
   const [elapsedMs, setElapsedMs] = useState(0);
   const startedAtRef = useRef<number | null>(null);
+  const elapsedRef = useRef(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loading) return;
+    startedAtRef.current = performance.now();
+    elapsedRef.current = 0;
+    setElapsedMs(0);
     const tick = () => {
-      if (startedAtRef.current !== null) setElapsedMs(Math.max(0, performance.now() - startedAtRef.current));
+      if (startedAtRef.current !== null) {
+        const nextElapsed = Math.max(0, performance.now() - startedAtRef.current);
+        elapsedRef.current = nextElapsed;
+        setElapsedMs(nextElapsed);
+      }
     };
     tick();
     const timer = window.setInterval(tick, 37);
@@ -113,7 +121,8 @@ export default function CoreAgentConsole() {
     e?.preventDefault();
     const value = task.trim();
     if (!value || loading) return;
-    startedAtRef.current = performance.now();
+    startedAtRef.current = null;
+    elapsedRef.current = 0;
     setElapsedMs(0);
     setLoading(true);
     setError("");
@@ -146,7 +155,7 @@ export default function CoreAgentConsole() {
       });
       const data = await readJsonResponse<AgentResponse & { error?: string }>(response);
       if (!response.ok) throw new Error(data.error || "Nie udało się uruchomić agenta.");
-      const clientElapsed = startedAtRef.current === null ? 0 : performance.now() - startedAtRef.current;
+      const clientElapsed = elapsedRef.current;
       setElapsedMs(data.performance?.totalMs ?? clientElapsed);
       setLastResponse(data);
       setRequestStatus("GOTOWE · " + formatElapsed(data.performance?.totalMs ?? clientElapsed));
