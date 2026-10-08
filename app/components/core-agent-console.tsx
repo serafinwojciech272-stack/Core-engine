@@ -101,7 +101,12 @@ export default function CoreAgentConsole() {
   }, [loading]);
 
   function formatElapsed(ms: number) {
-    return (ms / 1000).toFixed(3) + " s";
+    const totalSeconds = Math.max(0, ms / 1000);
+    if (totalSeconds < 60) return totalSeconds.toFixed(3) + " s";
+    const wholeSeconds = Math.floor(totalSeconds);
+    const minutes = Math.floor(wholeSeconds / 60);
+    const seconds = wholeSeconds % 60;
+    return minutes + " min " + String(seconds).padStart(2, "0") + " sec";
   }
 
   async function submit(e?: FormEvent) {
