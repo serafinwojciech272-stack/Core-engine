@@ -101,3 +101,38 @@ export async function persistAgentOptimization(input:{
   return r.ok;
  }catch{return false}
 }
+
+export type AgentMemoryRow={id:string;tenantId:string;project:string;key:string;value:unknown;importance:number;createdAt:string;updatedAt:string};
+
+export async function upsertAgentMemory(input:{tenantId:string;project:string;key:string;value:unknown;importance?:number}):Promise<AgentMemoryRow|null>{
+  const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+  const importance=Math.max(0,Math.min(1,input.importance??0.5));
+  const r=await sf(c.url+"/rest/v1/ce_memory?on_conflict=tenant_id,project,key",{
+    method:"POST",
+    headers:{apikey:c.key,Authorization:"Bearer "+c.key,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=representation"},
+    body:JSON.stringify({tenant_id:input.tenantId,project:input.project,key:input.key,value:input.value,importance,updated_at:new Date().toISOString()})
+  });
+  if(!r.ok) throw new Error("SUPABASE_MEMORY_UPSERT_"+r.status);
+  const rows=await r.json() as Record<string,unknown>[];
+  const row=rows[0]; if(!row) return null;
+  return {id:String(row.id),tenantId:String(row.tenant_id),project:String(row.project),key:String(row.key),value:row.value,importance:Number(row.importance),createdAt:String(row.created_at),updatedAt:String(row.updated_at)};
+}
+
+export async function recallAgentMemory(input:{tenantId:string;project:string;key:string}):Promise<AgentMemoryRow|null>{
+  const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+  const q=c.url+"/rest/v1/ce_memory?tenant_id=eq."+encodeURIComponent(input.tenantId)+"&project=eq."+encodeURIComponent(input.project)+"&key=eq."+encodeURIComponent(input.key)+"&select=id,tenant_id,project,key,value,importance,created_at,updated_at&limit=1";
+  const r=await sf(q,{headers:{apikey:c.key,Authorization:"Bearer "+c.key}});
+  if(!r.ok) throw new Error("SUPABASE_MEMORY_READ_"+r.status);
+  const rows=await r.json() as Record<string,unknown>[];
+  const row=rows[0]; if(!row) return null;
+  return {id:String(row.id),tenantId:String(row.tenant_id),project:String(row.project),key:String(row.key),value:row.value,importance:Number(row.importance),createdAt:String(row.created_at),updatedAt:String(row.updated_at)};
+}
+
+export async function listAgentMemory(input:{tenantId:string;project:string;limit?:number}):Promise<AgentMemoryRow[]>{
+  const c=cfg(); if(!c) throw new Error("SUPABASE_SERVER_CONFIG_MISSING");
+  const limit=Math.min(100,Math.max(1,input.limit??20));
+  const q=c.url+"/rest/v1/ce_memory?tenant_id=eq."+encodeURIComponent(input.tenantId)+"&project=eq."+encodeURIComponent(input.project)+"&select=id,tenant_id,project,key,value,importance,created_at,updated_at&order=importance.desc,updated_at.desc&limit="+limit;
+  const r=await sf(q,{headers:{apikey:c.key,Authorization:"Bearer "+c.key}});
+  if(!r.ok) throw new Error("SUPABASE_MEMORY_LIST_"+r.status);
+  return (await r.json() as Record<string,unknown>[]).map(row=>({id:String(row.id),tenantId:String(row.tenant_id),project:String(row.project),key:String(row.key),value:row.value,importance:Number(row.importance),createdAt:String(row.created_at),updatedAt:String(row.updated_at)}));
+}
