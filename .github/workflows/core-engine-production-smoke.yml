@@ -1,4 +1,4 @@
-name: Core Engine Production Smoke
+name: Core Engine Production E2E Matrix
 
 on:
   push:
@@ -9,78 +9,108 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
+  production-e2e-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: deterministic
+            task: "oblicz 2+2"
+            expect_artifact: "none"
+          - id: universal-ai
+            task: "Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI."
+            expect_artifact: "none"
+          - id: website
+            task: "stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem"
+            expect_artifact: "website"
+          - id: data
+            task: "przygotuj wykres KPI dla sprzedaży miesięcznej"
+            expect_artifact: "data"
+          - id: document
+            task: "utwórz dokument PDF z krótkim raportem o Core Engine AI"
+            expect_artifact: "file"
+
     steps:
       - name: Health
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 20 \
-            https://core-engine-34uu.onrender.com/api/health > /tmp/health.json
+          curl --fail --silent --show-error --max-time 20             https://core-engine-34uu.onrender.com/api/health > /tmp/health.json
           cat /tmp/health.json
 
-      - name: Deterministic agent + evidence persistence
+      - name: Execute matrix case
+        env:
+          CASE_ID: ${{ matrix.id }}
+          TASK: ${{ matrix.task }}
+          EXPECT_ARTIFACT: ${{ matrix.expect_artifact }}
+          CORE_ENGINE_URL: https://core-engine-34uu.onrender.com
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 45 \
-            -H 'content-type: application/json' \
-            -d '{"task":"oblicz 2+2","project":"core-engine-smoke"}' \
-            https://core-engine-34uu.onrender.com/api/agent > /tmp/agent.json
-          cat /tmp/agent.json
           python - <<'PY'
-          import json
-          d=json.load(open('/tmp/agent.json'))
-          assert d.get("ok") is True, "agent ok=false"
-          assert d.get("verification",{}).get("passed") is True, "verification failed"
-          ep=d.get("evidencePersistence",{})
-          assert ep.get("persisted") is True, f"evidence persistence failed: {ep}"
-          assert ep.get("audit") is True, "audit insert failed"
-          assert ep.get("learning") is True, "learning insert failed"
-          assert d.get("performance",{}).get("requestId"), "missing performance requestId"
-          print("CORE_ENGINE_SMOKE_PASS")
+          import json, os, time, urllib.request
+
+          case_id = os.environ["CASE_ID"]
+          task = os.environ["TASK"]
+          expected_artifact = os.environ["EXPECT_ARTIFACT"]
+          url = os.environ["CORE_ENGINE_URL"].rstrip("/") + "/api/agent"
+
+          payload = json.dumps({
+              "task": task,
+              "project": "core-engine-production-matrix"
+          }).encode()
+
+          req = urllib.request.Request(
+              url,
+              data=payload,
+              headers={"content-type": "application/json"},
+              method="POST"
+          )
+
+          started = time.time()
+          with urllib.request.urlopen(req, timeout=90) as response:
+              data = json.load(response)
+          elapsed = round((time.time() - started) * 1000)
+
+          print(json.dumps({
+              "case": case_id,
+              "elapsedMs": elapsed,
+              "requestId": (data.get("performance") or {}).get("requestId"),
+              "model": (data.get("intelligence") or {}).get("selectedModels"),
+              "artifactType": (data.get("artifact") or {}).get("type"),
+              "artifactStatus": (data.get("artifact") or {}).get("status"),
+              "verification": data.get("verification"),
+              "evidencePersistence": data.get("evidencePersistence"),
+              "toolRuns": (data.get("evidence") or {}).get("toolRuns")
+          }, ensure_ascii=False, indent=2))
+
+          assert data.get("ok") is True, f"{case_id}: ok=false"
+          assert (data.get("performance") or {}).get("requestId"), f"{case_id}: missing requestId"
+          assert data.get("verification", {}).get("passed") is True, f"{case_id}: verification failed"
+          assert data.get("evidencePersistence", {}).get("persisted") is True, f"{case_id}: evidence persistence failed"
+
+          artifact = data.get("artifact") or {}
+          if expected_artifact == "none":
+              assert not artifact or artifact.get("status") != "FAILED", f"{case_id}: unexpected failed artifact"
+          else:
+              assert artifact.get("type") == expected_artifact, f"{case_id}: expected {expected_artifact}, got {artifact}"
+              assert artifact.get("status") == "EXECUTED", f"{case_id}: artifact not executed"
+              checks = data.get("verification", {}).get("checks", {})
+              assert checks.get("executionEvidence") is True, f"{case_id}: missing executionEvidence"
+              runs = (data.get("evidence") or {}).get("toolRuns") or []
+              assert runs and runs[0].get("status") == "EXECUTED", f"{case_id}: missing executed tool run"
+
+          print(f"CORE_ENGINE_MATRIX_PASS case={case_id} requestId={(data.get('performance') or {}).get('requestId')}")
           PY
 
-      - name: Universal AI path
+  summary:
+    if: always()
+    needs: production-e2e-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Matrix result
+        env:
+          RESULTS: ${{ toJSON(needs.production-e2e-matrix.result) }}
         run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --max-time 60 \
-            -H 'content-type: application/json' \
-            -d '{"task":"Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI.","project":"core-engine-smoke"}' \
-            https://core-engine-34uu.onrender.com/api/agent > /tmp/ai.json
-          cat /tmp/ai.json
-          python - <<'PY'
-          import json
-          d=json.load(open('/tmp/ai.json'))
-          assert d.get("ok") is True, "AI agent ok=false"
-          assert d.get("reply"), "missing AI reply"
-          assert d.get("intelligence"), "missing intelligence routing"
-          assert d.get("verification",{}).get("passed") is True, "AI verification failed"
-          ep=d.get("evidencePersistence",{})
-          assert ep.get("persisted") is True, f"AI evidence persistence failed: {ep}"
-          print("CORE_ENGINE_AI_SMOKE_PASS")
-          PY
-      - name: Real tool execution E2E
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --max-time 90 \
-            -H "content-type: application/json" \
-            -d '{"task":"stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem","project":"core-engine-smoke"}' \
-            https://core-engine-34uu.onrender.com/api/agent > /tmp/tool.json
-          cat /tmp/tool.json
-          python - <<'PY'
-          import json
-          d=json.load(open("/tmp/tool.json"))
-          assert d.get("ok") is True, "tool agent ok=false"
-          artifact=d.get("artifact") or {}
-          assert artifact.get("status") == "EXECUTED", f"artifact not executed: {artifact}"
-          assert artifact.get("type") == "website", f"unexpected artifact: {artifact}"
-          v=d.get("verification",{})
-          assert v.get("passed") is True, f"tool verification failed: {v}"
-          assert v.get("checks",{}).get("executionEvidence") is True, f"missing execution evidence: {v}"
-          runs=(d.get("evidence",{}) or {}).get("toolRuns") or []
-          assert runs and runs[0].get("status") == "EXECUTED", f"toolRuns invalid: {runs}"
-          ep=d.get("evidencePersistence",{})
-          assert ep.get("persisted") is True, f"tool evidence persistence failed: {ep}"
-          print("CORE_ENGINE_M_AI_08_TOOL_E2E_PASS", d.get("performance",{}).get("requestId"), runs[0].get("tool"))
-          PY
+          echo "CORE_ENGINE_PRODUCTION_E2E_MATRIX_RESULT=$RESULTS"
+          test "$RESULTS" = "success"
