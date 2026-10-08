@@ -94,12 +94,6 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
         temperature: 0.2,
         ...(p.id === "openrouter" ? {
           plugins: [{ id: "response-healing" }],
-          ...( /(research|zbadaj|sprawdź|sprawdz|aktual|today|latest|news|źródła|sources|konkurenc)/i.test(task) ? {
-            tools: [
-              { type: "openrouter:web_search", parameters: { engine: "auto", max_results: 6 } },
-              { type: "openrouter:web_fetch", parameters: { engine: "openrouter", max_content_tokens: 20000 } }
-            ]
-          } : {})
         } : {}),
         messages: [{ role: "system", content: systemPrompt() }, { role: "user", content }]
       }),
