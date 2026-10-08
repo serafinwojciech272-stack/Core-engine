@@ -97,8 +97,9 @@ async function openRouterRequest(task: string, context: string, options: { struc
           strict: true,
           schema: {
             type: "object",
-            properties: {},
-            additionalProperties: true
+            properties: { result: { type: "string" } },
+            required: ["result"],
+            additionalProperties: false
           }
         }
       };
@@ -132,7 +133,9 @@ async function aiJson(task: string, context: string) {
   const text = await openRouterRequest(task, context, { structured: true, timeoutMs: 45000 });
   if (!text) return null;
   try {
-    return JSON.parse(text) as Record<string, unknown>;
+    const parsed = JSON.parse(text) as { result?: string };
+    if (typeof parsed.result === "string") return JSON.parse(parsed.result) as Record<string, unknown>;
+    return parsed as unknown as Record<string, unknown>;
   } catch {
     const match = text.match(/\{[\\s\\S]*\}/);
     if (!match) return null;
