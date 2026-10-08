@@ -25,12 +25,19 @@ jobs:
           - id: website
             task: "stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem"
             expect_artifact: "website"
+            expect_tool: "multitask.website.build"
           - id: data
             task: "przygotuj wykres KPI dla sprzedaży miesięcznej"
             expect_artifact: "data"
+            expect_tool: "multitask.data.analyze"
           - id: document
             task: "utwórz dokument PDF z krótkim raportem o Core Engine AI"
             expect_artifact: "file"
+            expect_tool: "multitask.document.create"
+          - id: weather
+            task: "sprawdź pogodę w Krakowie"
+            expect_artifact: "data"
+            expect_tool: "multitask.weather.current"
 
     steps:
       - name: Health
@@ -44,6 +51,7 @@ jobs:
           CASE_ID: ${{ matrix.id }}
           TASK: ${{ matrix.task }}
           EXPECT_ARTIFACT: ${{ matrix.expect_artifact }}
+          EXPECT_TOOL: ${{ matrix.expect_tool }}
           CORE_ENGINE_URL: https://core-engine-34uu.onrender.com
         run: |
           set -euo pipefail
@@ -53,6 +61,7 @@ jobs:
           case_id = os.environ["CASE_ID"]
           task = os.environ["TASK"]
           expected_artifact = os.environ["EXPECT_ARTIFACT"]
+          expected_tool = os.environ.get("EXPECT_TOOL", "")
           url = os.environ["CORE_ENGINE_URL"].rstrip("/") + "/api/agent"
 
           payload = json.dumps({
@@ -99,6 +108,8 @@ jobs:
               assert checks.get("executionEvidence") is True, f"{case_id}: missing executionEvidence"
               runs = (data.get("evidence") or {}).get("toolRuns") or []
               assert runs and runs[0].get("status") == "EXECUTED", f"{case_id}: missing executed tool run"
+              if expected_tool:
+                  assert runs[0].get("tool") == expected_tool, f"{case_id}: expected tool {expected_tool}, got {runs}"
 
           print(f"CORE_ENGINE_MATRIX_PASS case={case_id} requestId={(data.get('performance') or {}).get('requestId')}")
           PY
