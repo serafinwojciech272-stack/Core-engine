@@ -1,0 +1,62 @@
+name: Core Engine Production Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Health
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 \
+            https://core-engine-34uu.onrender.com/api/health > /tmp/health.json
+          cat /tmp/health.json
+
+      - name: Deterministic agent + evidence persistence
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 45 \
+            -H 'content-type: application/json' \
+            -d '{"task":"oblicz 2+2","project":"core-engine-smoke"}' \
+            https://core-engine-34uu.onrender.com/api/agent > /tmp/agent.json
+          cat /tmp/agent.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/agent.json'))
+          assert d.get("ok") is True, "agent ok=false"
+          assert d.get("verification",{}).get("passed") is True, "verification failed"
+          ep=d.get("evidencePersistence",{})
+          assert ep.get("persisted") is True, f"evidence persistence failed: {ep}"
+          assert ep.get("audit") is True, "audit insert failed"
+          assert ep.get("learning") is True, "learning insert failed"
+          assert d.get("performance",{}).get("requestId"), "missing performance requestId"
+          print("CORE_ENGINE_SMOKE_PASS")
+          PY
+
+      - name: Universal AI path
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 60 \
+            -H 'content-type: application/json' \
+            -d '{"task":"Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI.","project":"core-engine-smoke"}' \
+            https://core-engine-34uu.onrender.com/api/agent > /tmp/ai.json
+          cat /tmp/ai.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/ai.json'))
+          assert d.get("ok") is True, "AI agent ok=false"
+          assert d.get("reply"), "missing AI reply"
+          assert d.get("intelligence"), "missing intelligence routing"
+          assert d.get("verification",{}).get("passed") is True, "AI verification failed"
+          ep=d.get("evidencePersistence",{})
+          assert ep.get("persisted") is True, f"AI evidence persistence failed: {ep}"
+          print("CORE_ENGINE_AI_SMOKE_PASS")
+          PY
