@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { routeIntelligenceTask, type IntelligenceRoute } from "@/lib/m12-intelligence-router";
+import { buildContextEnvelope, serializeContextEnvelope } from "@/lib/m13-context-engine";
 
 export type UniversalProvider = {
   id: string;
@@ -122,13 +123,13 @@ export async function universalGenerate(task: string, context = "", imageData = 
   const startedTotal = Date.now();
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
-  const route = routeIntelligenceTask(task);
+  const route = routeIntelligenceTask(task);\n  const contextEnvelope = buildContextEnvelope(task, context);\n  const boundedContext = serializeContextEnvelope(contextEnvelope);
   if (!list.length) return { ok: false, attempts, requestId, routing: routingFrom(route) };
 
   const openRouter = list.find(p => p.id === "openrouter");
   if (openRouter && route.mode === "consensus" && route.consensusModels.length >= 2) {
     const consensusStarted = Date.now();
-    const results = await Promise.allSettled(route.consensusModels.map(model => callOpenAICompatible(openRouter, task, context, imageData, model, timeoutMs)));
+    const results = await Promise.allSettled(route.consensusModels.map(model => callOpenAICompatible(openRouter, task, boundedContext, imageData, model, timeoutMs)));
     const answers: string[] = [];
     results.forEach((result, index) => {
       const model = route.consensusModels[index];
@@ -145,7 +146,7 @@ export async function universalGenerate(task: string, context = "", imageData = 
       const judgeContext = "CANDIDATE ANSWERS:\n\n" + answers.map((answer, i) => "ANSWER " + (i + 1) + ":\n" + answer).join("\n\n");
       const judgeStarted = Date.now();
       try {
-        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", judgeContext, "", judgeModel, timeoutMs);
+        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", boundedContext + "\n\n" + judgeContext, "", judgeModel, timeoutMs);
         attempts.push({ provider: "openrouter", model: judgeModel, ok: true, latencyMs: Date.now() - judgeStarted });
         return { ok: true, provider: "openrouter", model: judgeModel, text: judged, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
       } catch (e) {
@@ -160,7 +161,7 @@ export async function universalGenerate(task: string, context = "", imageData = 
     for (const model of models) {
       const started = Date.now();
       try {
-        const text = await callOpenAICompatible(p, task, context, imageData, model, timeoutMs);
+        const text = await callOpenAICompatible(p, task, boundedContext, imageData, model, timeoutMs);
         const latencyMs = Date.now() - started;
         attempts.push({ provider: p.id, model, ok: true, latencyMs });
         return { ok: true, provider: p.id, model, text, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
