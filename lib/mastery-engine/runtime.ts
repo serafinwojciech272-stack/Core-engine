@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { universalGenerate } from "@/lib/universal-ai-router";
 import { seedMasteryProfile, seedMasteryRoadmap } from "./seed";
 import type { MasteryProfile, MasteryRoadmap } from "./contracts";
 
@@ -74,12 +73,71 @@ async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROA
   });
 }
 
+async function openRouterRequest(task: string, context: string, options: { structured?: boolean; web?: boolean; timeoutMs?: number } = {}) {
+  const key = (process.env.OPENROUTER_API_KEY || "").trim();
+  if (!key) return null;
+  const model = (process.env.OPENROUTER_MASTERY_MODEL || process.env.OPENROUTER_MODEL || "openai/gpt-5-mini").trim();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
+  try {
+    const body: Record<string, unknown> = {
+      model,
+      messages: [
+        { role: "system", content: "You are AI Master Agent inside Core Engine. Be evidence-based. Never claim a skill, project or outcome is verified without evidence. Return only the requested output." },
+        { role: "user", content: task + "\n\nCONTEXT:\n" + context.slice(0, 60000) }
+      ],
+      temperature: 0.15,
+      provider: { require_parameters: Boolean(options.structured) }
+    };
+    if (options.structured) {
+      body.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: "mastery_output",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true
+          }
+        }
+      };
+    }
+    if (options.web) {
+      body.tools = [{ type: "openrouter:web_search" }, { type: "openrouter:web_fetch" }];
+    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + key,
+        "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://core-engine-34uu.onrender.com",
+        "X-Title": process.env.OPENROUTER_SITE_NAME || "AI Mastery Engine"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const raw = await response.json() as { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
+    const value = raw.choices?.[0]?.message?.content;
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) return value.map(x => x.text || "").join("").trim();
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function aiJson(task: string, context: string) {
-  const result = await universalGenerate(task, context, "", 35000);
-  if (!result.ok || !result.text) return null;
-  const match = result.text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try { return JSON.parse(match[0]) as Record<string, unknown>; } catch { return null; }
+  const text = await openRouterRequest(task, context, { structured: true, timeoutMs: 45000 });
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    const match = text.match(/\{[\\s\\S]*\}/);
+    if (!match) return null;
+    try { return JSON.parse(match[0]) as Record<string, unknown>; } catch { return null; }
+  }
 }
 
 export async function generateRoadmap(tenantId: string, goal = "Become an expert AI builder and monetize the capability") {
@@ -149,16 +207,16 @@ export async function dailyMaster(tenantId: string) {
 
 export async function researchMastery(tenantId: string, topic: string) {
   const current = await loadMastery(tenantId);
-  const result = await universalGenerate(
-    "Research current developments relevant to AI mastery for this topic. Prefer primary sources. Separate facts, implications, uncertainty and recommended roadmap changes. Use web search when needed.",
+  const result = await openRouterRequest(
+    "Research current developments relevant to AI mastery for this topic. Use web search and web fetch when useful. Prefer primary sources. Separate facts, implications, uncertainty, source quality and recommended roadmap changes. Do not treat marketing claims as facts.",
     JSON.stringify({ topic, profile: current.profile, roadmap: current.roadmap }),
-    "",
-    45000
+    { web: true, timeoutMs: 60000 }
   );
   return {
     topic,
-    result: result.text || "Research unavailable",
-    routing: result.routing,
-    requestId: result.requestId
+    result: result || "Research unavailable",
+    routing: { provider: "openrouter", model: process.env.OPENROUTER_MASTERY_MODEL || process.env.OPENROUTER_MODEL || "configured-model", tools: ["web_search", "web_fetch"] },
+    requestId: "mastery-" + randomUUID()
   };
 }
+
