@@ -305,7 +305,7 @@ export async function setMasteryGoals(tenantId:string, goals:LearningGoal[]) {
   return {goals:normalized,roadmap};
 }
 
-export async function createMasteryMission(tenantId:string, action:import("./contracts").LearningAction) {
+export async function createMasteryMission(tenantId:string, action:LearningActionInput) {
   const current=await loadMastery(tenantId);
   const skill=current.profile.skills.find(s=>s.id===action.skillId);
   if(!skill) throw new Error("MASTERY_SKILL_NOT_FOUND");
