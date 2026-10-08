@@ -431,37 +431,37 @@ export async function POST(request: Request) {
     let artifact: AgentArtifact | undefined;
     let routedToolId: string | null = null;
     let routedToolStatus: "EXECUTED" | "FAILED" | "NOT_EXECUTED" = "NOT_EXECUTED";
+    let operationalRun: Awaited<ReturnType<typeof executeOperationalRun>> | undefined;
     try {
       const toolStartedAt = performance.now();
-      const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
+      operationalRun = await executeOperationalRun(task, { imageData, imageDatas, text: documentContext });
       toolMs = performance.now() - toolStartedAt;
-      routedToolId = routed.route.action?.id || null;
-      routedToolStatus = routed.receipt?.status === "EXECUTED"
-        ? "EXECUTED"
-        : routed.receipt?.status === "FAILED"
-          ? "FAILED"
-          : "NOT_EXECUTED";
-      if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
-      if (artifact) {
-        const artifactAnswer = artifact.text || (artifact.type === "website" ? "Strona WWW została wygenerowana." : artifact.type === "image" ? "Obraz został przetworzony." : "Zadanie zostało wykonane.");
+      routedToolId = operationalRun.tool?.id || null;
+      routedToolStatus = operationalRun.tool?.status || "NOT_EXECUTED";
+      if (operationalRun.artifact?.status === "EXECUTED") artifact = operationalRun.artifact as AgentArtifact;
+      if (operationalRun.artifact) {
+        const artifactAnswer = operationalRun.artifact.text || (operationalRun.artifact.type === "website" ? "Strona WWW została wygenerowana." : operationalRun.artifact.type === "image" ? "Obraz został przetworzony." : "Zadanie zostało wykonane.");
         result = {
           ...result,
-          reply: artifact.type === "data" && artifact.text ? artifact.text : result.reply,
-          preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy.", answer: artifactAnswer },
+          reply: operationalRun.artifact.type === "data" && operationalRun.artifact.text ? operationalRun.artifact.text : result.reply,
+          preview: { ...result.preview, title: operationalRun.artifact.title, summary: operationalRun.outcome.summary, answer: artifactAnswer },
           executionState: {
             ...result.executionState,
-            phase: "EXECUTED",
+            phase: operationalRun.status === "COMPLETED" ? "EXECUTED" : "FAILED",
             stages: result.executionState.stages.map((stage: {stage:string;status:string}) =>
               stage.stage === "VERIFICATION"
-                ? { ...stage, status: "READY" }
+                ? { ...stage, status: operationalRun?.verification.passed ? "READY" : "FAILED" }
                 : stage.stage === "OUTCOME"
-                  ? { ...stage, status: "RESULT_READY" }
+                  ? { ...stage, status: operationalRun?.verification.passed ? "RESULT_READY" : "FAILED" }
                   : stage
             )
           }
         };
       }
-    } catch {}
+    } catch {
+      operationalRun = undefined;
+      routedToolStatus = "FAILED";
+    }
     const verification = verifyResult(task, result.reply || result.preview?.answer || "", {
       toolExecuted: Boolean(artifact),
       artifactCreated: Boolean(artifact),
