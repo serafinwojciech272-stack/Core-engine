@@ -546,7 +546,7 @@ export async function POST(request: Request) {
       objective,
       decision: objective >= 0.7 ? "KEEP" : "REVIEW"
     });
-    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, evidencePersistence, persistence: { run: persistedRun, evaluation: evaluationPersistence, learning: learningPersistence, optimization: optimizationPersistence }, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
+    return NextResponse.json({ ok: true, ...result, artifact, operationalRun, verification, evidence, evidencePersistence, persistence: { run: persistedRun, evaluation: evaluationPersistence, learning: learningPersistence, optimization: optimizationPersistence }, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
