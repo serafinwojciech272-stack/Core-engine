@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const task = "E2E verification: przygotuj krótką rekomendację architektury Core Engine AI i wyjaśnij, że jest to test end-to-end.";
   const started = Date.now();
   const route = adaptiveRoute(task);
-  const multi = await universalGenerate(task);
+  const multi = await universalGenerate(task, "", "", 4000);
   const text = multi.text || "E2E model execution returned no final text.";
   const verification = verifyResult(task, text);
   const evidence = await recordIntelligenceEvidence({
