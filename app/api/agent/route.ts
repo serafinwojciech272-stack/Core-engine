@@ -423,17 +423,36 @@ export async function POST(request: Request) {
     llmMs = performance.now() - llmStartedAt;
     const imageData = primaryImageData;
     let artifact: AgentArtifact | undefined;
+    let routedToolId: string | null = null;
+    let routedToolStatus: "EXECUTED" | "FAILED" | "NOT_EXECUTED" = "NOT_EXECUTED";
     try {
       const toolStartedAt = performance.now();
       const routed = await executeRoutedMultiTask(task, { imageData, imageDatas, text: documentContext });
       toolMs = performance.now() - toolStartedAt;
+      routedToolId = routed.route.action?.id || null;
+      routedToolStatus = routed.receipt?.status === "EXECUTED"
+        ? "EXECUTED"
+        : routed.receipt?.status === "FAILED"
+          ? "FAILED"
+          : "NOT_EXECUTED";
       if (routed.artifact?.status === "EXECUTED") artifact = routed.artifact as AgentArtifact;
       if (artifact) {
         const artifactAnswer = artifact.text || (artifact.type === "website" ? "Strona WWW została wygenerowana." : artifact.type === "image" ? "Obraz został przetworzony." : "Zadanie zostało wykonane.");
         result = {
           ...result,
           reply: artifact.type === "data" && artifact.text ? artifact.text : result.reply,
-          preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy.", answer: artifactAnswer }
+          preview: { ...result.preview, title: artifact.title, summary: "Core Engine dobrał właściwy MultiTask capability i zwrócił gotowy artefakt wynikowy.", answer: artifactAnswer },
+          executionState: {
+            ...result.executionState,
+            phase: "EXECUTED",
+            stages: result.executionState.stages.map((stage: {stage:string;status:string}) =>
+              stage.stage === "VERIFICATION"
+                ? { ...stage, status: "READY" }
+                : stage.stage === "OUTCOME"
+                  ? { ...stage, status: "RESULT_READY" }
+                  : stage
+            )
+          }
         };
       }
     } catch {}
@@ -472,7 +491,9 @@ export async function POST(request: Request) {
       complexity: Number(intelligence.complexity || 1),
       selectedModels: intelligence.selectedModels || [],
       judgeModel: intelligence.judgeModel,
-      toolRuns: artifact ? [{tool: artifact.type, status: artifact.status, latencyMs: Math.round(toolMs)}] : [],
+      toolRuns: routedToolId
+        ? [{tool: routedToolId, status: routedToolStatus, latencyMs: Math.round(toolMs)}]
+        : [],
       verification,
       approvalState: result.requiresApproval ? "REQUIRED" : "NOT_REQUIRED",
       sideEffects: result.requiresApproval ? "BLOCKED_UNTIL_APPROVED" : "NONE",
