@@ -1,0 +1,86 @@
+{
+  "version": "M-AI-08",
+  "purpose": "Production E2E coverage for Execution → Verification → Evidence → Result",
+  "endpoint": "/api/agent",
+  "cases": [
+    {
+      "id": "deterministic-arithmetic",
+      "class": "intelligence",
+      "task": "oblicz 2+2",
+      "project": "core-engine-smoke",
+      "expect": {
+        "reply": true,
+        "verification": true,
+        "evidencePersistence": true
+      }
+    },
+    {
+      "id": "universal-ai",
+      "class": "llm",
+      "task": "Napisz jedno krótkie zdanie potwierdzające działanie Core Engine AI.",
+      "project": "core-engine-smoke",
+      "expect": {
+        "reply": true,
+        "intelligence": true,
+        "verification": true,
+        "evidencePersistence": true
+      }
+    },
+    {
+      "id": "website-tool",
+      "class": "tool",
+      "task": "stwórz stronę WWW dla restauracji w Krakowie z sekcją menu i kontaktem",
+      "project": "core-engine-smoke",
+      "expect": {
+        "artifactType": "website",
+        "artifactStatus": "EXECUTED",
+        "executionEvidence": true,
+        "toolStatus": "EXECUTED",
+        "verification": true,
+        "evidencePersistence": true
+      }
+    },
+    {
+      "id": "document-tool",
+      "class": "tool",
+      "task": "utwórz dokument PDF z krótkim raportem o Core Engine AI",
+      "project": "core-engine-smoke",
+      "expect": {
+        "artifactType": "file",
+        "artifactStatus": "EXECUTED",
+        "executionEvidence": true,
+        "toolStatus": "EXECUTED",
+        "verification": true,
+        "evidencePersistence": true
+      }
+    },
+    {
+      "id": "data-tool",
+      "class": "tool",
+      "task": "analizuj dane i przygotuj wykres KPI",
+      "project": "core-engine-smoke",
+      "expect": {
+        "artifactType": "data",
+        "artifactStatus": "EXECUTED",
+        "executionEvidence": true,
+        "toolStatus": "EXECUTED",
+        "verification": true,
+        "evidencePersistence": true
+      }
+    },
+    {
+      "id": "weather-tool",
+      "class": "tool",
+      "task": "sprawdź pogodę w Krakowie",
+      "project": "core-engine-smoke",
+      "expect": {
+        "artifactType": "data",
+        "artifactStatus": "EXECUTED",
+        "executionEvidence": true,
+        "toolStatus": "EXECUTED",
+        "verification": true,
+        "evidencePersistence": true
+      }
+    }
+  ]
+}
