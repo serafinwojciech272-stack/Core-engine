@@ -223,6 +223,6 @@ export async function executeRoutedMultiTask(task:string,input:Record<string,unk
   if (!route.action) return {route,receipt:null,artifact:undefined};
   const receipt=await localAdapter.execute(route.action,{attempt:1,input});
   const artifact=receipt.output?.artifact as MultiTaskArtifact|undefined;
-  const toolEvidence=gateToolEvidence(task,{executed:receipt.status==="EXECUTED",artifactCreated:Boolean(artifact&&artifact.status==="EXECUTED"),tool:route.action.id,status:receipt.status});
+  const toolEvidence=gateToolEvidence(task,{executed:receipt.status==="EXECUTED",artifactCreated:Boolean(artifact&&artifact.status==="EXECUTED"),tool:route.action.id,status:receipt.status==="EXECUTED"?"EXECUTED":receipt.status==="FAILED"?"FAILED":"NOT_EXECUTED"});
   return {route,receipt,artifact,toolEvidence};
 }
