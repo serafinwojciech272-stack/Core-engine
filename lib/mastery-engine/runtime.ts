@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { seedMasteryProfile, seedMasteryRoadmap } from "./seed";
-import type { MasteryProfile, MasteryRoadmap, EvidenceRecord, LearningGoal, SkillNode, SkillState, AdaptationDecision } from "./contracts";
+import type { MasteryProfile, MasteryRoadmap, EvidenceRecord, LearningGoal, SkillNode, SkillState, AdaptationDecision, LearningActionInput } from "./contracts";
 import { verifyEvidence, recomputeSkillState } from "./evidence";
 import { adaptLearning } from "./adaptive";
 
