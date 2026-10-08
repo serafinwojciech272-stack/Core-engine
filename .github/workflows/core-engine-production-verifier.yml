@@ -1,0 +1,47 @@
+name: Core Engine Production Verifier
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  production-verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Verify production endpoint
+        env:
+          CORE_ENGINE_URL: https://core-engine-34uu.onrender.com
+          PRODUCTION_VERIFY_TOKEN: ${{ secrets.PRODUCTION_VERIFY_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PRODUCTION_VERIFY_TOKEN}" ]; then
+            echo "PRODUCTION_VERIFY_TOKEN GitHub Secret is not configured."
+            exit 2
+          fi
+
+          curl --fail --silent --show-error --max-time 120 \
+            -H "x-production-verify-token: ${PRODUCTION_VERIFY_TOKEN}" \
+            "${CORE_ENGINE_URL}/api/production-verify" \
+            | tee /tmp/production-verify.json
+
+          python - <<'PY'
+          import json
+          with open("/tmp/production-verify.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+
+          assert data.get("ok") is True, "verifier returned ok=false"
+          assert data.get("total") == 6, f"expected 6 cases, got {data.get('total')}"
+          assert data.get("passed") == 6, f"expected 6 passed, got {data.get('passed')}"
+          assert data.get("failed") == 0, f"expected 0 failed, got {data.get('failed')}"
+          PY
+
+          echo "CORE_ENGINE_PRODUCTION_VERIFIER_PASS"
