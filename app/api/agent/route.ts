@@ -18,6 +18,7 @@ import { universalGenerate } from "@/lib/universal-ai-router";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
 import { buildIntelligenceEvidence, recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
+import { persistAgentFabricRun, persistAgentToolEvent, persistAgentEvaluation, persistAgentLearning, persistAgentOptimization } from "@/lib/storage";
 
 export async function GET() {
   ensureCapabilityPacks();
@@ -132,6 +133,11 @@ function classifyTask(task: string) {
   if (/(research|zbadaj|wyszukaj|sprawdź|konkurenc|rynek|ofert)/.test(t)) return ["RESEARCH", "Research & Web Intelligence", "RESEARCH"];
   if (/(plan|strateg|marketing|sprzedaż|proces|workflow|automatyz)/.test(t)) return ["OPERATIONS_PLAN", "Operations & Growth", "OPERATIONS"];
   return ["GENERAL_AGENT", "Core Intelligence", "INTELLIGENCE"];
+}
+
+function universalModelName(value: unknown) {
+  const x = value as { selectedModels?: string[]; model?: string } | null;
+  return x?.selectedModels?.[0] || x?.model || "unknown";
 }
 
 function buildTaskAnswer(intent: string, task: string, documentContext = "") {
@@ -500,7 +506,47 @@ export async function POST(request: Request) {
       latencyMs: performanceTelemetry.totalMs
     });
     const evidencePersistence = await recordIntelligenceEvidence(evidence);
-    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, evidencePersistence, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
+    const tenantId = process.env.CORE_ENGINE_TENANT_ID?.trim() || "core-engine";
+    const project = typeof body.project === "string" && body.project.trim() ? body.project.trim() : "core-engine";
+    const runStatus = verification.passed && (artifact || !result.requiresApproval) ? "COMPLETED" : "RUNNING";
+    const persistedRun = await persistAgentFabricRun({
+      tenantId,
+      project,
+      goal: task,
+      status: runStatus,
+      metadata: { requestId: performanceTelemetry.requestId, intelligence, verification, approvalRequired: result.requiresApproval },
+      steps: [
+        { stepIndex: 0, kind: "plan", status: "SUCCEEDED", output: result.plan },
+        { stepIndex: 1, kind: "execute", status: artifact || !result.requiresApproval ? "SUCCEEDED" : "RUNNING", output: artifact ? { type: artifact.type, title: artifact.title, provider: artifact.provider } : undefined },
+        { stepIndex: 2, kind: "verify", status: verification.passed ? "SUCCEEDED" : "FAILED", output: verification, error: verification.passed ? undefined : "VERIFICATION_FAILED" }
+      ]
+    });
+    if (routedToolId) await persistAgentToolEvent({
+      tenantId, project, runId: persistedRun.persisted ? persistedRun.runId : undefined,
+      toolId: routedToolId, action: task, status: routedToolStatus,
+      approvalRequired: result.requiresApproval,
+      input: { task, attachmentCount: attachments.length }
+    });
+    const evalScore = verification.passed ? 1 : Math.max(0, Math.min(1, verification.score / 100));
+    const evaluationPersistence = await persistAgentEvaluation({
+      tenantId, project, runId: persistedRun.persisted ? persistedRun.runId : undefined,
+      score: evalScore,
+      criteria: { verification: verification.score / 100, artifact: artifact ? 1 : 0, approvalGate: result.requiresApproval ? 1 : 0 },
+      notes: verification.failures || []
+    });
+    const learningPersistence = await persistAgentLearning({
+      tenantId, project, runId: persistedRun.persisted ? persistedRun.runId : undefined,
+      signalType: verification.passed ? "VERIFIED_OUTCOME" : "UNVERIFIED_OUTCOME",
+      value: { model: universalModelName((result as { intelligence?: unknown }).intelligence), score: evalScore, domain: intelligence.domain || "general", complexity: Number(intelligence.complexity || 1) }
+    });
+    const objective = evalScore * 0.7 + (1 - Math.min(performanceTelemetry.totalMs / 10000, 1)) * 0.2;
+    const optimizationPersistence = await persistAgentOptimization({
+      tenantId, project,
+      config: { model: universalModelName((result as { intelligence?: unknown }).intelligence), latencyMs: performanceTelemetry.totalMs, quality: evalScore },
+      objective,
+      decision: objective >= 0.7 ? "KEEP" : "REVIEW"
+    });
+    return NextResponse.json({ ok: true, ...result, artifact, verification, evidence, evidencePersistence, persistence: { run: persistedRun, evaluation: evaluationPersistence, learning: learningPersistence, optimization: optimizationPersistence }, performance: performanceTelemetry, control: { actor: "HUMAN", gate: "APPROVAL_REQUIRED", sideEffects: "BLOCKED_UNTIL_APPROVED", audit: true, authentication: result.executionState.authentication } });
   } catch {
     return NextResponse.json({ ok: false, error: "AGENT_REQUEST_INVALID" }, { status: 400 });
   }
