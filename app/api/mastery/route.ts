@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
-import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence, applyMasteryDecay, setMasteryGoals, createMasteryMission, researchAndAdaptMastery, createProjectLab } from "@/lib/mastery-engine/runtime";
+import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence, applyMasteryDecay, setMasteryGoals, createMasteryMission, researchAndAdaptMastery, createProjectLab, updateProjectLab } from "@/lib/mastery-engine/runtime";
 import type { MasteryAction, LearningGoal } from "@/lib/mastery-engine/contracts";
 
 export async function GET(request: Request) {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const runtime = await resolveSaaSContext(request);
     const tenantId = runtime.identity?.tenantId || runtime.legacyTenant?.tenantId;
     if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_NOT_CONFIGURED" }, { status: 401 });
-    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; goals?: LearningGoal[]; mission?: { skillId:string; kind:"learn"|"practice"|"build"|"research"|"review"|"ship"; title:string; reason:string; estimatedMinutes:number; priorityScore:number; evidenceRequired:boolean }; project?: { title:string; objective:string; skills?:string[]; repoUrl?:string }; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
+    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; goals?: LearningGoal[]; mission?: { skillId:string; kind:"learn"|"practice"|"build"|"research"|"review"|"ship"; title:string; reason:string; estimatedMinutes:number; priorityScore:number; evidenceRequired:boolean }; project?: { title:string; objective:string; skills?:string[]; repoUrl?:string; status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED" }; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
     const action = body.action || "bootstrap";
     if (action === "bootstrap") return NextResponse.json({ ok: true, state: await loadMastery(tenantId) });
     if (action === "roadmap") return NextResponse.json({ ok: true, roadmap: await generateRoadmap(tenantId) });
@@ -49,6 +49,10 @@ export async function POST(request: Request) {
     if (action === "research_adapt") {
       if (!body.topic?.trim()) return NextResponse.json({ ok:false, error:"TOPIC_REQUIRED" }, { status:400 });
       return NextResponse.json({ ok:true, ...(await researchAndAdaptMastery(tenantId, body.topic.slice(0,300))) });
+    }
+    if (action === "project_update") {
+      if (!body.project?.title?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_ID_REQUIRED" }, { status:400 });
+      return NextResponse.json({ ok:true, project: await updateProjectLab(tenantId, { projectId: body.project.title, status: body.project.status, milestone: body.project.objective, evidence: body.project.repoUrl }) });
     }
     if (action === "project") {
       if (!body.project?.title?.trim() || !body.project.objective?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_TITLE_AND_OBJECTIVE_REQUIRED" }, { status:400 });
