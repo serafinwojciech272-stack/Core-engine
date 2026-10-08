@@ -28,9 +28,9 @@ async function db(path: string, init: RequestInit = {}) {
 }
 
 const mem = globalThis as typeof globalThis & {
-  __mastery?: Map<string, { profile: MasteryProfile; roadmap: MasteryRoadmap }>;
+  __mastery?: Map<string, { profile: MasteryProfile; roadmap: MasteryRoadmap }>;\n  __masteryEvidence?: Map<string, EvidenceRecord[]>;
 };
-mem.__mastery ??= new Map();
+mem.__mastery ??= new Map();\nmem.__masteryEvidence ??= new Map();
 
 export async function loadMastery(tenantId: string) {
   const local = mem.__mastery?.get(tenantId);
@@ -59,7 +59,7 @@ export async function loadMastery(tenantId: string) {
   return value;
 }
 
-async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP" | "MASTERY_EVIDENCE", payload: Record<string, unknown>) {
+async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP" | "MASTERY_EVIDENCE" | "MASTERY_ADAPTATION", payload: Record<string, unknown>) {
   const row = {
     tenant_id: tenantId,
     request_id: "mastery-" + randomUUID(),
@@ -226,23 +226,66 @@ export async function researchMastery(tenantId: string, topic: string) {
 }
 
 
+async function loadEvidence(tenantId: string, skillId?: string): Promise<EvidenceRecord[]> {
+  const cached = mem.__masteryEvidence?.get(tenantId) || [];
+  if (!cfg()) return skillId ? cached.filter(e => e.skillId === skillId) : cached;
+  const c0 = cfg()!;
+  const url = new URL(c0.url + "/rest/v1/ce_intelligence_runs");
+  url.searchParams.set("tenant_id", "eq." + tenantId);
+  url.searchParams.set("state", "eq.MASTERY_EVIDENCE");
+  url.searchParams.set("select", "payload,created_at");
+  url.searchParams.set("order", "created_at.asc");
+  url.searchParams.set("limit", "500");
+  const rows = await db(url.pathname + url.search) as Array<{payload: Record<string, unknown>}>;
+  const all = (rows || []).map(row => row.payload as unknown as EvidenceRecord).filter(e => Boolean(e?.id && e?.skillId));
+  mem.__masteryEvidence!.set(tenantId, all);
+  return skillId ? all.filter(e => e.skillId === skillId) : all;
+}
+
 export async function verifyMasteryEvidence(tenantId:string,input:{skillId:string;type:EvidenceRecord["type"];score:number;confidence:number;artifactRef?:string;feedback?:string}) {
   const current=await loadMastery(tenantId);
-  const evidence=verifyEvidence({tenantId,skillId:input.skillId,type:input.type,rubricVersion:"evidence-v1",submittedAt:new Date().toISOString(),score:input.score,confidence:input.confidence,artifactRef:input.artifactRef,feedback:input.feedback});
   const skill=current.profile.skills.find(s=>s.id===input.skillId);
-  if(skill){
-    const next=recomputeSkillState(skill,[evidence]);
-    const profile={...current.profile,skills:current.profile.skills.map(s=>s.id===input.skillId?{...s,...next,gap:Math.max(0,next.target-next.level),nextAction:next.level>=4?"Build production evidence":"Complete next verification"}:s),updatedAt:new Date().toISOString()};
-    mem.__mastery!.set(tenantId,{profile,roadmap:current.roadmap});
-    if(cfg()) await persist(tenantId,"MASTERY_PROFILE",profile as unknown as Record<string,unknown>);
+  if(!skill) throw new Error("MASTERY_SKILL_NOT_FOUND");
+  if(!Number.isFinite(input.score) || input.score < 0 || input.score > 1) throw new Error("MASTERY_INVALID_SCORE");
+  if(!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1) throw new Error("MASTERY_INVALID_CONFIDENCE");
+
+  const evidence=verifyEvidence({
+    tenantId,
+    skillId:input.skillId,
+    type:input.type,
+    rubricVersion:"evidence-v1",
+    submittedAt:new Date().toISOString(),
+    score:input.score,
+    confidence:input.confidence,
+    artifactRef:input.artifactRef,
+    feedback:input.feedback
+  });
+
+  const history=await loadEvidence(tenantId,input.skillId);
+  const allEvidence=[...history,evidence];
+  mem.__masteryEvidence!.set(tenantId,[...(mem.__masteryEvidence?.get(tenantId) || []),evidence]);
+  const next=recomputeSkillState(skill,allEvidence);
+  const profile={
+    ...current.profile,
+    skills:current.profile.skills.map(s=>s.id===input.skillId
+      ? {...s,...next,gap:Math.max(0,next.target-next.level),nextAction:next.level>=4?"Build production evidence":"Complete next verification"}
+      : s),
+    updatedAt:new Date().toISOString()
+  };
+  mem.__mastery!.set(tenantId,{profile,roadmap:current.roadmap});
+  if(cfg()) {
+    await persist(tenantId,"MASTERY_EVIDENCE",evidence as unknown as Record<string,unknown>);
+    await persist(tenantId,"MASTERY_PROFILE",profile as unknown as Record<string,unknown>);
   }
-  if(cfg()) await persist(tenantId,"MASTERY_EVIDENCE",evidence as unknown as Record<string,unknown>);
   return evidence;
 }
-export async function adaptMastery(tenantId:string):Promise<AdaptationDecision>{
+
+export async function adaptMastery(tenantId:string,reason:AdaptationDecision["reason"]="evidence"):Promise<AdaptationDecision>{
   const current=await loadMastery(tenantId);
   const skills:SkillNode[]=current.profile.skills.map(s=>({id:s.id,name:s.name,domain:s.domain,difficulty:Math.max(1,6-s.level),dependencies:s.prerequisites,tags:[s.domain]}));
   const states:SkillState[]=current.profile.skills;
   const goals:LearningGoal[]=current.profile.skills.map(s=>({id:s.id,title:s.name,targetLevel:s.target,priority:Math.max(1,s.gap)}));
-  return adaptLearning({tenantId,skills,states,goals});
+  const decision=adaptLearning({tenantId,skills,states,goals,reason});
+  if(cfg()) await persist(tenantId,"MASTERY_ADAPTATION",decision as unknown as Record<string,unknown>);
+  return decision;
 }
