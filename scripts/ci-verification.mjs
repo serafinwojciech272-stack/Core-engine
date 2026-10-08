@@ -22,7 +22,7 @@ for (const [name, command, args] of steps) {
   console.log(`[CI] >>> ${name}`);
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    env: process.env,
+    env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=384" },
   });
   if (result.error) {
     console.error(`[CI] ${name} failed to start:`, result.error);
