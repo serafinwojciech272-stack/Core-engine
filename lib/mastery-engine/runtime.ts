@@ -61,7 +61,7 @@ export async function loadMastery(tenantId: string) {
   return value;
 }
 
-async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP" | "MASTERY_EVIDENCE" | "MASTERY_ADAPTATION", payload: Record<string, unknown>) {
+async function persist(tenantId: string, state: "MASTERY_PROFILE" | "MASTERY_ROADMAP" | "MASTERY_EVIDENCE" | "MASTERY_ADAPTATION" | "MASTERY_MISSION" | "MASTERY_PROJECT", payload: Record<string, unknown>) {
   const row = {
     tenant_id: tenantId,
     request_id: "mastery-" + randomUUID(),
@@ -328,7 +328,13 @@ export async function createProjectLab(tenantId:string,input:{title:string;objec
   const current=await loadMastery(tenantId);
   const skills=(input.skills||[]).filter(id=>current.profile.skills.some(s=>s.id===id)).slice(0,12);
   const project={id:"project-"+randomUUID(),tenantId,title:input.title.slice(0,200),objective:input.objective.slice(0,1000),skills,repoUrl:input.repoUrl?.slice(0,500),status:"PLANNED",milestones:["Define","Build MVP","Test","Verify evidence","Ship"],evidence:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  if(cfg()) await persist(tenantId,"MASTERY_EVIDENCE",{project,type:"project",status:"pending",rubricVersion:"project-v1",submittedAt:project.createdAt} as unknown as Record<string,unknown>);
+  if(cfg()) await persist(tenantId,"MASTERY_PROJECT",project as unknown as Record<string,unknown>);
+  return project;
+}
+
+export async function updateProjectLab(tenantId:string,input:{projectId:string;status?:"PLANNED"|"ACTIVE"|"TESTING"|"VERIFIED"|"SHIPPED";milestone?:string;evidence?:string}) {
+  const project={id:input.projectId,tenantId,status:input.status||"ACTIVE",milestone:input.milestone||null,evidence:input.evidence||null,updatedAt:new Date().toISOString()};
+  if(cfg()) await persist(tenantId,"MASTERY_PROJECT",project as unknown as Record<string,unknown>);
   return project;
 }
 
