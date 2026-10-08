@@ -7,19 +7,27 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
 
 jobs:
   production-e2e:
-    # Run the full smoke suite on one hosted runner. This avoids matrix-wide
-    # runner allocation failures and makes the first failing case observable.
-    runs-on: ubuntu-24.04
+    # Single hosted runner. Keep the suite serial so runner allocation is isolated.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
+      - name: Runner diagnostics
+        run: |
+          set -euxo pipefail
+          echo "runner=$RUNNER_NAME"
+          echo "os=$RUNNER_OS arch=$RUNNER_ARCH"
+          uname -a
+          python --version
+          curl --version | head -n 1
+
       - name: Health
         run: |
           set -euo pipefail
