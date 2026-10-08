@@ -13,7 +13,7 @@ import { saasStatus } from "@/lib/saas-runtime";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import sharp from "sharp";
-import { executeRoutedMultiTask } from "@/lib/multitask-engine";
+import { executeOperationalRun } from "@/lib/operational-runtime";
 import { universalGenerate } from "@/lib/universal-ai-router";
 import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
