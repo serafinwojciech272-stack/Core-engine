@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
-import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence } from "@/lib/mastery-engine/runtime";
-import type { MasteryAction } from "@/lib/mastery-engine/contracts";
+import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence, applyMasteryDecay, setMasteryGoals, createMasteryMission, researchAndAdaptMastery, createProjectLab } from "@/lib/mastery-engine/runtime";
+import type { MasteryAction, LearningGoal } from "@/lib/mastery-engine/contracts";
 
 export async function GET(request: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const runtime = await resolveSaaSContext(request);
     const tenantId = runtime.identity?.tenantId || runtime.legacyTenant?.tenantId;
     if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_NOT_CONFIGURED" }, { status: 401 });
-    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
+    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; goals?: LearningGoal[]; mission?: { skillId:string; kind:"learn"|"practice"|"build"|"research"|"review"|"ship"; title:string; reason:string; estimatedMinutes:number; priorityScore:number; evidenceRequired:boolean }; project?: { title:string; objective:string; skills?:string[]; repoUrl?:string }; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
     const action = body.action || "bootstrap";
     if (action === "bootstrap") return NextResponse.json({ ok: true, state: await loadMastery(tenantId) });
     if (action === "roadmap") return NextResponse.json({ ok: true, roadmap: await generateRoadmap(tenantId) });
@@ -37,6 +37,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, evidence: await verifyMasteryEvidence(tenantId, { skillId: body.skillId, type: body.evidenceType, score: Number(body.score ?? 0), confidence: Number(body.confidence ?? 0), artifactRef: body.artifactRef?.slice(0, 500), feedback: body.feedback?.slice(0, 2000) }) });
     }
     if (action === "adapt") return NextResponse.json({ ok: true, adaptation: await adaptMastery(tenantId) });
+    if (action === "decay") return NextResponse.json({ ok: true, profile: await applyMasteryDecay(tenantId) });
+    if (action === "goals") {
+      if (!Array.isArray(body.goals)) return NextResponse.json({ ok:false, error:"GOALS_REQUIRED" }, { status:400 });
+      return NextResponse.json({ ok:true, ...(await setMasteryGoals(tenantId, body.goals)) });
+    }
+    if (action === "mission") {
+      if (!body.mission) return NextResponse.json({ ok:false, error:"MISSION_REQUIRED" }, { status:400 });
+      return NextResponse.json({ ok:true, mission: await createMasteryMission(tenantId, body.mission) });
+    }
+    if (action === "research_adapt") {
+      if (!body.topic?.trim()) return NextResponse.json({ ok:false, error:"TOPIC_REQUIRED" }, { status:400 });
+      return NextResponse.json({ ok:true, ...(await researchAndAdaptMastery(tenantId, body.topic.slice(0,300))) });
+    }
+    if (action === "project") {
+      if (!body.project?.title?.trim() || !body.project.objective?.trim()) return NextResponse.json({ ok:false, error:"PROJECT_TITLE_AND_OBJECTIVE_REQUIRED" }, { status:400 });
+      return NextResponse.json({ ok:true, project: await createProjectLab(tenantId, body.project) });
+    }
     if (action === "research") {
       if (!body.topic?.trim()) return NextResponse.json({ ok: false, error: "TOPIC_REQUIRED" }, { status: 400 });
       return NextResponse.json({ ok: true, research: await researchMastery(tenantId, body.topic.slice(0, 300)) });
