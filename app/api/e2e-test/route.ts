@@ -4,9 +4,9 @@ import { multiModelGenerate } from "@/lib/multi-model-execution";
 import { verifyResult } from "@/lib/result-verification";
 import { recordIntelligenceEvidence } from "@/lib/intelligence-evidence";
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   const expected = process.env.CORE_ENGINE_E2E_TOKEN?.trim();
-  const supplied = req.headers.get("x-core-engine-e2e")?.trim();
+  const url = new URL(req.url); const supplied = req.headers.get("x-core-engine-e2e")?.trim() || url.searchParams.get("token")?.trim();
   if (!expected || supplied !== expected) {
     return NextResponse.json({ ok:false, error:"E2E_AUTH_REQUIRED" }, { status:401 });
   }
