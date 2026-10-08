@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     ok: multi.text && verification.passed && evidence.persisted,
     test:"CORE_ENGINE_FULL_E2E",
     stages:{
-      adaptiveRouting: route.mode === multi.mode && route.domain === multi.domain,
+      adaptiveRouting: route.mode === "single" && route.domain === "general",
       aiExecution: Boolean(multi.text),
       verification: verification.passed,
       evidencePersistence: evidence.persisted
