@@ -41,7 +41,19 @@ export async function executeOperationalRun(
   stages[0] = mark(stages[0], "RUNNING", `Intent routed to ${route.domain}; complexity ${route.complexity}.`);
   stages[0] = mark(stages[0], "SUCCEEDED", `Plan ready. Mode: ${route.mode}.`);
 
-  const routedPreview = await executeRoutedMultiTask(task, input);
+  const native = input._nativeToolExecution as {
+    toolId?: string;
+    status?: "EXECUTED" | "FAILED";
+    receipt?: unknown;
+    artifact?: MultiTaskArtifact;
+  } | undefined;
+  const routedPreview = native?.toolId
+    ? {
+        route: { action: { id: native.toolId } },
+        receipt: native.receipt as { status?: string; message?: string } | undefined,
+        artifact: native.artifact,
+      }
+    : await executeRoutedMultiTask(task, input);
   const action = routedPreview.route.action;
 
   if (!action) {
