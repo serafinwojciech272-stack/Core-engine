@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { routeIntelligenceTask, type IntelligenceRoute } from "@/lib/m12-intelligence-router";
+import { buildContextEnvelope, serializeContextEnvelope } from "@/lib/m13-context-engine";
 
 export type UniversalProvider = {
   id: string;
@@ -61,7 +62,7 @@ function toolManifest() {
     "multitask.image.edit — image transformation",
     "multitask.image.combine — semantic image compositing",
     "multitask.video.prepare — image-to-video preparation/provider"
-  ].join("\n");
+  ].join(String.fromCharCode(10));
 }
 
 function systemPrompt() {
@@ -75,7 +76,7 @@ function systemPrompt() {
     "For calculations, solve exactly.",
     "For live/current information, say when external/live tooling is required.",
     "For side effects such as sending, deploying, publishing or changing external systems, require human approval.",
-    "Available tools:\n" + toolManifest()
+    "Available tools:" + String.fromCharCode(10) + toolManifest()
   ].join("\n");
 }
 
@@ -83,7 +84,7 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const content: Array<Record<string, unknown>> = [{ type: "text", text: task + (context ? "\n\nCONTEXT:\n" + context.slice(0, 50000) : "") }];
+    const content: Array<Record<string, unknown>> = [{ type: "text", text: task + (context ? String.fromCharCode(10,10) + "CONTEXT:" + String.fromCharCode(10) + context.slice(0, 50000) : "") }];
     if (imageData.startsWith("data:image/")) content.push({ type: "image_url", image_url: { url: imageData } });
     const response = await fetch(p.baseUrl.replace(/\/$/, "") + "/chat/completions", {
       method: "POST",
@@ -91,6 +92,9 @@ async function callOpenAICompatible(p: UniversalProvider, task: string, context:
       body: JSON.stringify({
         model: modelOverride || p.model,
         temperature: 0.2,
+        ...(p.id === "openrouter" ? {
+          plugins: [{ id: "response-healing" }],
+        } : {}),
         messages: [{ role: "system", content: systemPrompt() }, { role: "user", content }]
       }),
       signal: controller.signal
@@ -123,12 +127,14 @@ export async function universalGenerate(task: string, context = "", imageData = 
   const list = providers();
   const attempts: UniversalResult["attempts"] = [];
   const route = routeIntelligenceTask(task);
+  const contextEnvelope = buildContextEnvelope(task, context);
+  const boundedContext = serializeContextEnvelope(contextEnvelope);
   if (!list.length) return { ok: false, attempts, requestId, routing: routingFrom(route) };
 
   const openRouter = list.find(p => p.id === "openrouter");
   if (openRouter && route.mode === "consensus" && route.consensusModels.length >= 2) {
     const consensusStarted = Date.now();
-    const results = await Promise.allSettled(route.consensusModels.map(model => callOpenAICompatible(openRouter, task, context, imageData, model, timeoutMs)));
+    const results = await Promise.allSettled(route.consensusModels.map(model => callOpenAICompatible(openRouter, task, boundedContext, imageData, model, timeoutMs)));
     const answers: string[] = [];
     results.forEach((result, index) => {
       const model = route.consensusModels[index];
@@ -142,10 +148,10 @@ export async function universalGenerate(task: string, context = "", imageData = 
     });
     if (answers.length >= 2) {
       const judgeModel = route.judgeModel || route.consensusModels[1];
-      const judgeContext = "CANDIDATE ANSWERS:\n\n" + answers.map((answer, i) => "ANSWER " + (i + 1) + ":\n" + answer).join("\n\n");
+      const judgeContext = "CANDIDATE ANSWERS:" + String.fromCharCode(10,10) + answers.map((answer, i) => "ANSWER " + (i + 1) + ":" + String.fromCharCode(10) + answer).join("\n\n");
       const judgeStarted = Date.now();
       try {
-        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", judgeContext, "", judgeModel, timeoutMs);
+        const judged = await callOpenAICompatible(openRouter, "Independently compare the candidate answers above. Return the best verified answer, correcting contradictions and unsupported claims.", boundedContext + String.fromCharCode(10,10) + judgeContext, "", judgeModel, timeoutMs);
         attempts.push({ provider: "openrouter", model: judgeModel, ok: true, latencyMs: Date.now() - judgeStarted });
         return { ok: true, provider: "openrouter", model: judgeModel, text: judged, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };
       } catch (e) {
@@ -160,7 +166,7 @@ export async function universalGenerate(task: string, context = "", imageData = 
     for (const model of models) {
       const started = Date.now();
       try {
-        const text = await callOpenAICompatible(p, task, context, imageData, model, timeoutMs);
+        const text = await callOpenAICompatible(p, task, boundedContext, imageData, model, timeoutMs);
         const latencyMs = Date.now() - started;
         attempts.push({ provider: p.id, model, ok: true, latencyMs });
         return { ok: true, provider: p.id, model, text, latencyMs: Date.now() - startedTotal, attempts, requestId, routing: routingFrom(route) };

@@ -20,3 +20,12 @@ test("M12 enables consensus for explicit multi-model verification", () => {
   assert.equal(route.mode, "consensus");
   assert.ok(route.consensusModels.length >= 2);
 });
+
+
+test("M13 bounds context deterministically", async () => {
+  const { buildContextEnvelope, serializeContextEnvelope } = await import("@/lib/m13-context-engine");
+  const envelope = buildContextEnvelope("task", "x".repeat(1000), 120);
+  assert.equal(envelope.version, "M13");
+  assert.equal(envelope.truncated, true);
+  assert.ok(serializeContextEnvelope(envelope).length <= 200);
+});
