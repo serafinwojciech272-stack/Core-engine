@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
-import { assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery } from "@/lib/mastery-engine/runtime";
+import { adaptMastery, assessMastery, dailyMaster, generateRoadmap, loadMastery, researchMastery, verifyMasteryEvidence } from "@/lib/mastery-engine/runtime";
 import type { MasteryAction } from "@/lib/mastery-engine/contracts";
 
 export async function GET(request: Request) {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const runtime = await resolveSaaSContext(request);
     const tenantId = runtime.identity?.tenantId || runtime.legacyTenant?.tenantId;
     if (!tenantId) return NextResponse.json({ ok: false, error: "TENANT_NOT_CONFIGURED" }, { status: 401 });
-    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string };
+    const body = await request.json() as { action?: MasteryAction; answers?: string; topic?: string; skillId?: string; evidenceType?: "assessment"|"challenge"|"project"|"production"|"review"|"research"; score?: number; confidence?: number; artifactRef?: string; feedback?: string };
     const action = body.action || "bootstrap";
     if (action === "bootstrap") return NextResponse.json({ ok: true, state: await loadMastery(tenantId) });
     if (action === "roadmap") return NextResponse.json({ ok: true, roadmap: await generateRoadmap(tenantId) });
@@ -32,6 +32,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, profile: await assessMastery(tenantId, body.answers.slice(0, 12000)) });
     }
     if (action === "daily") return NextResponse.json({ ok: true, daily: await dailyMaster(tenantId) });
+    if (action === "verify") {
+      if (!body.skillId || !body.evidenceType) return NextResponse.json({ ok: false, error: "SKILL_AND_EVIDENCE_TYPE_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ ok: true, evidence: await verifyMasteryEvidence(tenantId, { skillId: body.skillId, type: body.evidenceType, score: Number(body.score ?? 0), confidence: Number(body.confidence ?? 0), artifactRef: body.artifactRef?.slice(0, 500), feedback: body.feedback?.slice(0, 2000) }) });
+    }
+    if (action === "adapt") return NextResponse.json({ ok: true, adaptation: await adaptMastery(tenantId) });
     if (action === "research") {
       if (!body.topic?.trim()) return NextResponse.json({ ok: false, error: "TOPIC_REQUIRED" }, { status: 400 });
       return NextResponse.json({ ok: true, research: await researchMastery(tenantId, body.topic.slice(0, 300)) });
