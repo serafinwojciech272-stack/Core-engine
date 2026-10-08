@@ -24,7 +24,7 @@ const steps = [
   ...(process.env.CI_GATE_MODE === "render" ? [] : [["typecheck", "npm", ["run", "typecheck"]]]),
   ["lint", "npm", ["run", "lint"]],
   ["tests", "npm", ["test"]],
-  ["official-tender-smoke", "node", ["--test", "--experimental-strip-types", "scripts/official-tender-smoke.ts"]],
+  ...(process.env.CI_GATE_MODE === "render" ? [] : [["official-tender-smoke", "node", ["--test", "--experimental-strip-types", "scripts/official-tender-smoke.ts"]]]),
   ["build", "npm", ["run", "build"]],
 ];
 
