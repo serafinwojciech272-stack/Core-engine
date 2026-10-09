@@ -10,6 +10,7 @@ type RuntimePayload = {
     status?: string;
     persistence?: string;
     durable?: boolean;
+    readinessReasons?: string[];
     adapters?: unknown[];
     providerReadiness?: Record<string, unknown> | unknown[];
     capabilityPacks?: number;
@@ -100,6 +101,8 @@ export default function RuntimePage() {
           <article className="rt-card"><div className="rt-card-top"><span>Capability adapters</span><span className="rt-icon"><Layers3 size={16}/></span></div><div className="rt-value">{loading && !data ? "…" : adapters.length}</div><div className="rt-note">Adaptery zwrócone przez runtime API</div></article>
           <article className="rt-card"><div className="rt-card-top"><span>Capability packs</span><span className="rt-icon"><Workflow size={16}/></span></div><div className="rt-value">{label(runtime?.capabilityPacks, loading ? "…" : "Brak danych")}</div><div className="rt-note">Zarejestrowane pakiety możliwości</div></article>
         </div>
+
+        {runtime?.readinessReasons?.length ? <div className="rt-error" role="status"><strong>Runtime działa w trybie ograniczonym.</strong> {runtime.readinessReasons.join(" ")}</div> : null}
 
         <div className="rt-section-head"><div><h2>Runtime controls</h2><p>Aktualna konfiguracja bramek i zapisu.</p></div><span>{updatedAt ? "OSTATNI ODCZYT · " + updatedAt : "OCZEKIWANIE NA ODCZYT"}</span></div>
         <div className="rt-main-grid">
