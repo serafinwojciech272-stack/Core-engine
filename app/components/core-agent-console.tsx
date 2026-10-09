@@ -95,17 +95,13 @@ export default function CoreAgentConsole() {
     if (!loading) return;
     startedAtRef.current = performance.now();
     elapsedRef.current = 0;
-    
-    setElapsedMs(0);
     const tick = () => {
       if (startedAtRef.current !== null) {
         const nextElapsed = Math.max(0, performance.now() - startedAtRef.current);
         elapsedRef.current = nextElapsed;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- interval callback synchronizes the visible timer with the monotonic clock.
         setElapsedMs(nextElapsed);
       }
     };
-    tick();
     const timer = window.setInterval(tick, 37);
     return () => window.clearInterval(timer);
   }, [loading]);
