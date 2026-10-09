@@ -31,9 +31,12 @@ export async function GET() {
     ok: true,
     agent: manifest,
     runtime: {
-      status: "READY",
+      status: persistence === "supabase" ? "READY" : "DEGRADED",
       persistence,
       durable: persistence === "supabase",
+      readinessReasons: persistence === "supabase" ? [] : [
+        "Trwała persystencja Supabase nie jest skonfigurowana; dane przechowywane w pamięci mogą zniknąć po restarcie."
+      ],
       adapters: listCapabilityAdapters(),
       providerReadiness: providerReadiness(),
       capabilityPacks: listCapabilityPacks().length,
