@@ -30,7 +30,15 @@ const steps = [
 
 const run = (name, command, args) =>
   new Promise((resolve) => {
-    const child = spawn(command, args, {
+    // Windows cannot spawn npm's .cmd shim directly. Route npm commands through
+    // cmd.exe; keep native executable spawning on macOS/Linux and for node.
+    const isWindowsNpm = process.platform === "win32" && command === "npm";
+    const executable = isWindowsNpm ? (process.env.ComSpec || "cmd.exe") : command;
+    const executableArgs = isWindowsNpm
+      ? ["/d", "/s", "/c", `npm.cmd ${args.join(" ")}`]
+      : args;
+
+    const child = spawn(executable, executableArgs, {
       stdio: "inherit",
       env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=384" },
     });
