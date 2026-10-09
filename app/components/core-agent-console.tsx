@@ -95,7 +95,7 @@ export default function CoreAgentConsole() {
     if (!loading) return;
     startedAtRef.current = performance.now();
     elapsedRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- timer state mirrors an external monotonic clock while loading.
+    
     setElapsedMs(0);
     const tick = () => {
       if (startedAtRef.current !== null) {
