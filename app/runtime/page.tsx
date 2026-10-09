@@ -56,7 +56,10 @@ export default function RuntimePage() {
     }
   }, []);
 
-  useEffect(() => { void refresh(false); }, [refresh]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void refresh(false); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
 
   const runtime = data?.runtime;
   const adapters = Array.isArray(runtime?.adapters) ? runtime.adapters : [];
