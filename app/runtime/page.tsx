@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Activity, ArrowLeft, ArrowUpRight, Bot, CheckCircle2, CircleAlert, Clock3, Cpu, Database, GitBranch, Layers3, RefreshCw, ShieldCheck, Sparkles, Workflow, Zap } from "lucide-react";
 
 type RuntimePayload = {
@@ -37,9 +38,11 @@ export default function RuntimePage() {
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const refresh = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+      setError("");
+    }
     try {
       const response = await fetch("/api/agent", { headers: { Accept: "application/json" }, cache: "no-store" });
       const body = await response.json() as RuntimePayload;
@@ -53,7 +56,7 @@ export default function RuntimePage() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { void refresh(false); }, [refresh]);
 
   const runtime = data?.runtime;
   const adapters = Array.isArray(runtime?.adapters) ? runtime.adapters : [];
@@ -79,9 +82,9 @@ export default function RuntimePage() {
       `}</style>
 
       <header className="rt-top">
-        <a className="rt-brand" href="/"><span className="rt-logo"><Cpu size={18}/></span><span>CORE ENGINE <span style={{color:"#a88cff"}}>AI</span></span></a>
+        <Link className="rt-brand" href="/"><span className="rt-logo"><Cpu size={18}/></span><span>CORE ENGINE <span style={{color:"#a88cff"}}>AI</span></span></Link>
         <div className="rt-top-actions">
-          <a className="rt-link" href="/"><ArrowLeft size={14}/><span>Główny interfejs</span></a>
+          <Link className="rt-link" href="/"><ArrowLeft size={14}/><span>Główny interfejs</span></Link>
           <button className="rt-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "rt-spin" : ""}/>{loading ? "Sprawdzam…" : "Odśwież status"}</button>
         </div>
       </header>
@@ -131,7 +134,7 @@ export default function RuntimePage() {
             <div style={{marginTop:22,padding:14,border:"1px solid #2c2940",background:"#15121f",borderRadius:10}}>
               <div style={{fontSize:11,fontWeight:800,color:"#bca6ff",display:"flex",alignItems:"center",gap:7}}><Sparkles size={14}/> Uruchom zadanie</div>
               <p style={{fontSize:12,lineHeight:1.6,color:"#9698a8",margin:"8px 0 12px"}}>Przejdź do głównej konsoli, aby przekazać polecenie agentowi i obejrzeć rezultat wykonania.</p>
-              <a href="/#agent" className="rt-link" style={{width:"100%",justifyContent:"center"}}>Otwórz konsolę agenta <ArrowUpRight size={14}/></a>
+              <Link href="/#agent" className="rt-link" style={{width:"100%",justifyContent:"center"}}>Otwórz konsolę agenta <ArrowUpRight size={14}/></Link>
             </div>
           </section>
         </div>
