@@ -4,7 +4,7 @@ import {
   createProductionTask,
   getProductionTaskReadiness,
   transitionProductionTask
-} from "../lib/production-task-harness.ts";
+} from "@/lib/production-task-harness";
 
 const now = "2026-10-09T09:00:00.000Z";
 const criteria = [
