@@ -1,3 +1,4 @@
+import { anonymousLlmQuota } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { getAgentManifest } from "@/lib/agent-contract";
 import { getProductionReadiness } from "@/lib/production-readiness";
@@ -439,6 +440,8 @@ async function generateAgentResponse(task: string, attachments: AgentAttachment[
 }
 
 export async function POST(request: Request) {
+  { const guard = guardMutation(request, "agent"); if (guard) return guard; }
+  { const quota = anonymousLlmQuota(request); if (quota) return quota; }
   const requestStartedAt = performance.now();
   let llmMs = 0;
   let toolMs = 0;

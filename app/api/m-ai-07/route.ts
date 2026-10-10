@@ -1,3 +1,5 @@
+import { guardMutation } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { adaptiveRoute } from "@/lib/adaptive-routing";
-export async function POST(request:Request){const body=await request.json();const task=typeof body?.task==="string"?body.task.trim():"";if(!task)return NextResponse.json({ok:false,error:"TASK_REQUIRED"},{status:400});return NextResponse.json({ok:true,version:"M-AI-07",routing:adaptiveRoute(task,Array.isArray(body?.observations)?body.observations:[])});}
+export async function POST(request:Request){
+  { const guard = guardMutation(request, "m-ai"); if (guard) return guard; }const body=await request.json();const task=typeof body?.task==="string"?body.task.trim():"";if(!task)return NextResponse.json({ok:false,error:"TASK_REQUIRED"},{status:400});return NextResponse.json({ok:true,version:"M-AI-07",routing:adaptiveRoute(task,Array.isArray(body?.observations)?body.observations:[])});}

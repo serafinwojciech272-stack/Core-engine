@@ -1,11 +1,10 @@
 name: Core Engine Production Verifier
 
+# Paid LLM calls: daily + manual only.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "47 * * * *"
+    - cron: "47 6 * * *"
 
 permissions:
   contents: read

@@ -1,3 +1,4 @@
+import { guardMutation } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { intelligenceReadiness, modelRegistry } from "@/lib/model-intelligence";
 import { intelligenceRouterReadiness, routeIntelligenceTask } from "@/lib/m12-intelligence-router";
@@ -21,6 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  { const guard = guardMutation(request, "model-intelligence"); if (guard) return guard; }
   try {
     const body = await request.json() as { task?: unknown };
     const task = typeof body.task === "string" ? body.task.trim() : "";

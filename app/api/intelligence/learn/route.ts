@@ -1,3 +1,4 @@
+import { guardMutation } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { resolveSaaSContext } from "@/lib/saas-runtime";
 import { storageMode } from "@/lib/storage";
@@ -5,6 +6,7 @@ import { tenantMissionIds } from "@/lib/commercial-storage";
 import { runMissionLearningLoop } from "@/lib/learning-loop";
 
 export async function POST(request: Request) {
+  { const guard = guardMutation(request, "intelligence-learn"); if (guard) return guard; }
   const runtime = await resolveSaaSContext(request);
   const tenant = runtime.identity ? { tenantId: runtime.identity.tenantId } : runtime.legacyTenant;
   if (!tenant) return NextResponse.json({ ok: false, error: "TENANT_REQUIRED" }, { status: 401 });

@@ -1,13 +1,10 @@
 name: Core Engine Production E2E
 
+# Runs paid LLM calls against production: once a day + manual. Not on PRs (they cannot test PR code here).
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 6 * * *"
 
 permissions:
   contents: read
@@ -44,8 +41,10 @@ jobs:
       - name: Execute production E2E suite
         env:
           CORE_ENGINE_URL: https://core-engine-34uu.onrender.com
+          CORE_ENGINE_API_KEY: ${{ secrets.CORE_ENGINE_API_KEY }}
         run: |
           set -euo pipefail
+          if [ -z "${CORE_ENGINE_API_KEY}" ]; then echo "CORE_ENGINE_API_KEY secret is not configured."; exit 2; fi
           python - <<'PY'
           import json, os, time, urllib.error, urllib.request
 
@@ -69,7 +68,7 @@ jobs:
               req = urllib.request.Request(
                   url,
                   data=payload,
-                  headers={"content-type": "application/json"},
+                  headers={"content-type": "application/json", "authorization": "Bearer " + os.environ["CORE_ENGINE_API_KEY"]},
                   method="POST",
               )
               last = None

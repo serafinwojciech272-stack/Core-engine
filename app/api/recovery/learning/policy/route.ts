@@ -1,3 +1,4 @@
+import { authorizeTenant } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { resolveTenant } from "@/lib/commercial-runtime";
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
   try {
     const tenant = resolveTenant(request);
     const recoveryKey = new URL(request.url).searchParams.get("recoveryKey");

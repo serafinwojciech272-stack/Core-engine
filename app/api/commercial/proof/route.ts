@@ -1,3 +1,4 @@
+import { authorizeTenant } from "@/lib/http";
 import {NextResponse} from "next/server";
 import {missions,events} from "@/lib/engine";
 import {storageMode,listPersistedMissions,listPersistedEvents} from "@/lib/storage";
@@ -7,6 +8,7 @@ import {buildMissionReport,type ReportEvent} from "@/lib/mission-report";
 import {buildCommercialProofMetrics} from "@/lib/commercial-proof";
 
 export async function GET(request:Request){
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
  try{
   const runtime=await resolveSaaSContext(request);
   const tenant=runtime.identity?{tenantId:runtime.identity.tenantId}:runtime.legacyTenant!;

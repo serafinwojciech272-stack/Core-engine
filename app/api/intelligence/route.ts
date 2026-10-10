@@ -1,3 +1,4 @@
+import { authorizeTenant } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { guardMutation } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -10,6 +11,7 @@ function tenant(runtime: Awaited<ReturnType<typeof resolveSaaSContext>>) {
 }
 
 export async function GET(request: Request) {
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
   try {
     const runtime = await resolveSaaSContext(request);
     const tenantId = tenant(runtime);
