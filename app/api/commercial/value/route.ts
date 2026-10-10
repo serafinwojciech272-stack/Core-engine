@@ -1,3 +1,4 @@
+import { authorizeTenant } from "@/lib/http";
 import {NextResponse} from "next/server";
 import {guardMutation} from "@/lib/http";
 import {resolveSaaSContext} from "@/lib/saas-runtime";
@@ -7,6 +8,7 @@ function finite(value:unknown):value is number{return typeof value==="number"&&N
 function bodyNumber(body:Record<string,unknown>,key:string){const value=body[key];return finite(value)?value:Number.NaN}
 
 export async function GET(request:Request){
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
   try{
     const runtime=await resolveSaaSContext(request);
     const tenantId=runtime.identity?.tenantId??runtime.legacyTenant?.tenantId;

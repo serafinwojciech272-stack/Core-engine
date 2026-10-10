@@ -1,7 +1,9 @@
+import { authorizeTenant } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { getPersistedTenderCase, storageMode } from "@/lib/storage";
 export const runtime="nodejs";
 export async function GET(request:Request){
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
  const caseId=new URL(request.url).searchParams.get("caseId")||"Z154/68879";
  try{
   if(storageMode()!=="supabase")return NextResponse.json({ok:false,error:"DURABLE_STORAGE_NOT_CONFIGURED"},{status:503});

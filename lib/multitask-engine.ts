@@ -38,28 +38,39 @@ registerCapabilityPack({
 function json(input: Record<string, unknown>) { return JSON.stringify(input, null, 2); }
 function action(id:string) { return actions.find(a=>a.id===id)!; }
 
-function pdfFromText(text:string) {
-  const clean=text.replace(/[()\\]/g," ").replace(/[^\\x20-\\x7E\\n]/g," ");
-  const lines=clean.split(/\\r?\\n/).flatMap(line=>line.match(/.{1,92}/g) || [""]);
-  const body=lines.slice(0,120).map((line,i)=>`BT /F1 10 Tf 48 ${760-i*11} Td (${line}) Tj ET`).join("\\n");
-  const objects=[
-    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
-    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-    `5 0 obj << /Length ${body.length} >> stream\\n${body}\\nendstream endobj`
-  ];
-  let pdf="%PDF-1.4\\n", offsets:number[]=[];
-  for(const o of objects){ offsets.push(Buffer.byteLength(pdf,"latin1")); pdf+=o+"\\n"; }
-  const start=Buffer.byteLength(pdf,"latin1"); pdf+="xref\\n0 6\\n0000000000 65535 f \\n";
-  for(const off of offsets) pdf+=String(off).padStart(10,"0")+" 00000 n \\n";
-  pdf+=`trailer << /Size 6 /Root 1 0 R >>\\nstartxref\\n${start}\\n%%EOF`;
+const PL_TRANSLIT:Record<string,string>={"ą":"a","ć":"c","ę":"e","ł":"l","ń":"n","ó":"o","ś":"s","ź":"z","ż":"z","Ą":"A","Ć":"C","Ę":"E","Ł":"L","Ń":"N","Ó":"O","Ś":"S","Ź":"Z","Ż":"Z","–":"-","—":"-","„":"\"","”":"\"","’":"'","…":"...","•":"-"};
+
+// Minimal multi-page PDF writer (Helvetica, WinAnsi). Polish diacritics are transliterated because the
+// built-in Type1 font has no glyphs for them; embedding a TTF is the proper follow-up.
+export function pdfFromText(text:string) {
+  const ascii=text.replace(/[^\x00-\x7F]/g,ch=>PL_TRANSLIT[ch]??"?").replace(/[^\x20-\x7E\n]/g," ");
+  const escapePdf=(line:string)=>line.replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+  const lines=ascii.split(/\r?\n/).flatMap(line=>line.match(/.{1,92}/g) || [""]).slice(0,2000);
+  const perPage=66, pages:string[][]=[];
+  for(let i=0;i<lines.length;i+=perPage)pages.push(lines.slice(i,i+perPage));
+  if(!pages.length)pages.push([""]);
+  const objects:string[]=[];
+  const pageIds=pages.map((_,i)=>4+i*2);
+  objects.push("1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj");
+  objects.push(`2 0 obj << /Type /Pages /Kids [${pageIds.map(id=>id+" 0 R").join(" ")}] /Count ${pages.length} >> endobj`);
+  objects.push("3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj");
+  pages.forEach((pageLines,i)=>{
+    const body=pageLines.map((line,j)=>`BT /F1 10 Tf 48 ${790-j*11.5} Td (${escapePdf(line)}) Tj ET`).join("\n");
+    objects.push(`${pageIds[i]} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageIds[i]+1} 0 R >> endobj`);
+    objects.push(`${pageIds[i]+1} 0 obj << /Length ${Buffer.byteLength(body,"latin1")} >> stream\n${body}\nendstream endobj`);
+  });
+  let pdf="%PDF-1.4\n";const offsets:number[]=[];
+  for(const o of objects){offsets.push(Buffer.byteLength(pdf,"latin1"));pdf+=o+"\n";}
+  const start=Buffer.byteLength(pdf,"latin1");
+  pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+  for(const off of offsets)pdf+=String(off).padStart(10,"0")+" 00000 n \n";
+  pdf+=`trailer << /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`;
   return Buffer.from(pdf,"latin1");
 }
 
 function docxFromText(text:string) {
   const esc=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const paragraphs=text.split(/\\r?\\n/).slice(0,500).map(x=>`<w:p><w:r><w:t xml:space="preserve">${esc(x)}</w:t></w:r></w:p>`).join("");
+  const paragraphs=text.split(/\r?\n/).slice(0,500).map(x=>`<w:p><w:r><w:t xml:space="preserve">${esc(x)}</w:t></w:r></w:p>`).join("");
   const files:Record<string,string>={
     "[Content_Types].xml":`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
     "_rels/.rels":`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
@@ -133,7 +144,7 @@ async function localExecute(actionId:string,input:Record<string,unknown>):Promis
     const task=String(input.task||"").replace(/[<>]/g,"").slice(0,5000);
     const llmBase=process.env.CORE_ENGINE_LLM_BASE_URL?.trim(), llmKey=process.env.CORE_ENGINE_LLM_API_KEY?.trim(), llmModel=process.env.CORE_ENGINE_LLM_MODEL?.trim();
     if(llmBase&&llmKey&&llmModel){
-      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000);
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),Number(process.env.WEBSITE_BUILD_TIMEOUT_MS)||120000);
       try{
         const response=await fetch(llmBase.replace(/\/$/,"")+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+llmKey},body:JSON.stringify({model:llmModel,temperature:0.35,messages:[
           {role:"system",content:"You are an expert web designer and frontend developer. Return ONLY a complete self-contained HTML document. Never return a plan."},
@@ -225,4 +236,13 @@ export async function executeRoutedMultiTask(task:string,input:Record<string,unk
   const artifact=receipt.output?.artifact as MultiTaskArtifact|undefined;
   const toolEvidence=gateToolEvidence(task,{executed:receipt.status==="EXECUTED",artifactCreated:Boolean(artifact&&artifact.status==="EXECUTED"),tool:route.action.id,status:receipt.status==="EXECUTED"?"EXECUTED":receipt.status==="FAILED"?"FAILED":"NOT_EXECUTED"});
   return {route,receipt,artifact,toolEvidence};
+}
+
+// Executes a specific MultiTask action chosen by the caller (e.g. the agent loop's model tool call),
+// bypassing keyword routing. Unknown action ids fail explicitly instead of silently re-routing.
+export async function executeMultiTaskAction(actionId:string,input:Record<string,unknown>={}){
+  const selected=actions.find(a=>a.id===actionId);
+  if(!selected) return {receipt:{status:"FAILED" as const,startedAt:new Date().toISOString(),completedAt:new Date().toISOString(),sideEffect:false,message:"UNKNOWN_MULTITASK_ACTION:"+actionId},artifact:undefined as MultiTaskArtifact|undefined};
+  const receipt=await localAdapter.execute(selected,{attempt:1,input});
+  return {receipt,artifact:receipt.output?.artifact as MultiTaskArtifact|undefined};
 }

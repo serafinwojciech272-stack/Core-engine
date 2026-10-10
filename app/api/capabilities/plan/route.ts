@@ -1,8 +1,10 @@
+import { guardMutation } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { planGrowthCapabilities } from "@/lib/capability-planner";
 import { ensureCapabilityPacks } from "@/lib/capability-packs";
 
 export async function POST(request: Request) {
+  { const guard = guardMutation(request, "capabilities-plan"); if (guard) return guard; }
   try {
     const body = await request.json();
     const objective = typeof body?.objective === "string" ? body.objective.trim().slice(0, 2000) : "";

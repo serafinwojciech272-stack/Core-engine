@@ -1,3 +1,4 @@
+import { safeEqual } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { POST as agentPOST } from "@/app/api/agent/route";
 
@@ -12,7 +13,17 @@ const POLICIES:Record<string,{domain:string;sideEffects:string;approval:string;c
   "fcc-crm":{domain:"crm-operations",sideEffects:"BLOCKED_UNTIL_APPROVED",approval:"HUMAN_APPROVAL_REQUIRED",capabilities:["crm","data","verification"]},
   "gastro-growth-os":{domain:"business-operations",sideEffects:"BLOCKED_UNTIL_APPROVED",approval:"HUMAN_APPROVAL_REQUIRED",capabilities:["strategy","operations","verification"]}
 };
-function clientAllowed(request:Request){const client=request.headers.get("x-core-engine-client")?.trim().toLowerCase();return client && CLIENTS.has(client)?client:null;}
+// Each client authenticates with its own secret (CORE_ENGINE_INTEGRATION_KEYS_JSON = {"bet-builder":"<secret>",...}).
+// The client name alone is public (see GET) and is never sufficient.
+function clientAllowed(request:Request){
+  const client=request.headers.get("x-core-engine-client")?.trim().toLowerCase();
+  if(!client||!CLIENTS.has(client))return null;
+  let keys:Record<string,unknown>={};
+  try{keys=JSON.parse(process.env.CORE_ENGINE_INTEGRATION_KEYS_JSON||"{}");}catch{return null;}
+  const secret=keys[client];
+  const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"";
+  return typeof secret==="string"&&secret&&token&&safeEqual(token,secret)?client:null;
+}
 export async function POST(request:Request){
   const client=clientAllowed(request);
   if(!client)return NextResponse.json({ok:false,error:"CORE_ENGINE_CLIENT_NOT_ALLOWED"}, {status:403});
@@ -23,7 +34,7 @@ export async function POST(request:Request){
   const task=typeof body.task==="string"?body.task.trim():"";
   if(!task)return NextResponse.json({ok:false,error:"TASK_REQUIRED"},{status:400});
   const policy=POLICIES[client]; const normalized={...body,task,project:client,domain:policy.domain,capabilities:body.capabilities||policy.capabilities,approvalPolicy:body.approvalPolicy||policy.approval,sideEffects:policy.sideEffects};
-  const upstream=new Request(request.url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(normalized)});
+  const upstream=new Request(request.url,{method:"POST",headers:{"content-type":"application/json",...(process.env.CORE_ENGINE_API_KEY?{authorization:"Bearer "+process.env.CORE_ENGINE_API_KEY}:{})},body:JSON.stringify(normalized)});
   const response=await agentPOST(upstream);
   const payload=await response.json();
   return NextResponse.json({...payload,integration:{client,contract:"core-engine-agent-v1",centralRouter:true,policy:POLICIES[client]}}, {status:response.status});

@@ -1,3 +1,5 @@
+import { guardMutation } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { gateToolEvidence } from "@/lib/tool-execution-gate";
-export async function POST(request:Request){const body=await request.json();const task=typeof body?.task==="string"?body.task.trim():"";if(!task)return NextResponse.json({ok:false,error:"TASK_REQUIRED"},{status:400});const evidence=gateToolEvidence(task,{executed:Boolean(body?.executed),artifactCreated:Boolean(body?.artifactCreated),tool:typeof body?.tool==="string"?body.tool:null});return NextResponse.json({ok:evidence.status==="EXECUTED"||evidence.status==="NOT_EXECUTED",version:"M-AI-08",evidence});}
+export async function POST(request:Request){
+  { const guard = guardMutation(request, "m-ai"); if (guard) return guard; }const body=await request.json();const task=typeof body?.task==="string"?body.task.trim():"";if(!task)return NextResponse.json({ok:false,error:"TASK_REQUIRED"},{status:400});const evidence=gateToolEvidence(task,{executed:Boolean(body?.executed),artifactCreated:Boolean(body?.artifactCreated),tool:typeof body?.tool==="string"?body.tool:null});return NextResponse.json({ok:evidence.status==="EXECUTED"||evidence.status==="NOT_EXECUTED",version:"M-AI-08",evidence});}

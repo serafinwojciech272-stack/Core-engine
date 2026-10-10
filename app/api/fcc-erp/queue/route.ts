@@ -1,9 +1,12 @@
+import { authorizeTenant } from "@/lib/http";
 import { NextResponse } from "next/server";
 const FALLBACK={source:"fallback",queue:[],billing:[],checked_at:new Date().toISOString()};
-export async function GET(){
+export async function GET(request:Request){
+  const auth = await authorizeTenant(request, { allowAnonymous: false }); if (!auth.ok) return auth.response;
+ 
  const base=process.env.SUPABASE_URL,key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;
- const tenantId=process.env.FCC_TENANT_ID||"d94cfdf2-c4f1-4f93-b6ae-4c25350b41aa";
- if(!base||!key)return NextResponse.json(FALLBACK);
+ const tenantId=process.env.FCC_TENANT_ID;
+ if(!base||!key||!tenantId)return NextResponse.json(FALLBACK);
  try{
   const h={apikey:key,Authorization:"Bearer "+key};
   const [q,b]=await Promise.all([

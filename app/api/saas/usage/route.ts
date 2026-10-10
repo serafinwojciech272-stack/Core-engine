@@ -1,7 +1,9 @@
+import { authorizeTenant } from "@/lib/http";
 import {NextResponse} from "next/server";
 import {resolveSaaSContext,getSaaSUsage} from "@/lib/saas-runtime";
 
 export async function GET(request:Request){
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
   try{
     const runtime=await resolveSaaSContext(request);
     const tenantId=runtime.identity?.tenantId||runtime.legacyTenant?.tenantId;

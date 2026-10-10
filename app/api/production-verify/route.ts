@@ -1,3 +1,4 @@
+import { safeEqual } from "@/lib/http";
 import { NextResponse } from "next/server";
 
 type Case = {
@@ -22,7 +23,7 @@ async function runCase(base: string, test: Case) {
   try {
     const response = await fetch(base + "/api/agent", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(process.env.CORE_ENGINE_API_KEY ? { authorization: "Bearer " + process.env.CORE_ENGINE_API_KEY } : {}) },
       body: JSON.stringify({ task: test.task, project: "core-engine-production-verifier" }),
       cache: "no-store",
       signal: controller.signal
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!supplied || supplied !== expected) {
+  if (!supplied || !safeEqual(supplied, expected)) {
     return NextResponse.json(
       { ok: false, error: "UNAUTHORIZED" },
       { status: 401, headers: { "Cache-Control": "no-store" } }

@@ -1,8 +1,9 @@
+import { safeEqual } from "@/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   const expected = process.env.FCC_INTERNAL_API_KEY;
-  if (!expected || request.headers.get("x-fcc-internal-key") !== expected) {
+  if (!expected || !safeEqual(request.headers.get("x-fcc-internal-key") || "", expected)) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 

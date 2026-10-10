@@ -1,3 +1,4 @@
+import { authorizeTenant } from "@/lib/http";
 import {NextResponse} from "next/server";
 import {missions,events,recordMissionEvent,transitionMission,claimMemoryAction,approveCapabilityAction,isCapabilityApproved,claimCapabilityExecution,type MissionState} from "@/lib/engine";
 import {evaluateMissionAction} from "@/lib/policy";
@@ -20,6 +21,7 @@ const MAX=16000;
 const nextByAction:Record<string,MissionState>={approve:"APPROVED",reject:"REJECTED",execute:"EXECUTING",measure:"MEASURING",complete:"COMPLETED",learn:"LEARNED",fail:"FAILED",retry:"EXECUTING",abort:"REJECTED"};
 
 export async function GET(request:Request){
+  const auth = await authorizeTenant(request); if (!auth.ok) return auth.response;
   const runtime=await resolveSaaSContext(request);const tenant=runtime.identity?{tenantId:runtime.identity.tenantId,tenantKey:runtime.identity.tenantKey}:runtime.legacyTenant!;
   const limit=Math.max(1,Math.min(100,Number(new URL(request.url).searchParams.get("limit")||50)));
   if(storageMode()==="supabase"){

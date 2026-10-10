@@ -88,6 +88,7 @@ export default function RuntimePage() {
         <Link className="rt-brand" href="/"><span className="rt-logo"><Cpu size={18}/></span><span>CORE ENGINE <span style={{color:"#a88cff"}}>AI</span></span></Link>
         <div className="rt-top-actions">
           <Link className="rt-link" href="/"><ArrowLeft size={14}/><span>Główny interfejs</span></Link>
+          <Link className="rt-link" href="/runs"><Workflow size={14}/><span>Agent runs</span></Link>
           <button className="rt-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "rt-spin" : ""}/>{loading ? "Sprawdzam…" : "Odśwież status"}</button>
         </div>
       </header>

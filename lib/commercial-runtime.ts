@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 export type TenantContext = {
   tenantId: string;
@@ -11,13 +11,18 @@ function stableUuid(value: string) {
   return createHash("sha256").update(value).digest("hex").slice(0, 32).replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
 }
 
+function constantTimeEqual(a: string, b: string) {
+  const ha = createHash("sha256").update(a).digest(), hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
 function configuredApiKeyTenant(token: string): string | null {
   const raw = process.env.CORE_ENGINE_API_KEYS_JSON;
   if (!raw) return null;
   try {
     const map = JSON.parse(raw) as Record<string, unknown>;
     for (const [tenantKey, secret] of Object.entries(map)) {
-      if (typeof secret === "string" && secret === token) return tenantKey;
+      if (typeof secret === "string" && constantTimeEqual(secret, token)) return tenantKey;
     }
   } catch {
     throw new Error("API_KEY_MAPPING_INVALID");
@@ -26,7 +31,7 @@ function configuredApiKeyTenant(token: string): string | null {
 }
 
 export function resolveTenant(request: Request): TenantContext {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "") || "";
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
   const mapped = token ? configuredApiKeyTenant(token) : null;
   const tenantKey = mapped || process.env.CORE_ENGINE_TENANT_ID || (process.env.NODE_ENV === "production" ? "" : "local-development");
   if (!tenantKey) throw new Error("TENANT_NOT_CONFIGURED");
