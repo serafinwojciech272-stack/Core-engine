@@ -97,23 +97,37 @@ export function createOpenAiCompatibleClient(config: OpenAiCompatibleConfig): Ll
   };
 }
 
-// Provider selection from server-side env. Order: explicit AGENT_LLM_* → Anthropic (OpenAI-compatible) → OpenRouter.
+export type LlmProvider = "custom" | "anthropic" | "openrouter";
+export type LlmConfigSummary = { configured: boolean; provider: LlmProvider | null; model: string | null; issue: string | null };
+
+/**
+ * Which provider/model the agent will use, without secrets (ADR-003). `issue` explains a configuration
+ * that would fail at the first call — e.g. a native Anthropic model id routed to OpenRouter because
+ * ANTHROPIC_API_KEY is missing. Order: explicit AGENT_LLM_* → Anthropic (OpenAI-compatible) → OpenRouter.
+ */
+export function describeLlmConfig(env: Record<string, string | undefined> = process.env): LlmConfigSummary {
+  const model = env.AGENT_LLM_MODEL?.trim() || null;
+  if (env.AGENT_LLM_BASE_URL && env.AGENT_LLM_API_KEY && model) return { configured: true, provider: "custom", model, issue: null };
+  if (env.ANTHROPIC_API_KEY?.trim() && model) return { configured: true, provider: "anthropic", model, issue: null };
+  if (env.OPENROUTER_API_KEY?.trim()) {
+    const orModel = model || env.OPENROUTER_MODEL?.trim() || "openai/gpt-5-mini";
+    const issue = /^claude-/i.test(orModel)
+      ? `AGENT_LLM_MODEL "${orModel}" is a native Anthropic id but ANTHROPIC_API_KEY is not set; OpenRouter needs a "vendor/model" id`
+      : null;
+    return { configured: !issue, provider: "openrouter", model: orModel, issue };
+  }
+  if (env.ANTHROPIC_API_KEY?.trim() && !model) return { configured: false, provider: "anthropic", model: null, issue: "ANTHROPIC_API_KEY is set but AGENT_LLM_MODEL is empty" };
+  return { configured: false, provider: null, model, issue: "no LLM provider configured (AGENT_LLM_*, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)" };
+}
+
 export function createLlmClientFromEnv(env: Record<string, string | undefined> = process.env): LlmClient | null {
+  const summary = describeLlmConfig(env);
+  if (!summary.configured || !summary.model) return null; // callers surface summary.issue instead of failing mid-run
   const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) ? Number(v) : d);
   const priceIn = num(env.AGENT_LLM_PRICE_IN_PER_MTOK, 3);
   const priceOut = num(env.AGENT_LLM_PRICE_OUT_PER_MTOK, 15);
-  if (env.AGENT_LLM_BASE_URL && env.AGENT_LLM_API_KEY && env.AGENT_LLM_MODEL) {
-    return createOpenAiCompatibleClient({ baseUrl: env.AGENT_LLM_BASE_URL, apiKey: env.AGENT_LLM_API_KEY, model: env.AGENT_LLM_MODEL, priceInPerMTok: priceIn, priceOutPerMTok: priceOut });
-  }
-  if (env.ANTHROPIC_API_KEY && env.AGENT_LLM_MODEL) {
-    return createOpenAiCompatibleClient({ baseUrl: "https://api.anthropic.com/v1", apiKey: env.ANTHROPIC_API_KEY, model: env.AGENT_LLM_MODEL, priceInPerMTok: priceIn, priceOutPerMTok: priceOut });
-  }
-  if (env.OPENROUTER_API_KEY) {
-    return createOpenAiCompatibleClient({
-      baseUrl: "https://openrouter.ai/api/v1", apiKey: env.OPENROUTER_API_KEY,
-      model: env.AGENT_LLM_MODEL || env.OPENROUTER_MODEL || "openai/gpt-5-mini",
-      priceInPerMTok: priceIn, priceOutPerMTok: priceOut, extraHeaders: { "X-Title": "Core Engine AI" },
-    });
-  }
-  return null;
+  const base = { model: summary.model, priceInPerMTok: priceIn, priceOutPerMTok: priceOut };
+  if (summary.provider === "custom") return createOpenAiCompatibleClient({ ...base, baseUrl: env.AGENT_LLM_BASE_URL!, apiKey: env.AGENT_LLM_API_KEY! });
+  if (summary.provider === "anthropic") return createOpenAiCompatibleClient({ ...base, baseUrl: "https://api.anthropic.com/v1", apiKey: env.ANTHROPIC_API_KEY!.trim() });
+  return createOpenAiCompatibleClient({ ...base, baseUrl: "https://openrouter.ai/api/v1", apiKey: env.OPENROUTER_API_KEY!.trim(), extraHeaders: { "X-Title": "Core Engine AI" } });
 }

@@ -49,3 +49,17 @@ Postgres 16 + PostgREST 12 with the migration applied; then:
 `AGENT_SANDBOX=local` enables the `run_command` tool on the **worker** only. Optional: `AGENT_SANDBOX_NETWORK=off`,
 `AGENT_SANDBOX_MAX_TIMEOUT_MS` (default 300000). Install the runtimes your runs need (python3, node, pytest…) on that host.
 Do not enable it on the web service or on a host that holds other secrets/files you care about.
+
+## 7. Local worker on your PC (0 zł, ADR-003)
+The free Render web service never executes code. Runs created with "Uruchamiaj kod i testy" (playbook *Moduł z testami*)
+carry `requires: ["sandbox"]` and wait in the Supabase queue until a sandbox worker claims them.
+
+1. Apply `supabase/migrations/20261011090000_ce_agent_jobs_capabilities.sql` in the Supabase SQL Editor.
+2. In the repo folder put in `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
+   `AGENT_LLM_MODEL=claude-sonnet-5-5`, `AGENT_LLM_PRICE_IN_PER_MTOK=2`, `AGENT_LLM_PRICE_OUT_PER_MTOK=10`.
+3. `npm install` once, then `npm run agent:worker:local` (Node ≥ 22.9; Python on PATH for Python tasks).
+   The first log line shows model, store and `sandbox on`. Stop with Ctrl+C — a run in progress is resumed by the
+   next worker after its lease expires.
+
+Security: the worker runs model-written code as your user. Keep it on a machine/account without access to
+sensitive files, or run it in a Linux VM/container (full isolation: prlimit + optional `AGENT_SANDBOX_NETWORK=off`).

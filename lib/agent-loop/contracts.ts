@@ -67,12 +67,26 @@ export type PendingApproval = {
   requestedAt: string;
 };
 
+/**
+ * Worker capabilities a run can require (ADR-003). A worker only claims runs whose `requires` it covers,
+ * so a run that must execute code waits for a sandbox-enabled worker instead of being faked by one without it.
+ */
+export const CAPABILITIES = ["sandbox"] as const;
+export type Capability = (typeof CAPABILITIES)[number];
+
+export function normaliseCapabilities(input: unknown): Capability[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.map(String).filter((c): c is Capability => (CAPABILITIES as readonly string[]).includes(c)))].sort();
+}
+
 export type AgentRun = {
   id: string;
   tenantId: string;
   goal: string;
   context?: string;
   acceptanceCriteria: string[];
+  requires?: Capability[];   // worker capabilities needed to run this (empty/absent = any worker)
+  playbookId?: string;       // template the run was created from, if any
   status: RunStatus;
   budget: RunBudget;
   usage: { steps: number; promptTokens: number; completionTokens: number; costUsd: number; activeMs: number };
