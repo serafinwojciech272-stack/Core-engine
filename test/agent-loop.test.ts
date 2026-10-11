@@ -336,3 +336,13 @@ test("workspace_read pages through large files without hitting the tool-output c
   assert.equal(last.content.length, 2000);
   assert.equal(last.nextOffset, null);
 });
+
+test("SupabaseRunStore normalises a project URL pasted with /rest/v1/", async () => {
+  const { SupabaseRunStore } = await import("@/lib/agent-loop/store");
+  const urls: string[] = [];
+  const fetchImpl = (async (u: string | URL) => { urls.push(String(u)); return new Response("[]", { status: 200, headers: { "content-type": "application/json" } }); }) as typeof fetch;
+  for (const url of ["https://x.supabase.co", "https://x.supabase.co/", "https://x.supabase.co/rest/v1/", " https://x.supabase.co/rest/v1 "]) {
+    await new SupabaseRunStore({ url, key: "k", fetchImpl }).get("run-1");
+  }
+  for (const u of urls) assert.match(u, /^https:\/\/x\.supabase\.co\/rest\/v1\/ce_agent_jobs\?/);
+});

@@ -25,7 +25,8 @@ export function clampBudget(input: unknown): Partial<RunBudget> {
 
 export function publicRun(run: AgentRun, includeMessages = false) {
   return {
-    id: run.id, status: run.status, goal: run.goal, acceptanceCriteria: run.acceptanceCriteria,
+    id: run.id, status: run.status, goal: run.goal, context: run.context ?? null, acceptanceCriteria: run.acceptanceCriteria,
+    requires: run.requires ?? [], playbookId: run.playbookId ?? null,
     budget: run.budget, usage: run.usage, error: run.error ?? null,
     pendingApproval: run.pendingApproval ?? null, result: run.result ?? null,
     progress: { steps: run.steps.length, lastStep: run.steps.at(-1) ?? null, plan: run.workspace["PLAN.md"]?.slice(0, 4000) ?? null },

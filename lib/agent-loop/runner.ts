@@ -3,7 +3,7 @@
 // after the LLM turn and after every tool result, so a crashed worker resumes exactly where it stopped:
 // unanswered tool calls in the last assistant message are executed on resume, never re-planned.
 import { randomUUID } from "node:crypto";
-import { DEFAULT_BUDGET, type AgentRun, type AgentTool, type ChatMessage, type RunBudget, type StepRecord, type ToolCall } from "@/lib/agent-loop/contracts";
+import { DEFAULT_BUDGET, normaliseCapabilities, type AgentRun, type Capability, type AgentTool, type ChatMessage, type RunBudget, type StepRecord, type ToolCall } from "@/lib/agent-loop/contracts";
 import { LlmError, type LlmClient, type LlmToolSpec } from "@/lib/agent-loop/llm";
 import { VersionConflictError, isTerminal, type RunStore } from "@/lib/agent-loop/store";
 import { FINISH_TOOL, defaultTools } from "@/lib/agent-loop/tools";
@@ -16,7 +16,7 @@ const MAX_TEXT_ONLY_NUDGES = 3;
 
 export type RunnerDeps = { store: RunStore; llm: LlmClient; tools?: AgentTool[]; now?: () => number; owner?: string; leaseMs?: number };
 
-export type CreateRunInput = { tenantId: string; goal: string; context?: string; acceptanceCriteria?: string[]; budget?: Partial<RunBudget> };
+export type CreateRunInput = { tenantId: string; goal: string; context?: string; acceptanceCriteria?: string[]; budget?: Partial<RunBudget>; requires?: unknown; playbookId?: string };
 
 export function newRun(input: CreateRunInput): AgentRun {
   const now = new Date().toISOString();
@@ -26,6 +26,8 @@ export function newRun(input: CreateRunInput): AgentRun {
     id: randomUUID(), tenantId: input.tenantId, goal, context: input.context?.slice(0, 50_000) || undefined,
     acceptanceCriteria: (input.acceptanceCriteria || []).map((c) => String(c).trim()).filter(Boolean).slice(0, 30),
     status: "QUEUED", budget: { ...DEFAULT_BUDGET, ...(input.budget || {}) },
+    ...(normaliseCapabilities(input.requires).length ? { requires: normaliseCapabilities(input.requires) } : {}),
+    ...(input.playbookId ? { playbookId: input.playbookId } : {}),
     usage: { steps: 0, promptTokens: 0, completionTokens: 0, costUsd: 0, activeMs: 0 },
     messages: [], steps: [], artifacts: [], workspace: {}, decisions: {}, consecutiveFailures: 0,
     version: 0, createdAt: now, updatedAt: now,
@@ -120,9 +122,12 @@ export class AgentRunner {
   private readonly leaseMs: number;
   private readonly now: () => number;
   private readonly deps: RunnerDeps;
+  /** What this worker can do; it only claims runs whose `requires` is a subset (ADR-003). */
+  readonly capabilities: Capability[];
   constructor(deps: RunnerDeps) {
     this.deps = deps;
     this.tools = deps.tools ?? defaultTools();
+    this.capabilities = this.tools.some((t) => t.name === "run_command") ? ["sandbox"] : [];
     this.owner = deps.owner ?? "worker-" + randomUUID().slice(0, 8);
     this.leaseMs = deps.leaseMs ?? 120_000;
     this.now = deps.now ?? Date.now;
@@ -136,7 +141,7 @@ export class AgentRunner {
   async drainQueue(maxRuns = Infinity) {
     let processed = 0;
     while (processed < maxRuns) {
-      const run = await this.deps.store.claimNext(this.owner, this.leaseMs, this.now());
+      const run = await this.deps.store.claimNext(this.owner, this.leaseMs, this.now(), this.capabilities);
       if (!run) break;
       await this.drive(run);
       processed++;

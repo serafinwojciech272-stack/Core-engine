@@ -113,3 +113,46 @@ timeout with process-group kill (tested), `prlimit` memory/process/file-size lim
 - T12 (invoice module + tests until green): COMPLETED in 3 turns / ≈$0.05; 10 tests; **re-run independently by the harness: exit 0**.
 - T10 (reservation app): first test run 1 failed / 30 passed (static file not served) → agent fixed it (incl. path-traversal
   guard) → 31 passed → COMPLETED. 7 turns, ≈$0.43, ~134 s.
+
+## ADR-003 — Playbooks, capability routing and explicit LLM configuration (2026-10-11)
+
+### Context
+First production week (rollout notes in the project): operators had to hand-write goals and criteria, every
+run ran on whatever worker claimed it (a run that needed code execution could be "completed" by a worker that
+cannot run code), and a missing `ANTHROPIC_API_KEY` silently routed `claude-*` model ids to OpenRouter
+(HTTP 400 at the first step instead of a clear configuration error).
+
+### Decision
+1. **Playbooks** (`lib/agent-loop/playbooks.ts`, `GET /api/agent/playbooks`): server-side, parameterised run
+   templates (goal, acceptance criteria, default budget). The client sends `{ playbookId, inputs }`; the server
+   validates inputs (required, max length), strips template braces from user text and renders the run. Templates
+   never leave the server, so a client cannot alter acceptance criteria of a playbook run. Large pasted data
+   (`contextKey`) goes to run context, not into the goal. First set: agent blueprint, CEO execution plan,
+   landing page, code module with tests, data insights, gastro growth pack, e-mail campaign, market brief.
+2. **Capability routing**: a run may list `requires` (today only `sandbox`). A worker advertises capabilities
+   from its tools (`run_command` → `sandbox`) and only claims runs it can serve — memory/file stores filter in
+   code, Supabase via `ce_agent_job_claim_v2` (migration `20261011090000`, `requires <@ capabilities`).
+   Before the migration the store falls back to the v1 RPC and hands back runs it cannot serve.
+   The web service never gets `sandbox`; a worker on a dedicated host or the operator's PC
+   (`npm run agent:worker:local`) serves code runs against the same Supabase queue.
+3. **Explicit LLM configuration**: `describeLlmConfig()` resolves provider/model without secrets and reports an
+   `issue` for configurations that would fail at the first call (native `claude-*` id with only OpenRouter, missing
+   model). Such configurations are treated as *not configured*: `POST /api/agent/runs` returns 503 with the reason
+   instead of creating a run that fails later. `GET /api/agent/status` exposes provider, model, store, worker mode,
+   sandbox and the cost cap; the panel uses it as the login check and shows it as status chips.
+4. **Sandbox on Windows** (for the local worker): tree kill via `taskkill /T`, minimal Windows env (no secrets),
+   `.cmd` shims (npm/npx/tsc) via cmd.exe only with arguments free of cmd metacharacters.
+
+### Consequences / risks
+- Sandbox runs wait in the queue until a capable worker is online; the panel says so explicitly.
+- The v1 fallback can hold the oldest sandbox run at the head of a v1 worker's queue for one poll cycle; apply the
+  migration to remove it.
+- Local-worker isolation on Windows is weaker than on Linux (no prlimit/unshare): run it only on a machine without
+  sensitive data in reach of the worker user, or move it to a Linux VM/container.
+
+### Evidence
+- Postgres 16: both migrations applied twice (idempotent); a capability-less claim skips a `sandbox` run, a
+  `sandbox` worker claims it; v1 RPC still works.
+- Tests: 332 total, 0 failing (new: `test/agent-playbooks.test.ts`, 12 cases). Browser E2E (Playwright, mock LLM):
+  wrong key rejected at login, playbook → run → COMPLETED, file viewer, filters, duplicate, mobile 390 px without
+  horizontal scroll, no page errors.

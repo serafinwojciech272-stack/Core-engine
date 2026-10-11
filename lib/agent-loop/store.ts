@@ -12,14 +12,22 @@ export interface RunStore {
   get(id: string): Promise<AgentRun | null>;
   /** Persists `run` only if the stored version equals run.version; returns the saved copy (version+1). */
   save(run: AgentRun): Promise<AgentRun>;
-  /** Claims one runnable run (QUEUED, or RUNNING with an expired lease) for `owner`. */
-  claimNext(owner: string, leaseMs: number, now?: number): Promise<AgentRun | null>;
+  /**
+   * Claims one runnable run (QUEUED, or RUNNING with an expired lease) for `owner`, oldest first.
+   * Only runs whose `requires` is covered by `capabilities` are eligible (ADR-003).
+   */
+  claimNext(owner: string, leaseMs: number, now?: number, capabilities?: readonly string[]): Promise<AgentRun | null>;
   list(tenantId: string, limit?: number): Promise<AgentRun[]>;
 }
 
 const clone = <T>(v: T): T => structuredClone(v);
 
-function runnable(run: AgentRun, now: number) {
+export function canServe(run: AgentRun, capabilities: readonly string[] = []) {
+  return (run.requires ?? []).every((c) => capabilities.includes(c));
+}
+
+function runnable(run: AgentRun, now: number, capabilities: readonly string[] = []) {
+  if (!canServe(run, capabilities)) return false;
   if (run.status === "QUEUED") return true;
   return run.status === "RUNNING" && (!run.lease || run.lease.expiresAt <= now);
 }
@@ -37,8 +45,8 @@ export class MemoryRunStore implements RunStore {
     if (!current || current.version !== run.version) throw new VersionConflictError(run.id);
     const next = stamp(run); this.runs.set(run.id, next); return clone(next);
   }
-  async claimNext(owner: string, leaseMs: number, now = Date.now()) {
-    const candidate = [...this.runs.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).find((r) => runnable(r, now));
+  async claimNext(owner: string, leaseMs: number, now = Date.now(), capabilities: readonly string[] = []) {
+    const candidate = [...this.runs.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).find((r) => runnable(r, now, capabilities));
     if (!candidate) return null;
     return this.save({ ...clone(candidate), status: "RUNNING", lease: { owner, expiresAt: now + leaseMs } });
   }
@@ -92,8 +100,8 @@ export class FileRunStore implements RunStore {
     const runs = await Promise.all(names.map((n) => this.read(n.slice(0, -5))));
     return runs.filter((r): r is AgentRun => Boolean(r));
   }
-  async claimNext(owner: string, leaseMs: number, now = Date.now()) {
-    const candidates = (await this.all()).filter((r) => runnable(r, now)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  async claimNext(owner: string, leaseMs: number, now = Date.now(), capabilities: readonly string[] = []) {
+    const candidates = (await this.all()).filter((r) => runnable(r, now, capabilities)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (const c of candidates) {
       try { return await this.save({ ...c, status: "RUNNING", lease: { owner, expiresAt: now + leaseMs } }); } catch (e) { if (!(e instanceof VersionConflictError)) throw e; }
     }
@@ -111,15 +119,20 @@ type SupabaseConfig = { url: string; key: string; fetchImpl?: typeof fetch; time
 /**
  * Supabase/PostgREST store (ADR-001 phase 2). Table `ce_agent_jobs`, migration 20261010090000.
  * save() is a conditional PATCH on (id, version) — an empty result means another writer won (CAS).
- * claimNext() uses the `ce_agent_job_claim` RPC (FOR UPDATE SKIP LOCKED) so many workers can poll safely.
+ * claimNext() uses the `ce_agent_job_claim_v2` RPC (FOR UPDATE SKIP LOCKED + capability filter, migration
+ * 20261011090000) so many workers can poll safely. Until that migration is applied it falls back to the v1 RPC
+ * and hands back runs this worker cannot serve.
  */
 export class SupabaseRunStore implements RunStore {
   private readonly base: string;
   private readonly key: string;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
+  private legacyClaim = false;
   constructor(config: SupabaseConfig) {
-    this.base = config.url.replace(/\/$/, "") + (config.restPath ?? "/rest/v1");
+    // Accept both "https://x.supabase.co" and the "…/rest/v1/" form shown in some Supabase screens.
+    const origin = config.url.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "");
+    this.base = origin + (config.restPath ?? "/rest/v1");
     this.key = config.key;
     this.fetchImpl = config.fetchImpl ?? fetch;
     this.timeoutMs = config.timeoutMs ?? 10_000;
@@ -145,6 +158,8 @@ export class SupabaseRunStore implements RunStore {
       lease_owner: run.lease?.owner ?? null,
       lease_expires_at: run.lease ? new Date(run.lease.expiresAt).toISOString() : null,
       data: run, updated_at: run.updatedAt,
+      // Sent only when set, so runs without requirements still work before migration 20261011090000.
+      ...(run.requires?.length ? { requires: run.requires } : {}),
     };
   }
 
@@ -172,9 +187,26 @@ export class SupabaseRunStore implements RunStore {
     return rows[0].data;
   }
 
-  async claimNext(owner: string, leaseMs: number) {
-    const rows = await this.req("/rpc/ce_agent_job_claim", { method: "POST", body: JSON.stringify({ p_owner: owner, p_lease_seconds: Math.max(1, Math.ceil(leaseMs / 1000)) }) }) as Array<{ data: AgentRun }>;
-    return rows?.[0]?.data ?? null;
+  async claimNext(owner: string, leaseMs: number, _now?: number, capabilities: readonly string[] = []) {
+    const lease = Math.max(1, Math.ceil(leaseMs / 1000));
+    if (!this.legacyClaim) {
+      try {
+        const rows = await this.req("/rpc/ce_agent_job_claim_v2", { method: "POST", body: JSON.stringify({ p_owner: owner, p_lease_seconds: lease, p_capabilities: [...capabilities] }) }) as Array<{ data: AgentRun }>;
+        return rows?.[0]?.data ?? null;
+      } catch (error) {
+        if (!/RUN_STORE_HTTP_404:.*PGRST202/.test(String(error))) throw error;
+        this.legacyClaim = true;
+        console.warn("[agent-loop] ce_agent_job_claim_v2 missing — apply migration 20261011090000; using v1 claim");
+      }
+    }
+    const rows = await this.req("/rpc/ce_agent_job_claim", { method: "POST", body: JSON.stringify({ p_owner: owner, p_lease_seconds: lease }) }) as Array<{ data: AgentRun }>;
+    const run = rows?.[0]?.data ?? null;
+    if (run && !canServe(run, capabilities)) {
+      // v1 cannot filter: hand the run back so a capable worker gets it, and stop draining this cycle.
+      await this.save({ ...run, status: "QUEUED", lease: undefined }).catch(() => {});
+      return null;
+    }
+    return run;
   }
 
   async list(tenantId: string, limit = 50) {
@@ -188,6 +220,12 @@ let shared: RunStore | null = null;
  * Process-wide store. AGENT_RUN_STORE=memory|file|supabase; default: supabase when SUPABASE_URL and a
  * server key are configured (required when web and worker run as separate services), otherwise file.
  */
+export function runStoreKind(): "memory" | "file" | "supabase" {
+  const configured = Boolean(process.env.SUPABASE_URL?.trim() && (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim());
+  const kind = process.env.AGENT_RUN_STORE || (configured ? "supabase" : "file");
+  return kind === "supabase" || kind === "memory" ? kind : "file";
+}
+
 export function getRunStore(): RunStore {
   if (shared) return shared;
   const url = process.env.SUPABASE_URL?.trim();

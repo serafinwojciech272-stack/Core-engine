@@ -31,6 +31,28 @@ const MAX_SYNC_FILES = 200;
 
 function tail(s: string) { return s.length > MAX_OUTPUT ? "…[truncated " + (s.length - MAX_OUTPUT) + " chars]\n" + s.slice(-MAX_OUTPUT) : s; }
 
+const IS_WINDOWS = process.platform === "win32";
+
+/** Minimal environment: nothing from the parent except what interpreters need to start (no secrets). */
+export function sandboxEnv(dir: string, parent: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { PATH: parent.PATH || parent.Path || "/usr/local/bin:/usr/bin:/bin", HOME: dir, LANG: "C.UTF-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONIOENCODING: "utf-8", CI: "1", npm_config_cache: join(dir, ".npm-cache"), NODE_ENV: "test" };
+  if (IS_WINDOWS) {
+    // Windows interpreters fail to start without these; they carry no credentials.
+    for (const k of ["SystemRoot", "SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC"]) if (parent[k]) env[k] = parent[k];
+    Object.assign(env, { USERPROFILE: dir, TEMP: dir, TMP: dir, APPDATA: join(dir, "AppData"), LOCALAPPDATA: join(dir, "AppData") });
+  }
+  return env;
+}
+
+/** Kills the whole process tree: negative pid (process group) on POSIX, taskkill /T on Windows. */
+function killTree(pid: number | undefined) {
+  if (!pid) return;
+  try {
+    if (IS_WINDOWS) spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore", timeout: 5000 });
+    else process.kill(-pid, "SIGKILL");
+  } catch { /* already gone */ }
+}
+
 function capability(cmd: string, args: string[]) {
   try { return spawnSync(cmd, args, { timeout: 3000, stdio: "ignore" }).status === 0; } catch { return false; }
 }
@@ -57,16 +79,24 @@ export class LocalProcessSandbox implements CodeSandbox {
       const isolateNet = !request.network && this.canUnshare;
       const limits = this.canPrlimit ? ["prlimit", "--as=2147483648", "--nproc=256", "--fsize=52428800", "--"] : [];
       const argv = [...(isolateNet ? ["unshare", "-n", "--"] : []), ...limits, request.command, ...request.args];
+      // npm/npx/tsc are .cmd shims on Windows and only start through cmd.exe. Arguments are then
+      // restricted to characters cmd.exe treats literally, so the allow-list cannot be bypassed.
+      const viaShell = IS_WINDOWS && ["npm", "npx", "tsc"].includes(request.command);
+      if (viaShell && request.args.some((a) => /[&|<>^%"!\r\n]/.test(a))) throw new Error("COMMAND_ARGS_UNSAFE_ON_WINDOWS");
+      const spawnCmd = viaShell ? [argv[0], ...argv.slice(1).map((a) => (/\s/.test(a) ? `"${a}"` : a))].join(" ") : argv[0];
+      const spawnArgs = viaShell ? [] : argv.slice(1);
       const started = Date.now();
       const { exitCode, timedOut, stdout, stderr } = await new Promise<{ exitCode: number | null; timedOut: boolean; stdout: string; stderr: string }>((resolve) => {
-        const child = spawn(argv[0], argv.slice(1), {
-          cwd: dir, detached: true, stdio: ["ignore", "pipe", "pipe"],
-          env: { PATH: process.env.PATH || "/usr/local/bin:/usr/bin:/bin", HOME: dir, LANG: "C.UTF-8", PYTHONDONTWRITEBYTECODE: "1", CI: "1", npm_config_cache: join(dir, ".npm-cache"), NODE_ENV: "test" } as NodeJS.ProcessEnv,
+        const child = spawn(spawnCmd, spawnArgs, {
+          // POSIX: own process group so the timeout can kill grandchildren. Windows: detached would open a console.
+          cwd: dir, detached: !IS_WINDOWS, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+          shell: viaShell,
+          env: sandboxEnv(dir),
         });
         let out = "", err = "", timedOut = false;
         child.stdout.on("data", (d: Buffer) => { out = (out + d).slice(-MAX_OUTPUT * 2); });
         child.stderr.on("data", (d: Buffer) => { err = (err + d).slice(-MAX_OUTPUT * 2); });
-        const timer = setTimeout(() => { timedOut = true; try { process.kill(-child.pid!, "SIGKILL"); } catch { /* already gone */ } }, request.timeoutMs);
+        const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, request.timeoutMs);
         child.on("error", (e) => { clearTimeout(timer); resolve({ exitCode: null, timedOut, stdout: out, stderr: err + String(e) }); });
         child.on("close", (code) => { clearTimeout(timer); resolve({ exitCode: code, timedOut, stdout: out, stderr: err }); });
       });
